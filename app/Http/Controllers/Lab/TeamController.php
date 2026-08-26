@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Lab;
 
+use App\Conformance\ConformanceRun;
 use App\Http\Controllers\Controller;
 use App\Lab\InstalledVersions;
 use App\Learnings\Learning;
@@ -33,7 +34,42 @@ final class TeamController extends Controller
             'version' => InstalledVersions::prism(),
             'packages' => InstalledVersions::all(),
             'learnings' => $this->learnings(),
+            'parity' => $this->parity(),
         ]);
+    }
+
+    /**
+     * The most recent cross-language conformance run.
+     *
+     * Read, never run. A conformance run builds each port and can take
+     * minutes; doing that on a page load would make the board look hung. It is
+     * triggered deliberately — `php artisan team:conformance`.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function parity(): ?array
+    {
+        $run = ConformanceRun::query()->latest('id')->first();
+
+        if ($run === null) {
+            return null;
+        }
+
+        $totals = [];
+
+        foreach ($run->results as $result) {
+            $totals[$result->language][$result->status] = ($totals[$result->language][$result->status] ?? 0) + 1;
+        }
+
+        return [
+            'corpus_version' => $run->corpus_version,
+            'corpus_digest' => $run->corpus_digest,
+            'ran_at' => $run->created_at?->diffForHumans(),
+            'totals' => $totals,
+            // Per case, because totals agree even when the languages do not —
+            // which is exactly what the first run found.
+            'disagreements' => $run->disagreements(),
+        ];
     }
 
     /**
