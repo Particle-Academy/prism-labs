@@ -6,8 +6,11 @@ import { LabNav, labBlurb } from '../../components/lab-nav';
 
 type Reported = {
     port_version?: string | null;
+    provider?: string | null;
     model?: string | null;
     can_reason?: boolean;
+    /** False when the lane is pointed at a provider its port does not implement. */
+    provider_available?: boolean;
     provider_count?: number;
 };
 
@@ -108,6 +111,24 @@ function MemberCard({ member }: { member: Member }) {
                         <dt style={{ color: 'var(--k-ink-4)' }}>Model</dt>
                         <dd className="font-mono" style={{ color: 'var(--k-ink-2)' }}>
                             {member.reported.model}
+                        </dd>
+                    </>
+                )}
+
+                {member.reported?.provider && (
+                    <>
+                        <dt style={{ color: 'var(--k-ink-4)' }}>Provider</dt>
+                        <dd
+                            className="font-mono"
+                            style={{
+                                // A lane pointed at a provider its port cannot route to
+                                // would otherwise look healthy right up until the first
+                                // billable call fails.
+                                color: member.reported.provider_available === false ? 'var(--k-mag)' : 'var(--k-ink-2)',
+                            }}
+                        >
+                            {member.reported.provider}
+                            {member.reported.provider_available === false && ' · not in this port'}
                         </dd>
                     </>
                 )}
