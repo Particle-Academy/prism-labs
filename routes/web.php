@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Lab\BenchmarkController;
 use App\Http\Controllers\Lab\ChatController;
+use App\Http\Controllers\Lab\TeamController;
 use App\Http\Controllers\Lab\TestSuiteController;
 use App\Http\Controllers\Lab\ThreadController;
 use App\Http\Middleware\EnsurePrismLabIsLocal;
@@ -15,10 +16,23 @@ use Illuminate\Support\Facades\Route;
 // The local-only guard and the environment check both stay anyway. This app
 // is not deployed, and the guard is what keeps that true by construction
 // rather than by intention.
-Route::redirect('/', '/lab/chat');
+Route::redirect('/', '/lab/team');
 
 if (app()->environment('local')) {
     Route::middleware([EnsurePrismLabIsLocal::class, 'throttle:10,1'])->group(function (): void {
+        // The team board. The roster is fetched separately from the page render
+        // because probing means one network call per addressable lane, and a
+        // lane that is down would otherwise hold the whole page behind its
+        // timeout. A dead agent should cost one card, not the board.
+        Route::get('/lab/team', [TeamController::class, 'show'])->name('lab.team');
+        Route::get('/lab/team/roster', [TeamController::class, 'roster'])->name('lab.team.roster');
+
+        // Asking Prism is slow — it delegates, and a teammate may reason for a
+        // while — so it gets a looser throttle than the page routes.
+        Route::post('/lab/team/ask', [TeamController::class, 'ask'])
+            ->middleware('throttle:20,1')
+            ->name('lab.team.ask');
+
         Route::get('/lab/chat', [ChatController::class, 'show'])->name('lab.chat');
         Route::post('/lab/chat', [ChatController::class, 'run'])->name('lab.chat.run');
         Route::get('/lab/tests', [TestSuiteController::class, 'show'])->name('lab.tests');
