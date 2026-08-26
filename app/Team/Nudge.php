@@ -81,8 +81,25 @@ final class Nudge
             return ['ok' => false, 'reason' => $e->getMessage()];
         }
 
+        // Two failure channels, and only one of them is `isError`.
+        //
+        // Genie reports a refusal INSIDE the payload as `ok: false` while the
+        // MCP call itself succeeds, so `isError` is not set. Trusting it alone
+        // had this board report "Sent" over a message whose body read
+        // "delivered to 0 recipients ... do NOT treat this as reported" — the
+        // server said exactly what went wrong and the client printed success.
+        $payload = $this->decodeTrailingJson($result->text());
+        $refused = ($payload['ok'] ?? null) === false;
+
+        if ($result->isError || $refused) {
+            return [
+                'ok' => false,
+                'reason' => $payload['error'] ?? $result->text(),
+            ];
+        }
+
         return [
-            'ok' => ! $result->isError,
+            'ok' => true,
             'ref' => $learning->ref,
             'detail' => $result->text(),
         ];
