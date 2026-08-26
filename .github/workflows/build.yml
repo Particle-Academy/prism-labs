@@ -1,0 +1,39 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # vite strips types rather than checking them, so a build passing says
+      # nothing about whether the types hold. The Lab is the largest React
+      # surface here and the one most likely to drift; this is the step that
+      # would notice.
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      # Client and SSR both, because the SSR bundle is built separately and
+      # can fail on its own — an import that resolves in the browser build
+      # and not on the server would ship unnoticed otherwise.
+      - name: Build
+        run: npm run build

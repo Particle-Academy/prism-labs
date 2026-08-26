@@ -1,0 +1,46 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  phpv: 8.4
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.phpv }}
+          extensions: dom, curl, libxml, mbstring, zip, fileinfo, sqlite3, pdo_sqlite
+          coverage: none
+
+      # No stability matrix, unlike the packages in this org. This is an
+      # application: it ships the lock file, so the only resolution worth
+      # testing is the one it actually deploys. A prefer-lowest run here
+      # would prove something no environment will ever run.
+      #
+      # It does mean CI follows the first-party prereleases this app now
+      # tracks — which is the point of tracking them.
+      - uses: ramsey/composer-install@v3
+
+      - name: Prepare the environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      # sqlite in memory, per phpunit.xml — no service container needed.
+      - name: Execute tests
+        run: vendor/bin/phpunit
