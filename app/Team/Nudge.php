@@ -55,14 +55,19 @@ final class Nudge
                 ->client();
 
             // Resolved, not configured. A DM is addressed to an AGENT id, and
-            // that belongs to one chat session — pinning it in .env would work
-            // until the session ended and then fail silently. The TERMINAL is
-            // the durable handle, so the agent currently sitting in it is looked
-            // up fresh on every send.
+            // an agent id is minted once and persisted into the TERMINAL's spec
+            // — so it survives a restart or a rehydrate, but a NEW terminal
+            // gets a new one. A pinned id is therefore safe across restarts and
+            // silently wrong once the terminal is replaced.
             //
-            // A channel broadcast is not an option here: the board speaks as
-            // this terminal, and Genie does not deliver a broadcast back to its
-            // own sender. It reports success and nothing arrives.
+            // The terminal id is the durable half, so that is what is stored
+            // and the agent sitting in it is looked up on every send.
+            //
+            // A channel broadcast is not an option: the board speaks as this
+            // terminal, and Genie does not deliver a broadcast back to its own
+            // sender. It says so clearly — ok:false, delivered:0, and an error
+            // naming both ways out. Reading only `isError` is what made an
+            // earlier version of this report success over that.
             $agentId = $this->resolveAgent($client, $terminal);
 
             if ($agentId === null) {

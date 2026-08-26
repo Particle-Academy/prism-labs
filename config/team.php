@@ -84,10 +84,12 @@ return [
         'channel' => env('GENIE_NUDGE_CHANNEL', 'general'),
 
         // Genie will not guess which terminal is acting when a workspace has
-        // several. The TERMINAL id is the stable handle — Genie's own docs say
-        // so — where the chat session id inside it changes every time a session
-        // ends. Wiring a button to the session id would work today and quietly
-        // stop tomorrow.
+        // several.
+        //
+        // The TERMINAL is stored rather than the agent id it holds. An agent id
+        // is persisted into the terminal's spec, so it survives a restart — but
+        // a replaced terminal mints a new one, and a send to the old id fails
+        // without saying so. The agent is resolved from this at call time.
         'terminal' => env('GENIE_TERMINAL_ID'),
     ],
 
