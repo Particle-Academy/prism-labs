@@ -6,6 +6,11 @@ and its satellite packages against **real provider APIs**.
 Not a demo, and not a documentation site. This app exists to find out whether
 a release actually works before anyone is asked to depend on it.
 
+> **Working on this package?** Read **[`AGENTS.md`](AGENTS.md)** first — the boundary
+> this package has to hold, the gates that must be green, and the traps that have
+> already caught someone.
+> `@link AGENTS.md`
+
 ## Why it is a separate application
 
 The Lab used to live inside `prism-sandbox`, which is also the public docs
