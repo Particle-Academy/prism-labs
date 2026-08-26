@@ -18,6 +18,11 @@ export type LabSection = {
 
 export const LAB_SECTIONS: LabSection[] = [
     {
+        href: '/lab/team',
+        label: 'Team',
+        blurb: 'The agent team: Prism.php and one agent per language port. Watch what they are doing, read what they have learned, and talk to Prism directly.',
+    },
+    {
         href: '/lab/chat',
         label: 'Chat console',
         blurb: 'Talk to any configured provider. Conversations persist through the harness, so the model remembers across requests and page reloads.',

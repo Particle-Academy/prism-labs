@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "e738f121c510817925aa8b864e2e152a",
+    "content-hash": "ec3c78534361215b6f67d463385bbe41",
     "packages": [
         {
             "name": "brick/math",
@@ -3363,6 +3363,97 @@
                 "source": "https://github.com/Particle-Academy/prism-harness/tree/v0.1.2"
             },
             "time": "2026-08-25T15:31:08+00:00"
+        },
+        {
+            "name": "particle-academy/prism-mcp",
+            "version": "v0.1.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/Particle-Academy/prism-mcp.git",
+                "reference": "88679a3e630f0c9f6ad995031d1e3f3da757910b"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/Particle-Academy/prism-mcp/zipball/88679a3e630f0c9f6ad995031d1e3f3da757910b",
+                "reference": "88679a3e630f0c9f6ad995031d1e3f3da757910b",
+                "shasum": ""
+            },
+            "require": {
+                "ext-json": "*",
+                "ext-mbstring": "*",
+                "laravel/framework": "^12.61.1|^13.12.0",
+                "particle-academy/prism": ">=0.114 <1.0",
+                "php": "^8.2"
+            },
+            "replace": {
+                "prism-php/relay": "*"
+            },
+            "require-dev": {
+                "laravel/pint": "^1.30",
+                "orchestra/testbench": "^10.0|^11.0",
+                "pestphp/pest": "^3.0|^4.0",
+                "phpstan/phpstan": "^2.0"
+            },
+            "suggest": {
+                "laravel/mcp": "Expose your own application's tools over MCP. prism-mcp consumes servers; laravel/mcp serves them.",
+                "particle-academy/laravel-fms": "Gate remote MCP tools on Fancy's Feature Management System (FeatureGate)."
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Prism\\Mcp\\PrismMcpServiceProvider"
+                    ],
+                    "aliases": {
+                        "PrismMcp": "Prism\\Mcp\\Facades\\PrismMcp"
+                    }
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Prism\\Mcp\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "@php vendor/bin/pest"
+                ],
+                "types": [
+                    "@php vendor/bin/phpstan analyse"
+                ],
+                "format": [
+                    "@php vendor/bin/pint"
+                ]
+            },
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Wish Born",
+                    "email": "wish@impact.do"
+                }
+            ],
+            "description": "Model Context Protocol for Prism — consume remote MCP tools as Prism tools, across a trust boundary you can see.",
+            "keywords": [
+                "agents",
+                "ai",
+                "laravel",
+                "llm",
+                "mcp",
+                "model-context-protocol",
+                "prism"
+            ],
+            "support": {
+                "source": "https://github.com/Particle-Academy/prism-mcp/tree/v0.1.0",
+                "issues": "https://github.com/Particle-Academy/prism-mcp/issues"
+            },
+            "time": "2026-08-25T23:28:13+00:00"
         },
         {
             "name": "particle-academy/prism-opentelemetry",

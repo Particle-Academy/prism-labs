@@ -23,7 +23,8 @@
         "particle-academy/prism": ">=0.115.0-alpha <1.0",
         "particle-academy/prism-harness": ">=0.1.0-alpha <1.0",
         "particle-academy/prism-opentelemetry": ">=0.1.0-alpha <1.0",
-        "particle-academy/prism-perplexity": ">=0.1.0-alpha <1.0"
+        "particle-academy/prism-perplexity": ">=0.1.0-alpha <1.0",
+        "particle-academy/prism-mcp": ">=0.1.0-alpha <1.0"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
@@ -100,5 +101,11 @@
         }
     },
     "minimum-stability": "dev",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/Particle-Academy/prism-mcp"
+        }
+    ]
 }
