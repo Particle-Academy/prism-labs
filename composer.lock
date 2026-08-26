@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "ec3c78534361215b6f67d463385bbe41",
+    "content-hash": "eb1023ff9c95b2e04f05b40e1460b7e7",
     "packages": [
         {
             "name": "brick/math",
@@ -3401,12 +3401,12 @@
             "type": "library",
             "extra": {
                 "laravel": {
-                    "providers": [
-                        "Prism\\Mcp\\PrismMcpServiceProvider"
-                    ],
                     "aliases": {
                         "PrismMcp": "Prism\\Mcp\\Facades\\PrismMcp"
-                    }
+                    },
+                    "providers": [
+                        "Prism\\Mcp\\PrismMcpServiceProvider"
+                    ]
                 }
             },
             "autoload": {
@@ -3414,22 +3414,7 @@
                     "Prism\\Mcp\\": "src/"
                 }
             },
-            "autoload-dev": {
-                "psr-4": {
-                    "Tests\\": "tests/"
-                }
-            },
-            "scripts": {
-                "test": [
-                    "@php vendor/bin/pest"
-                ],
-                "types": [
-                    "@php vendor/bin/phpstan analyse"
-                ],
-                "format": [
-                    "@php vendor/bin/pint"
-                ]
-            },
+            "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "MIT"
             ],
@@ -3450,8 +3435,8 @@
                 "prism"
             ],
             "support": {
-                "source": "https://github.com/Particle-Academy/prism-mcp/tree/v0.1.0",
-                "issues": "https://github.com/Particle-Academy/prism-mcp/issues"
+                "issues": "https://github.com/Particle-Academy/prism-mcp/issues",
+                "source": "https://github.com/Particle-Academy/prism-mcp/tree/v0.1.0"
             },
             "time": "2026-08-25T23:28:13+00:00"
         },
