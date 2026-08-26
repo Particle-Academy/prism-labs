@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Lab\InstalledVersions;
 use App\Learnings\Learning;
 use App\Team\Coordinator;
+use App\Team\Nudge;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -111,6 +112,30 @@ final class TeamController extends Controller
             // the page having to guess whether it did.
             'learnings' => $this->learnings(),
         ]);
+    }
+
+    /**
+     * Hand one 0L to the coding agent working in this workspace.
+     *
+     * Deliberately per-report and manual. A board that nudged on every filing
+     * would train the person receiving them to ignore the channel, which costs
+     * more than the feature is worth.
+     */
+    public function nudge(Request $request, Nudge $nudge): JsonResponse
+    {
+        $learning = Learning::query()->where('ref', (string) $request->input('ref'))->first();
+
+        if ($learning === null) {
+            return response()->json(['message' => 'No 0L with that reference.'], 404);
+        }
+
+        $result = $nudge->send($learning);
+
+        if (($result['ok'] ?? false) !== true) {
+            return response()->json(['message' => $result['reason'] ?? 'Could not deliver it.'], 502);
+        }
+
+        return response()->json(['message' => "Sent {$learning->ref} to the agent in this workspace."]);
     }
 
     /**

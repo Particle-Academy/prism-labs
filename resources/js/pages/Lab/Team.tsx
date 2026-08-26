@@ -166,7 +166,39 @@ function MemberCard({ member }: { member: Member }) {
 
 function LearningCard({ learning }: { learning: Learning }) {
     const [open, setOpen] = useState(false);
+    const [sending, setSending] = useState(false);
+    const [sent, setSent] = useState<string | null>(null);
     const tone = SEVERITY_TONE[learning.severity] ?? 'var(--k-ink-3)';
+
+    async function nudge(event: React.MouseEvent) {
+        // The card header is a toggle; without this the click both sends the
+        // report and collapses the thing you were reading.
+        event.stopPropagation();
+
+        if (sending) return;
+
+        setSending(true);
+        setSent(null);
+
+        try {
+            const response = await fetch('/lab/team/nudge', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': csrf(),
+                },
+                body: JSON.stringify({ ref: learning.ref }),
+            });
+
+            const body = await response.json();
+            setSent(response.ok ? (body.message ?? 'Sent.') : (body.message ?? 'Could not deliver it.'));
+        } catch {
+            setSent('Could not reach the Lab.');
+        } finally {
+            setSending(false);
+        }
+    }
 
     return (
         <article className="rounded-xl border" style={{ borderColor: 'var(--k-hairline)', background: 'var(--k-bg-1)' }}>
@@ -188,7 +220,31 @@ function LearningCard({ learning }: { learning: Learning }) {
                 <span className="k-mono text-xs" style={{ color: 'var(--k-ink-4)' }}>
                     {learning.languages.join(' · ')}
                 </span>
+
+                {/* Rendered as a span with a click handler rather than a nested
+                    <button>: the whole header is already a button, and a button
+                    inside a button is invalid markup that browsers resolve in
+                    their own ways. */}
+                <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={nudge}
+                    onKeyDown={event => {
+                        if (event.key === 'Enter' || event.key === ' ') nudge(event as unknown as React.MouseEvent);
+                    }}
+                    className="k-mono cursor-pointer rounded-lg border px-2.5 py-1 text-xs transition-colors hover:text-[var(--k-cyan)]"
+                    style={{ borderColor: 'var(--k-hairline-2)', color: 'var(--k-ink-3)' }}
+                    title="Send this report to the coding agent working in this workspace"
+                >
+                    {sending ? 'sending…' : 'send to agent'}
+                </span>
             </button>
+
+            {sent && (
+                <p className="k-mono border-t px-5 py-2 text-xs" style={{ borderColor: 'var(--k-hairline)', color: 'var(--k-ink-3)' }}>
+                    {sent}
+                </p>
+            )}
 
             {open && (
                 <div className="border-t px-5 py-4" style={{ borderColor: 'var(--k-hairline)' }}>

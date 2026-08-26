@@ -29,6 +29,14 @@ if (app()->environment('local')) {
 
         // Asking Prism is slow — it delegates, and a teammate may reason for a
         // while — so it gets a looser throttle than the page routes.
+        // Hands one 0L to the coding agent in this workspace, over Genie's MCP.
+        // Throttled hard: the value of that channel is that a message arriving
+        // there is worth reading, and that survives exactly as long as they stay
+        // rare.
+        Route::post('/lab/team/nudge', [TeamController::class, 'nudge'])
+            ->middleware('throttle:6,1')
+            ->name('lab.team.nudge');
+
         Route::post('/lab/team/ask', [TeamController::class, 'ask'])
             ->middleware('throttle:20,1')
             ->name('lab.team.ask');
