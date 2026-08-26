@@ -36,6 +36,59 @@ return [
         'provider' => env('PRISM_COORDINATOR_PROVIDER', 'anthropic'),
         'model' => env('PRISM_COORDINATOR_MODEL', 'claude-sonnet-4-5'),
         'max_steps' => (int) env('PRISM_COORDINATOR_MAX_STEPS', 8),
+
+        // The default HTTP timeout is 30s, and a coordinator step routinely
+        // outlasts it: each one can delegate to a teammate that makes its own
+        // model call, or search the web and wait on a provider that searches
+        // while it answers. Thirty seconds was enough while the only tools were
+        // local; it stopped being enough the moment the team could reach out.
+        'timeout' => (int) env('PRISM_COORDINATOR_TIMEOUT', 180),
+    ],
+
+    /*
+    |---------------------------------------------------------------------------
+    | Research
+    |---------------------------------------------------------------------------
+    |
+    | The team's window on the world outside this ecosystem. Perplexity, because
+    | it searches while it answers and returns citations rather than asking you
+    | to trust a training cut-off.
+    |
+    | This is not a side feature. The Lab exists to keep the ecosystem ahead of
+    | what else is being built, and a team that can only look inward can only
+    | report on itself.
+    |
+    */
+    'research' => [
+        'model' => env('PRISM_RESEARCH_MODEL', 'sonar'),
+        'max_tokens' => (int) env('PRISM_RESEARCH_MAX_TOKENS', 1200),
+        'max_results' => (int) env('PRISM_RESEARCH_MAX_RESULTS', 6),
+    ],
+
+    /*
+    |---------------------------------------------------------------------------
+    | Nudging a human's agent
+    |---------------------------------------------------------------------------
+    |
+    | The board can hand a 0L to the coding agent working in this workspace, over
+    | Genie's own MCP server — reached with prism-mcp's client, so the package
+    | carries real traffic rather than only its own tests.
+    |
+    | Addressed to the workspace CHANNEL rather than an agent id: an agent id is
+    | per-session and a button wired to one would silently stop working the next
+    | time that session ends.
+    |
+    */
+    'nudge' => [
+        'endpoint' => env('GENIE_MCP_URL'),
+        'channel' => env('GENIE_NUDGE_CHANNEL', 'general'),
+
+        // Genie will not guess which terminal is acting when a workspace has
+        // several. The TERMINAL id is the stable handle — Genie's own docs say
+        // so — where the chat session id inside it changes every time a session
+        // ends. Wiring a button to the session id would work today and quietly
+        // stop tomorrow.
+        'terminal' => env('GENIE_TERMINAL_ID'),
     ],
 
     /*
