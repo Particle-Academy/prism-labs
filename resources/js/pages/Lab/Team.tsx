@@ -48,6 +48,21 @@ type Turn = {
     tokens?: { prompt: number | null; completion: number | null };
 };
 
+type Disagreement = {
+    suite: string;
+    case_id: string;
+    statuses: Record<string, string>;
+    reasons: Record<string, string | null>;
+};
+
+type Parity = {
+    corpus_version: string;
+    corpus_digest: string;
+    ran_at: string | null;
+    totals: Record<string, Record<string, number>>;
+    disagreements: Disagreement[];
+};
+
 /** Every state gets a distinct colour, so the board reads at a glance. */
 const STATE_TONE: Record<string, string> = {
     coordinator: 'var(--k-mag)',
@@ -210,12 +225,105 @@ function LearningCard({ learning }: { learning: Learning }) {
     );
 }
 
+/**
+ * Cross-language conformance.
+ *
+ * Totals are shown, but they are the least useful thing here: the first run
+ * reported 46 pass and 3 skip in BOTH languages while disagreeing on two
+ * cases. The disagreement list is the point, and it leads.
+ */
+function ParityPanel({ parity }: { parity: Parity | null }) {
+    if (parity === null) {
+        return (
+            <p className="text-sm" style={{ color: 'var(--k-ink-3)' }}>
+                No conformance run recorded yet. Run <code>php artisan team:conformance</code> — it builds each port
+                first, so give it a moment.
+            </p>
+        );
+    }
+
+    const languages = Object.keys(parity.totals).sort();
+
+    return (
+        <div className="flex flex-col gap-5">
+            <p className="k-mono text-xs break-all" style={{ color: 'var(--k-ink-4)' }}>
+                corpus {parity.corpus_version} · {parity.corpus_digest}
+                {parity.ran_at ? ` · ${parity.ran_at}` : ''}
+            </p>
+
+            <div className="flex flex-wrap gap-3">
+                {languages.map(language => (
+                    <div
+                        key={language}
+                        className="rounded-xl border px-4 py-3"
+                        style={{ borderColor: 'var(--k-hairline)', background: 'var(--k-bg-1)' }}
+                    >
+                        <div className="k-mono text-xs" style={{ color: 'var(--k-ink-3)' }}>
+                            {language}
+                        </div>
+                        <div className="mt-1 flex gap-3 text-sm tabular-nums">
+                            {Object.entries(parity.totals[language]).map(([status, count]) => (
+                                <span key={status} style={{ color: status === 'fail' ? 'var(--k-mag)' : 'var(--k-ink-2)' }}>
+                                    {count} {status}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {parity.disagreements.length === 0 ? (
+                // Stated, not implied by an empty list. "Nothing rendered" and
+                // "the languages agree" are different claims.
+                <p className="text-sm" style={{ color: 'var(--k-ink-2)' }}>
+                    The languages agree on every case in this corpus.
+                </p>
+            ) : (
+                <div className="flex flex-col gap-3">
+                    <p className="k-mono text-xs" style={{ color: 'var(--k-mag)' }}>
+                        {parity.disagreements.length} case(s) where the languages disagree
+                    </p>
+
+                    {parity.disagreements.map(row => (
+                        <article
+                            key={`${row.suite}/${row.case_id}`}
+                            className="rounded-xl border p-4"
+                            style={{ borderColor: 'var(--k-hairline)', background: 'var(--k-bg-1)' }}
+                        >
+                            <header className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+                                <span className="font-mono text-sm" style={{ color: 'var(--k-ink)' }}>
+                                    {row.suite}/{row.case_id}
+                                </span>
+                                {Object.entries(row.statuses).map(([language, status]) => (
+                                    <span key={language} className="k-mono text-xs" style={{ color: 'var(--k-ink-3)' }}>
+                                        {language}=<strong style={{ color: 'var(--k-cyan)' }}>{status}</strong>
+                                    </span>
+                                ))}
+                            </header>
+
+                            {Object.entries(row.reasons)
+                                .filter(([, reason]) => Boolean(reason))
+                                .map(([language, reason]) => (
+                                    <p key={language} className="mt-2 text-sm leading-6" style={{ color: 'var(--k-ink-3)' }}>
+                                        <span className="k-mono text-xs">{language}:</span> {reason}
+                                    </p>
+                                ))}
+                        </article>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function Team({
     version,
     learnings: initialLearnings,
+    parity,
 }: {
     version: string;
     learnings: Learning[];
+    parity: Parity | null;
 }) {
     const [roster, setRoster] = useState<Member[] | null>(null);
     const [rosterError, setRosterError] = useState<string | null>(null);
@@ -338,6 +446,11 @@ export default function Team({
                               ))
                             : roster.map(member => <MemberCard key={member.name} member={member} />)}
                     </div>
+                </section>
+
+                <section className="mt-16">
+                    <h2 className="k-mono mb-5">Language parity · conformance</h2>
+                    <ParityPanel parity={parity} />
                 </section>
 
                 <section className="mt-16 grid gap-8 lg:grid-cols-[3fr_2fr]">
