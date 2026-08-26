@@ -101,11 +101,5 @@
         }
     },
     "minimum-stability": "dev",
-    "prefer-stable": true,
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "https://github.com/Particle-Academy/prism-mcp"
-        }
-    ]
+    "prefer-stable": true
 }
