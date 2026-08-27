@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "00f2faeaa7cb9efdf5aed71281de55d8",
+    "content-hash": "5e8859d3a4b062afd9c4ed7024d38282",
     "packages": [
         {
             "name": "brick/math",
@@ -3304,10 +3304,16 @@
         {
             "name": "particle-academy/prism-browser",
             "version": "dev-main",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/Particle-Academy/prism-browser.git",
+                "reference": "00c48ef270471e1e398389d699153cf16f999c47"
+            },
             "dist": {
-                "type": "path",
-                "url": "../prism-browser",
-                "reference": "9d0737b5e4d6649412f7328aae3fe12c77071195"
+                "type": "zip",
+                "url": "https://api.github.com/repos/Particle-Academy/prism-browser/zipball/00c48ef270471e1e398389d699153cf16f999c47",
+                "reference": "00c48ef270471e1e398389d699153cf16f999c47",
+                "shasum": ""
             },
             "require": {
                 "ext-json": "*",
@@ -3325,6 +3331,7 @@
             "suggest": {
                 "particle-academy/prism-harness": "Binds browser attachments to durable Harness sessions."
             },
+            "default-branch": true,
             "type": "library",
             "extra": {
                 "laravel": {
@@ -3358,10 +3365,11 @@
                 "MIT"
             ],
             "description": "Guarded browser automation for Prism agents — bounded observations, policy-first navigation, and durable sessions.",
-            "transport-options": {
-                "symlink": true,
-                "relative": true
-            }
+            "support": {
+                "source": "https://github.com/Particle-Academy/prism-browser/tree/main",
+                "issues": "https://github.com/Particle-Academy/prism-browser/issues"
+            },
+            "time": "2026-08-27T19:16:30+00:00"
         },
         {
             "name": "particle-academy/prism-harness",
@@ -3429,10 +3437,16 @@
         {
             "name": "particle-academy/prism-human-plus",
             "version": "dev-main",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/Particle-Academy/prism-human-plus.git",
+                "reference": "9aed3333b8dfd9d4b14ad9012c11aa9658f74456"
+            },
             "dist": {
-                "type": "path",
-                "url": "../prism-human-plus",
-                "reference": "eb2d83e2655d497d603caaf5406183b3e8d447e4"
+                "type": "zip",
+                "url": "https://api.github.com/repos/Particle-Academy/prism-human-plus/zipball/9aed3333b8dfd9d4b14ad9012c11aa9658f74456",
+                "reference": "9aed3333b8dfd9d4b14ad9012c11aa9658f74456",
+                "shasum": ""
             },
             "require": {
                 "ext-json": "*",
@@ -3451,6 +3465,7 @@
             "suggest": {
                 "particle-academy/prism-harness": "Binds Human+ participant attachments to durable Harness sessions."
             },
+            "default-branch": true,
             "type": "library",
             "extra": {
                 "laravel": {
@@ -3484,10 +3499,11 @@
                 "MIT"
             ],
             "description": "Human+ participant presence for Prism Harness — join live Fancy surfaces through trusted MCP relay attachments.",
-            "transport-options": {
-                "symlink": true,
-                "relative": true
-            }
+            "support": {
+                "source": "https://github.com/Particle-Academy/prism-human-plus/tree/main",
+                "issues": "https://github.com/Particle-Academy/prism-human-plus/issues"
+            },
+            "time": "2026-08-27T19:16:30+00:00"
         },
         {
             "name": "particle-academy/prism-mcp",

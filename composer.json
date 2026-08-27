@@ -13,8 +13,8 @@
     ],
     "license": "MIT",
     "repositories": [
-        {"type": "path", "url": "../prism-browser", "options": {"symlink": true}},
-        {"type": "path", "url": "../prism-human-plus", "options": {"symlink": true}}
+        {"type": "vcs", "url": "https://github.com/Particle-Academy/prism-browser"},
+        {"type": "vcs", "url": "https://github.com/Particle-Academy/prism-human-plus"}
     ],
     "require": {
         "php": "^8.4",
