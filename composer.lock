@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "eb1023ff9c95b2e04f05b40e1460b7e7",
+    "content-hash": "00f2faeaa7cb9efdf5aed71281de55d8",
     "packages": [
         {
             "name": "brick/math",
@@ -3302,6 +3302,68 @@
             "time": "2026-08-26T02:23:39+00:00"
         },
         {
+            "name": "particle-academy/prism-browser",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "../prism-browser",
+                "reference": "9d0737b5e4d6649412f7328aae3fe12c77071195"
+            },
+            "require": {
+                "ext-json": "*",
+                "ext-mbstring": "*",
+                "laravel/framework": "^12.61.1|^13.12.0",
+                "particle-academy/prism": ">=0.114 <1.0",
+                "php": "^8.2"
+            },
+            "require-dev": {
+                "laravel/pint": "^1.30",
+                "orchestra/testbench": "^10.0|^11.0",
+                "pestphp/pest": "^3.0|^4.0",
+                "phpstan/phpstan": "^2.0"
+            },
+            "suggest": {
+                "particle-academy/prism-harness": "Binds browser attachments to durable Harness sessions."
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Prism\\Browser\\PrismBrowserServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Prism\\Browser\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "@php vendor/bin/pest"
+                ],
+                "types": [
+                    "@php vendor/bin/phpstan analyse"
+                ],
+                "format": [
+                    "@php vendor/bin/pint"
+                ]
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Guarded browser automation for Prism agents — bounded observations, policy-first navigation, and durable sessions.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
             "name": "particle-academy/prism-harness",
             "version": "v0.1.2",
             "source": {
@@ -3363,6 +3425,69 @@
                 "source": "https://github.com/Particle-Academy/prism-harness/tree/v0.1.2"
             },
             "time": "2026-08-25T15:31:08+00:00"
+        },
+        {
+            "name": "particle-academy/prism-human-plus",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "../prism-human-plus",
+                "reference": "eb2d83e2655d497d603caaf5406183b3e8d447e4"
+            },
+            "require": {
+                "ext-json": "*",
+                "ext-mbstring": "*",
+                "guzzlehttp/guzzle": "^7.9|^8.0",
+                "laravel/framework": "^12.61.1|^13.12.0",
+                "particle-academy/prism": ">=0.114 <1.0",
+                "php": "^8.2"
+            },
+            "require-dev": {
+                "laravel/pint": "^1.30",
+                "orchestra/testbench": "^10.0|^11.0",
+                "pestphp/pest": "^3.0|^4.0",
+                "phpstan/phpstan": "^2.0"
+            },
+            "suggest": {
+                "particle-academy/prism-harness": "Binds Human+ participant attachments to durable Harness sessions."
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Prism\\HumanPlus\\PrismHumanPlusServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Prism\\HumanPlus\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "@php vendor/bin/pest"
+                ],
+                "types": [
+                    "@php vendor/bin/phpstan analyse"
+                ],
+                "format": [
+                    "@php vendor/bin/pint"
+                ]
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Human+ participant presence for Prism Harness — join live Fancy surfaces through trusted MCP relay attachments.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
         },
         {
             "name": "particle-academy/prism-mcp",
@@ -9809,7 +9934,10 @@
     ],
     "aliases": [],
     "minimum-stability": "dev",
-    "stability-flags": {},
+    "stability-flags": {
+        "particle-academy/prism-browser": 20,
+        "particle-academy/prism-human-plus": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
