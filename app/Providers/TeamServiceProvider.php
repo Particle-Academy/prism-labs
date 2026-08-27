@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Integrity\FactChecker;
 use App\Learnings\LearningStore;
 use App\Team\AgentRoster;
 use Illuminate\Support\ServiceProvider;
@@ -18,6 +19,11 @@ final class TeamServiceProvider extends ServiceProvider
 
         $this->app->singleton(LearningStore::class, fn (): LearningStore => new LearningStore(
             (string) config('team.learnings_path'),
+        ));
+
+        $this->app->singleton(FactChecker::class, fn (): FactChecker => new FactChecker(
+            (string) config('team.factcheck.script'),
+            (int) config('team.factcheck.timeout'),
         ));
     }
 }

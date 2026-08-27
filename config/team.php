@@ -79,6 +79,24 @@ return [
     | time that session ends.
     |
     */
+    /*
+    |---------------------------------------------------------------------------
+    | Fact-checker
+    |---------------------------------------------------------------------------
+    |
+    | prism-parity's factcheck.mjs, which verifies that documentation across the
+    | ecosystem still agrees with the code. The same script CI runs — one
+    | implementation, so the Lab and CI cannot reach different conclusions.
+    |
+    | The default assumes the envelope layout, with prism-parity checked out
+    | beside this app.
+    |
+    */
+    'factcheck' => [
+        'script' => env('PRISM_FACTCHECK_SCRIPT', base_path('../prism-parity/tools/factcheck.mjs')),
+        'timeout' => (int) env('PRISM_FACTCHECK_TIMEOUT', 180),
+    ],
+
     'nudge' => [
         'endpoint' => env('GENIE_MCP_URL'),
         'channel' => env('GENIE_NUDGE_CHANNEL', 'general'),

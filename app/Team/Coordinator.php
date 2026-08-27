@@ -8,6 +8,7 @@ use App\Learnings\LearningStore;
 use App\Learnings\Severity;
 use App\Research\Researcher;
 use Prism\Prism\Facades\Prism;
+use App\Integrity\FactChecker;
 use Prism\Prism\Tool;
 use Throwable;
 
@@ -159,6 +160,7 @@ final class Coordinator
     {
         return [
             $this->rosterTool(),
+            $this->factCheckTool(),
             ...$this->researchTools(),
             ...$this->languageTools(),
             $this->learningTool(),
@@ -194,6 +196,26 @@ final class Coordinator
                     JSON_THROW_ON_ERROR,
                 )),
         ];
+    }
+
+    /**
+     * The ecosystem's documentation, checked against its code.
+     *
+     * This is the same script CI runs, on purpose. A Lab that checked prose its
+     * own way would hand the team a second opinion to reconcile rather than an
+     * answer, and the two would drift — which is the failure the checker exists
+     * to catch, reproduced by the thing catching it.
+     */
+    private function factCheckTool(): Tool
+    {
+        return (new Tool)
+            ->as('fact_check')
+            ->for('Check whether the ecosystem's DOCUMENTATION still agrees with its CODE: classes examples import, artisan commands they name, install lines, cited decisions, links. Returns findings with file and line. Use it before claiming the docs are fine, and when deciding whether drift is worth a 0L.')
+            ->withBooleanParameter('strict', 'Also fail on version drift — a repo that has released since the checker was last reconciled against it.', required: false)
+            ->using(fn (?bool $strict = null): string => json_encode(
+                app(FactChecker::class)->summary((bool) $strict),
+                JSON_THROW_ON_ERROR,
+            ));
     }
 
     private function rosterTool(): Tool
