@@ -1,6 +1,5 @@
 import { Link, router } from '@inertiajs/react';
 import { LabShell } from '../../components/lab-shell';
-import { PLabAgentChat } from '../../components/plab-agent';
 
 type Spec = { id: string; name: string; revision: number; status: string; digest: string; archetype: string; surface_mode: string; lane_matrix: unknown[] };
 type Run = { id: string; status: string; spec: Spec };
@@ -18,8 +17,7 @@ export default function Benchmarks({ specs, runs, providerAggregateCount }: { sp
         }
     };
     return <LabShell title="Benchmark Studio" current="/lab/benchmarks" eyebrow="Benchmark Studio · durable Fancy Flow orchestration">
-        <div className="lab-page-heading"><div><h1 className="lab-title">Design tests with PLab.</h1><p className="lab-lead">Discuss what you want to learn. PLab turns the conversation into a fair, reviewable specification—then you decide whether to freeze and run it.</p></div><div className="plab-agent-presence"><i /><span>PLab Agent online</span></div></div>
-        <section className="lab-panel plab-benchmark-conversation"><header><div className="plab-agent-mark">P</div><div><b>Benchmark design session</b><small>PLab can research, consult the parity team, choose evidence, propose rubrics, and save drafts. It cannot approve or launch its own work.</small></div></header><PLabAgentChat /></section>
+        <div className="lab-page-heading"><div><h1 className="lab-title">Design tests with PLab.</h1><p className="lab-lead">Discuss what you want to learn in the PLab Agent flyout. PLab turns the conversation into a fair, reviewable specification—then you decide whether to freeze and run it.</p></div><button type="button" className="plab-agent-presence" onClick={() => window.dispatchEvent(new Event('plab:open'))}><i /><span>Open PLab Agent</span></button></div>
         <section className="lab-studio-grid">
             <aside className="lab-panel lab-steps"><b>PLab’s design process</b><span className="is-active">01 Understand the question</span><span>02 Define evidence</span><span>03 Design the rubric</span><span>04 Choose lanes &amp; budgets</span><span>05 Propose a draft</span></aside>
             <div className="lab-panel"><div className="lab-panel-head"><span>Drafts and frozen specifications</span><span>{specs.length} recent</span></div>{specs.length === 0 ? <p className="lab-empty">No benchmark specification exists yet. Create a revisioned draft; launch remains unavailable until approval freezes its digest.</p> : specs.map(spec => <Link href={`/lab/benchmarks/specs/${spec.id}`} className="lab-spec" key={spec.id}><div><b>{spec.name}</b><small>rev {spec.revision} · {spec.archetype} · {spec.surface_mode.replace('_', '+')}</small><code>{spec.digest.slice(0, 12)}…</code></div><div><span className="lab-status">{spec.status}</span><small>{spec.lane_matrix.length} lanes · Review all details →</small></div></Link>)}</div>

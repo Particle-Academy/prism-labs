@@ -22,7 +22,7 @@ export function LabShell({ title, current, eyebrow, children }: { title: string;
                 {flash?.error && <div className="lab-flash is-error" role="alert">{flash.error}</div>}
                 {children}
             </main>
-            {current !== '/lab/benchmarks' && <PLabAgentLauncher />}
+            <PLabAgentLauncher />
         </div>
     );
 }

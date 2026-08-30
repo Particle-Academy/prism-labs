@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react';
+import { Link, router } from '@inertiajs/react';
 import { ContentRenderer, Drawer, PromptInput, type PromptAttachment } from '@particle-academy/react-fancy';
 import { useEffect, useRef, useState } from 'react';
 
@@ -7,6 +7,11 @@ type Draft = { id: string; name: string; revision: number; status: string; diges
 
 export function PLabAgentLauncher() {
     const [open, setOpen] = useState(false);
+    useEffect(() => {
+        const show = () => setOpen(true);
+        window.addEventListener('plab:open', show);
+        return () => window.removeEventListener('plab:open', show);
+    }, []);
     return <><button className="plab-agent-launcher" type="button" onClick={() => setOpen(true)} aria-label="Open PLab Agent"><span className="plab-agent-mark">P</span><span><b>PLab Agent</b><small>Plan, research, and oversee</small></span><i /></button><Drawer open={open} onClose={() => setOpen(false)} side="right" size="xl" className="plab-agent-drawer"><Drawer.Header><AgentIdentity /></Drawer.Header><Drawer.Body className="p-0"><PLabAgentChat compact /></Drawer.Body></Drawer></>;
 }
 
@@ -46,6 +51,7 @@ export function PLabAgentChat({ compact = false }: { compact?: boolean }) {
             const body = await response.json();
             if (!response.ok) throw new Error(body.message ?? 'The PLab Agent could not answer.');
             setMessages(current => [...current, body.message]); setDrafts(body.drafts ?? []);
+            router.reload({ only: ['specs'] });
         } catch (reason) { setError(reason instanceof Error ? reason.message : 'The PLab Agent could not answer.'); }
         finally { setSending(false); }
     }
