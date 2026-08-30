@@ -29,6 +29,31 @@ final class LanguageAgent
         return $this->call('status', [], (float) config('team.timeouts.status'));
     }
 
+    public function offers(string $tool): bool
+    {
+        if ($this->agent->endpoint === null || $this->agent->endpoint === '') {
+            return false;
+        }
+
+        try {
+            $definitions = PrismMcp::client($this->agent->endpoint)
+                ->withTimeout((float) config('team.timeouts.status'))
+                ->withoutCache()
+                ->client()
+                ->definitions();
+
+            foreach ($definitions as $definition) {
+                if ($definition->name === $tool) {
+                    return true;
+                }
+            }
+        } catch (Throwable) {
+            return false;
+        }
+
+        return false;
+    }
+
     /**
      * @param  array<string, mixed>  $arguments
      * @return array<string, mixed>
@@ -55,10 +80,13 @@ final class LanguageAgent
             return $this->unreachable($e->getMessage());
         }
 
+        $structured = $result->structuredContent;
+        $semanticRefusal = is_array($structured) && ($structured['ok'] ?? null) === false;
+
         return [
-            'ok' => ! $result->isError,
+            'ok' => ! $result->isError && ! $semanticRefusal,
             'language' => $this->agent->language,
-            'data' => $result->structuredContent,
+            'data' => $structured,
             'text' => $result->text(),
         ];
     }

@@ -13,8 +13,10 @@
     ],
     "license": "MIT",
     "repositories": [
-        {"type": "vcs", "url": "https://github.com/Particle-Academy/prism-browser"},
-        {"type": "vcs", "url": "https://github.com/Particle-Academy/prism-human-plus"}
+        {"type": "vcs", "url": "https://github.com/Particle-Academy/prism-browser", "canonical": false},
+        {"type": "vcs", "url": "https://github.com/Particle-Academy/prism-harness", "canonical": false},
+        {"type": "vcs", "url": "https://github.com/Particle-Academy/prism-human-plus", "canonical": false},
+        {"type": "vcs", "url": "https://github.com/Particle-Academy/prism-workspace", "canonical": false}
     ],
     "require": {
         "php": "^8.4",
@@ -24,13 +26,16 @@
         "laravel/tinker": "^3.0",
         "open-telemetry/exporter-otlp": "^1.0",
         "open-telemetry/sdk": "^1.0",
+        "particle-academy/fancy-flow-php": "0.49.1",
         "particle-academy/prism": ">=0.115.0-alpha <1.0",
-        "particle-academy/prism-harness": ">=0.1.0-alpha <1.0",
         "particle-academy/prism-browser": "dev-main",
+        "particle-academy/prism-harness": "dev-main",
         "particle-academy/prism-human-plus": "dev-main",
+        "particle-academy/prism-mcp": ">=0.1.0-alpha <1.0",
         "particle-academy/prism-opentelemetry": ">=0.1.0-alpha <1.0",
         "particle-academy/prism-perplexity": ">=0.1.0-alpha <1.0",
-        "particle-academy/prism-mcp": ">=0.1.0-alpha <1.0"
+        "particle-academy/prism-workspace": "dev-main",
+        "symfony/process": "^8.1"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "5e8859d3a4b062afd9c4ed7024d38282",
+    "content-hash": "86526ae415908bbef6a6966a2f538ef8",
     "packages": [
         {
             "name": "brick/math",
@@ -1985,6 +1985,52 @@
             "time": "2026-08-12T13:29:21+00:00"
         },
         {
+            "name": "league/flysystem-path-prefixing",
+            "version": "3.31.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/thephpleague/flysystem-path-prefixing.git",
+                "reference": "d7f667c2d9d6684b74f30c6ad81ae7a0c23232f3"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/thephpleague/flysystem-path-prefixing/zipball/d7f667c2d9d6684b74f30c6ad81ae7a0c23232f3",
+                "reference": "d7f667c2d9d6684b74f30c6ad81ae7a0c23232f3",
+                "shasum": ""
+            },
+            "require": {
+                "league/flysystem": "^3.10.0",
+                "php": "^8.0.2"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "League\\Flysystem\\PathPrefixing\\": ""
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Frank de Jonge",
+                    "email": "info@frankdejonge.nl"
+                }
+            ],
+            "description": "Path prefixing filesystem adapter for Flysystem.",
+            "keywords": [
+                "Flysystem",
+                "filesystem",
+                "prefix",
+                "prefixing"
+            ],
+            "support": {
+                "source": "https://github.com/thephpleague/flysystem-path-prefixing/tree/3.31.0"
+            },
+            "time": "2026-01-23T15:30:45+00:00"
+        },
+        {
             "name": "league/mime-type-detection",
             "version": "1.17.0",
             "source": {
@@ -3212,6 +3258,81 @@
             "time": "2026-01-21T04:14:03+00:00"
         },
         {
+            "name": "particle-academy/fancy-flow-php",
+            "version": "v0.49.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/Particle-Academy/fancy-flow-php.git",
+                "reference": "20cab92d4a7682c12c961e847f5f330c56987162"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/Particle-Academy/fancy-flow-php/zipball/20cab92d4a7682c12c961e847f5f330c56987162",
+                "reference": "20cab92d4a7682c12c961e847f5f330c56987162",
+                "shasum": ""
+            },
+            "require": {
+                "php": "^8.4"
+            },
+            "require-dev": {
+                "laravel/ai": "^0.9",
+                "orchestra/testbench": "^8.0|^9.0|^10.0|^11.0",
+                "particle-academy/fancy-conformance": "^0.20.0",
+                "particle-academy/prism": ">=0.114 <1.0",
+                "pestphp/pest": "^2.0|^3.0|^4.0",
+                "phpunit/phpunit": "^10.0|^11.0|^12.0"
+            },
+            "suggest": {
+                "illuminate/support": "Enables the optional Laravel layer — service provider, facade, queued durable runs, #[FlowNode] discovery, Artisan, and RunEvent → Laravel events. Compatible with 10.x through 13.x. The framework-free core (Workflow, FlowRunner, registries, the 26 built-ins) needs no framework.",
+                "laravel/ai": "Makes the `llm_branch` node work with zero glue — auto-detected and wired through the shipped laravel/ai adapter (structured output constrained to the declared routes).",
+                "particle-academy/prism": "Makes the `llm_branch` node work with zero glue — auto-detected and wired through the shipped Prism adapter (structured output constrained to the declared routes). Particle Academy’s maintained fork of prism-php/prism, carrying the same Prism\\Prism\\ namespace — do not install both."
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "aliases": {
+                        "FancyFlow": "FancyFlow\\Laravel\\Facades\\FancyFlow"
+                    },
+                    "providers": [
+                        "FancyFlow\\Laravel\\FancyFlowServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "FancyFlow\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Particle Academy",
+                    "homepage": "https://github.com/Particle-Academy"
+                }
+            ],
+            "description": "PHP runtime for fancy-flow workflow graphs — the framework-free twin of @particle-academy/fancy-flow's engine. Same WorkflowSchema JSON in, same outputs out; author in <FlowEditor>, run on PHP.",
+            "homepage": "https://github.com/Particle-Academy/fancy-flow-php",
+            "keywords": [
+                "DAG",
+                "agentic",
+                "ai",
+                "automation",
+                "fancy-flow",
+                "flow",
+                "orchestration",
+                "particle-academy",
+                "workflow"
+            ],
+            "support": {
+                "issues": "https://github.com/Particle-Academy/fancy-flow-php/issues",
+                "source": "https://github.com/Particle-Academy/fancy-flow-php"
+            },
+            "time": "2026-08-28T03:17:42+00:00"
+        },
+        {
             "name": "particle-academy/prism",
             "version": "v0.115.0-alpha.1",
             "source": {
@@ -3307,12 +3428,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/Particle-Academy/prism-browser.git",
-                "reference": "00c48ef270471e1e398389d699153cf16f999c47"
+                "reference": "6f78f7c1b635ff6a48bdd0bf15bfabf09441cc76"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Particle-Academy/prism-browser/zipball/00c48ef270471e1e398389d699153cf16f999c47",
-                "reference": "00c48ef270471e1e398389d699153cf16f999c47",
+                "url": "https://api.github.com/repos/Particle-Academy/prism-browser/zipball/6f78f7c1b635ff6a48bdd0bf15bfabf09441cc76",
+                "reference": "6f78f7c1b635ff6a48bdd0bf15bfabf09441cc76",
                 "shasum": ""
             },
             "require": {
@@ -3369,20 +3490,20 @@
                 "source": "https://github.com/Particle-Academy/prism-browser/tree/main",
                 "issues": "https://github.com/Particle-Academy/prism-browser/issues"
             },
-            "time": "2026-08-27T19:16:30+00:00"
+            "time": "2026-08-30T21:12:04+00:00"
         },
         {
             "name": "particle-academy/prism-harness",
-            "version": "v0.1.2",
+            "version": "dev-main",
             "source": {
                 "type": "git",
                 "url": "https://github.com/Particle-Academy/prism-harness.git",
-                "reference": "4515281efd36933667b760ca0c11901046cc270e"
+                "reference": "03817c7159321d7c50c413107e69020faa95877d"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Particle-Academy/prism-harness/zipball/4515281efd36933667b760ca0c11901046cc270e",
-                "reference": "4515281efd36933667b760ca0c11901046cc270e",
+                "url": "https://api.github.com/repos/Particle-Academy/prism-harness/zipball/03817c7159321d7c50c413107e69020faa95877d",
+                "reference": "03817c7159321d7c50c413107e69020faa95877d",
                 "shasum": ""
             },
             "require": {
@@ -3396,6 +3517,10 @@
                 "pestphp/pest": "^3.0|^4.0",
                 "phpstan/phpstan": "^2.0"
             },
+            "suggest": {
+                "particle-academy/fancy-flow-php": "Drives fancy-flow's llm_call, tool_use and agent nodes through Prism, with the agent's conversation carried on a durable harness thread. Optional: fancy-flow needs PHP 8.4 and this package supports 8.2, so it is never required. See src/Flow/."
+            },
+            "default-branch": true,
             "type": "library",
             "extra": {
                 "laravel": {
@@ -3409,7 +3534,22 @@
                     "Prism\\Harness\\": "src/"
                 }
             },
-            "notification-url": "https://packagist.org/downloads/",
+            "autoload-dev": {
+                "psr-4": {
+                    "Tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "@php vendor/bin/pest"
+                ],
+                "types": [
+                    "@php vendor/bin/phpstan analyse"
+                ],
+                "format": [
+                    "@php vendor/bin/pint"
+                ]
+            },
             "license": [
                 "MIT"
             ],
@@ -3429,10 +3569,10 @@
                 "sessions"
             ],
             "support": {
-                "issues": "https://github.com/Particle-Academy/prism-harness/issues",
-                "source": "https://github.com/Particle-Academy/prism-harness/tree/v0.1.2"
+                "source": "https://github.com/Particle-Academy/prism-harness/tree/main",
+                "issues": "https://github.com/Particle-Academy/prism-harness/issues"
             },
-            "time": "2026-08-25T15:31:08+00:00"
+            "time": "2026-08-30T21:12:09+00:00"
         },
         {
             "name": "particle-academy/prism-human-plus",
@@ -3440,12 +3580,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/Particle-Academy/prism-human-plus.git",
-                "reference": "9aed3333b8dfd9d4b14ad9012c11aa9658f74456"
+                "reference": "941a9849c967f2302d8ed587e04d7765596d5eaa"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Particle-Academy/prism-human-plus/zipball/9aed3333b8dfd9d4b14ad9012c11aa9658f74456",
-                "reference": "9aed3333b8dfd9d4b14ad9012c11aa9658f74456",
+                "url": "https://api.github.com/repos/Particle-Academy/prism-human-plus/zipball/941a9849c967f2302d8ed587e04d7765596d5eaa",
+                "reference": "941a9849c967f2302d8ed587e04d7765596d5eaa",
                 "shasum": ""
             },
             "require": {
@@ -3503,7 +3643,7 @@
                 "source": "https://github.com/Particle-Academy/prism-human-plus/tree/main",
                 "issues": "https://github.com/Particle-Academy/prism-human-plus/issues"
             },
-            "time": "2026-08-27T19:16:30+00:00"
+            "time": "2026-08-30T21:12:06+00:00"
         },
         {
             "name": "particle-academy/prism-mcp",
@@ -3715,6 +3855,95 @@
                 "source": "https://github.com/Particle-Academy/prism-perplexity/tree/v0.1.0"
             },
             "time": "2026-08-25T07:16:03+00:00"
+        },
+        {
+            "name": "particle-academy/prism-workspace",
+            "version": "dev-main",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/Particle-Academy/prism-workspace.git",
+                "reference": "70a979c59ff441377ea761398bcf6b0ae69c0583"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/Particle-Academy/prism-workspace/zipball/70a979c59ff441377ea761398bcf6b0ae69c0583",
+                "reference": "70a979c59ff441377ea761398bcf6b0ae69c0583",
+                "shasum": ""
+            },
+            "require": {
+                "ext-mbstring": "*",
+                "laravel/framework": "^12.61.1|^13.12.0",
+                "league/flysystem": "^3.25",
+                "league/flysystem-path-prefixing": "^3.25",
+                "php": "^8.2"
+            },
+            "require-dev": {
+                "laravel/pint": "^1.30",
+                "orchestra/testbench": "^10.0|^11.0",
+                "pestphp/pest": "^3.0|^4.0",
+                "phpstan/phpstan": "^2.0"
+            },
+            "suggest": {
+                "particle-academy/prism-harness": "Durable agent sessions. A harness Session is the intended address for a workspace, but this package does not require one."
+            },
+            "default-branch": true,
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Prism\\Workspace\\PrismWorkspaceServiceProvider"
+                    ],
+                    "aliases": {
+                        "PrismWorkspace": "Prism\\Workspace\\Facades\\PrismWorkspace"
+                    }
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Prism\\Workspace\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "@php vendor/bin/pest"
+                ],
+                "types": [
+                    "@php vendor/bin/phpstan analyse"
+                ],
+                "format": [
+                    "@php vendor/bin/pint"
+                ]
+            },
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Wish Born",
+                    "email": "wish@impact.do"
+                }
+            ],
+            "description": "Sandboxed, session-scoped agent workspaces for Laravel — a scoped Storage disk behind a path guard, shipped with the adversarial corpus that proves the boundary holds.",
+            "keywords": [
+                "agents",
+                "ai",
+                "filesystem",
+                "laravel",
+                "llm",
+                "prism",
+                "sandbox",
+                "workspace"
+            ],
+            "support": {
+                "source": "https://github.com/Particle-Academy/prism-workspace/tree/main",
+                "issues": "https://github.com/Particle-Academy/prism-workspace/issues"
+            },
+            "time": "2026-08-27T00:08:28+00:00"
         },
         {
             "name": "php-http/discovery",
@@ -6640,16 +6869,16 @@
         },
         {
             "name": "symfony/service-contracts",
-            "version": "v3.7.1",
+            "version": "v3.7.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/service-contracts.git",
-                "reference": "c0a284bab1ed8aa0417e3d69250ab437739563a0"
+                "reference": "15e6a07ec2a2c75ceb1b21dd98105ee8456d2257"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/service-contracts/zipball/c0a284bab1ed8aa0417e3d69250ab437739563a0",
-                "reference": "c0a284bab1ed8aa0417e3d69250ab437739563a0",
+                "url": "https://api.github.com/repos/symfony/service-contracts/zipball/15e6a07ec2a2c75ceb1b21dd98105ee8456d2257",
+                "reference": "15e6a07ec2a2c75ceb1b21dd98105ee8456d2257",
                 "shasum": ""
             },
             "require": {
@@ -6703,7 +6932,7 @@
                 "standards"
             ],
             "support": {
-                "source": "https://github.com/symfony/service-contracts/tree/v3.7.1"
+                "source": "https://github.com/symfony/service-contracts/tree/v3.7.3"
             },
             "funding": [
                 {
@@ -6723,7 +6952,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-06-16T09:55:08+00:00"
+            "time": "2026-07-27T15:39:01+00:00"
         },
         {
             "name": "symfony/string",
@@ -9952,7 +10181,9 @@
     "minimum-stability": "dev",
     "stability-flags": {
         "particle-academy/prism-browser": 20,
-        "particle-academy/prism-human-plus": 20
+        "particle-academy/prism-harness": 20,
+        "particle-academy/prism-human-plus": 20,
+        "particle-academy/prism-workspace": 20
     },
     "prefer-stable": true,
     "prefer-lowest": false,

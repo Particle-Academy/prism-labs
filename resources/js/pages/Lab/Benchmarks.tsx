@@ -1,56 +1,33 @@
-import { Head } from '@inertiajs/react';
-import { KineticFooter, KineticNav } from '../../components/kinetic';
-import { LabNav, labBlurb } from '../../components/lab-nav';
+import { Link, router } from '@inertiajs/react';
+import { LabShell } from '../../components/lab-shell';
+import { PLabAgentChat } from '../../components/plab-agent';
 
-type Benchmark = {
-    provider: string;
-    model: string;
-    feature: string;
-    runs: number;
-    passed: number;
-    pass_rate: number;
-    avg_latency_ms: number | null;
-    p95_latency_ms: number | null;
-    avg_prompt_tokens: number | null;
-    avg_completion_tokens: number | null;
-    total_cost: number | null;
-    last_run: string | null;
-};
+type Spec = { id: string; name: string; revision: number; status: string; digest: string; archetype: string; surface_mode: string; lane_matrix: unknown[] };
+type Run = { id: string; status: string; spec: Spec };
 
-const show = (value: number | null, suffix = '') => (value === null ? '—' : `${value}${suffix}`);
-
-export default function Benchmarks({ version, benchmarks, totalRuns, phoenixUrl }: { version: string; benchmarks: Benchmark[]; totalRuns: number; phoenixUrl: string }) {
-    return <div className="k-page"><Head title="Prism Lab Benchmarks" /><KineticNav version={version} /><main className="mx-auto max-w-7xl px-6 py-16">
-        <LabNav current="/lab/benchmarks" />
-        <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end"><div><p className="k-mono mb-4">Local only · aggregated from real generations</p><h1 className="text-5xl font-extrabold tracking-[-.05em] sm:text-7xl">Provider <span className="k-grad-text">benchmarks</span></h1><p className="mt-5 max-w-3xl text-lg text-[var(--k-ink-2)]">Latency, token, and cost comparisons accumulated across every test-suite run — grouped by provider, model, and feature.</p></div><div className="flex gap-2"><a className="k-btn k-btn--ghost" href={phoenixUrl} target="_blank" rel="noreferrer">Open Phoenix ↗</a>{benchmarks.length > 0 && <a className="k-btn k-btn--grad" href="/lab/benchmarks/export">Export JSON ↓</a>}</div></div>
-
-        {benchmarks.length === 0
-            ? <section className="k-card mt-12 p-8 text-center"><p className="text-lg text-[var(--k-ink-2)]">No benchmark data yet.</p><p className="k-mono mt-3">Run the <a href="/lab/tests" className="underline">test suite</a> (or <code>php artisan lab:test</code>) — every run is recorded here automatically.</p></section>
-            : <>
-                <p className="k-mono mt-10">{totalRuns} recorded run{totalRuns === 1 ? '' : 's'} · {benchmarks.length} provider×model×feature combination{benchmarks.length === 1 ? '' : 's'}</p>
-                <section className="k-card mt-4 overflow-x-auto p-2 sm:p-4">
-                    <table className="w-full min-w-[52rem] border-collapse text-left text-sm">
-                        <thead className="k-mono text-[var(--k-ink-2)]"><tr className="border-b border-[var(--k-hairline)]">
-                            <th className="p-3">Provider</th><th className="p-3">Model</th><th className="p-3">Feature</th>
-                            <th className="p-3 text-right">Runs</th><th className="p-3 text-right">Pass</th>
-                            <th className="p-3 text-right">Avg ms</th><th className="p-3 text-right">p95 ms</th>
-                            <th className="p-3 text-right">Prompt tok</th><th className="p-3 text-right">Completion tok</th><th className="p-3 text-right">Cost</th>
-                        </tr></thead>
-                        <tbody>{benchmarks.map(row => <tr key={`${row.provider}-${row.model}-${row.feature}`} className="border-b border-[var(--k-hairline)] last:border-0">
-                            <td className="p-3 font-semibold">{row.provider}</td>
-                            <td className="k-mono p-3">{row.model}</td>
-                            <td className="p-3">{row.feature}</td>
-                            <td className="p-3 text-right">{row.runs}</td>
-                            <td className={`p-3 text-right ${row.pass_rate === 100 ? 'text-[var(--k-cyan)]' : 'text-[var(--k-mag)]'}`}>{row.pass_rate}%</td>
-                            <td className="p-3 text-right">{show(row.avg_latency_ms)}</td>
-                            <td className="p-3 text-right text-[var(--k-ink-2)]">{show(row.p95_latency_ms)}</td>
-                            <td className="p-3 text-right">{show(row.avg_prompt_tokens)}</td>
-                            <td className="p-3 text-right">{show(row.avg_completion_tokens)}</td>
-                            <td className="p-3 text-right">{row.total_cost === null ? '—' : `$${row.total_cost}`}</td>
-                        </tr>)}</tbody>
-                    </table>
-                </section>
-                <p className="k-mono mt-4 text-[var(--k-ink-2)]">Cost is provider-reported where available; otherwise derive it in Phoenix from the exported token counts.</p>
-            </>}
-    </main><KineticFooter /></div>;
+export default function Benchmarks({ specs, runs, providerAggregateCount }: { specs: Spec[]; runs: Run[]; providerAggregateCount: number }) {
+    const clearRuns = (scope: 'queued' | 'settled') => {
+        const label = scope === 'queued' ? 'every queued run' : 'all completed, failed, and cancelled run history';
+        if (window.confirm(`Delete ${label}? This permanently removes lane proof and Fancy Flow records.`)) {
+            router.delete('/lab/benchmarks/runs', { data: { scope }, preserveScroll: true });
+        }
+    };
+    const deleteRun = (run: Run) => {
+        if (window.confirm(`Delete run ${run.id}? Its lane proof and workflow records will be permanently removed.`)) {
+            router.delete(`/lab/benchmarks/runs/${run.id}`, { preserveScroll: true });
+        }
+    };
+    return <LabShell title="Benchmark Studio" current="/lab/benchmarks" eyebrow="Benchmark Studio · durable Fancy Flow orchestration">
+        <div className="lab-page-heading"><div><h1 className="lab-title">Design tests with PLab.</h1><p className="lab-lead">Discuss what you want to learn. PLab turns the conversation into a fair, reviewable specification—then you decide whether to freeze and run it.</p></div><div className="plab-agent-presence"><i /><span>PLab Agent online</span></div></div>
+        <section className="lab-panel plab-benchmark-conversation"><header><div className="plab-agent-mark">P</div><div><b>Benchmark design session</b><small>PLab can research, consult the parity team, choose evidence, propose rubrics, and save drafts. It cannot approve or launch its own work.</small></div></header><PLabAgentChat /></section>
+        <section className="lab-studio-grid">
+            <aside className="lab-panel lab-steps"><b>PLab’s design process</b><span className="is-active">01 Understand the question</span><span>02 Define evidence</span><span>03 Design the rubric</span><span>04 Choose lanes &amp; budgets</span><span>05 Propose a draft</span></aside>
+            <div className="lab-panel"><div className="lab-panel-head"><span>Drafts and frozen specifications</span><span>{specs.length} recent</span></div>{specs.length === 0 ? <p className="lab-empty">No benchmark specification exists yet. Create a revisioned draft; launch remains unavailable until approval freezes its digest.</p> : specs.map(spec => <Link href={`/lab/benchmarks/specs/${spec.id}`} className="lab-spec" key={spec.id}><div><b>{spec.name}</b><small>rev {spec.revision} · {spec.archetype} · {spec.surface_mode.replace('_', '+')}</small><code>{spec.digest.slice(0, 12)}…</code></div><div><span className="lab-status">{spec.status}</span><small>{spec.lane_matrix.length} lanes · Review all details →</small></div></Link>)}</div>
+            <aside className="lab-panel"><div className="lab-panel-head"><span>Launch policy</span></div><Gate title="Specification frozen" text="Immutable digest and explicit human approval." /><Gate title="Fair lane matrix" text="Same spec, randomized identity, isolated workspace." /><Gate title="Hard budgets" text="Tokens, spend, elapsed time, and turn ceilings." /></aside>
+        </section>
+        <section className="lab-panel" style={{ marginTop: '.85rem' }}><div className="lab-panel-head"><span>Run room</span><div className="lab-run-actions"><button type="button" className="k-btn k-btn--ghost k-btn--small" onClick={() => clearRuns('queued')}>Clear queued</button><button type="button" className="k-btn k-btn--ghost k-btn--small" onClick={() => clearRuns('settled')}>Clear history</button><span>{runs.length} recent runs</span></div></div>{runs.length === 0 ? <p className="lab-empty">No benchmark has launched. Approved specifications appear here as durable per-lane runs.</p> : runs.map(run => <div className="lab-run" key={run.id}><i /><Link href={`/lab/benchmarks/runs/${run.id}`}><b>{run.spec.name}</b><small>{run.id} · revision {run.spec.revision}</small></Link><span className="lab-status">{run.status}</span>{!['running', 'ready'].includes(run.status) && <button type="button" className="lab-icon-button" aria-label={`Delete run ${run.id}`} onClick={() => deleteRun(run)}>Delete</button>}</div>)}</section>
+        <p className="lab-diagnostic-note">The former provider latency aggregate ({providerAggregateCount} recorded test runs) is retained under <Link href="/lab/diagnostics">Diagnostics</Link>; it is not a PLabs benchmark.</p>
+    </LabShell>;
 }
+
+function Gate({ title, text }: { title: string; text: string }) { return <div className="lab-gate"><b>{title}</b><small>{text}</small></div>; }

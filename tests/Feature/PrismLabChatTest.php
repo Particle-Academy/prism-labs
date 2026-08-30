@@ -16,11 +16,28 @@ use Tests\TestCase;
 
 class PrismLabChatTest extends TestCase
 {
+    public function test_the_app_shell_notifies_open_sessions_when_a_new_build_is_deployed(): void
+    {
+        $entry = file_get_contents(resource_path('js/app.tsx'));
+
+        $this->assertIsString($entry);
+        $this->assertStringContainsString('appUpdate:', $entry);
+        $this->assertStringContainsString('Prism Lab was updated', $entry);
+        $this->assertStringContainsString('interval: 30_000', $entry);
+    }
+
     public function test_it_keeps_prism_lab_routes_out_of_non_local_environments(): void
     {
         $this->expectException(RouteNotFoundException::class);
 
         route('lab.chat', absolute: false);
+    }
+
+    public function test_it_keeps_telemetry_routes_out_of_non_local_environments(): void
+    {
+        $this->expectException(RouteNotFoundException::class);
+
+        route('lab.telemetry', absolute: false);
     }
 
     public function test_it_returns_an_actionable_response_when_a_provider_key_is_missing(): void

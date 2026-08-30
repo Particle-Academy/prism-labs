@@ -39,6 +39,19 @@ createInertiaApp({
             throw new Error('Inertia root element not found');
         }
 
-        return setupFancyApp({ el, App, props, providers, appRoot: false });
+        return setupFancyApp({
+            el,
+            App,
+            props,
+            providers,
+            appRoot: false,
+            appUpdate: {
+                title: 'Prism Lab was updated',
+                description: 'Reload to run the latest Lab code and Fancy surfaces.',
+                refreshLabel: 'Reload Prism Lab',
+                position: 'bottom-right',
+                interval: 30_000,
+            },
+        });
     },
 });

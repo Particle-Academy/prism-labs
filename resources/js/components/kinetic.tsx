@@ -1,6 +1,7 @@
-import { Link } from '@inertiajs/react';
+import { usePage } from '@inertiajs/react';
 import { cn } from '@particle-academy/react-fancy';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { LabTopbar } from './lab-shell';
 
 /** Rises into place when scrolled into view (Kinetic reveal). */
 export function Reveal({ children, delay = 0, className }: { children: ReactNode; delay?: number; className?: string }) {
@@ -70,47 +71,11 @@ export function GradGlyph({ className }: { className?: string }) {
  * are testing against.
  */
 export function KineticNav({ version }: { version: string }) {
-    return (
-        <header className="sticky top-0 z-40 border-b backdrop-blur-md" style={{ borderColor: 'var(--k-hairline)', background: 'rgba(7,7,11,0.85)' }}>
-            <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-3.5">
-                <Link href="/lab/chat" className="flex items-center gap-2.5 font-bold tracking-tight" style={{ color: 'var(--k-ink)' }}>
-                    <GradGlyph />
-                    Prism Lab
-                    <span className="k-mono mt-0.5 hidden sm:inline">{version}</span>
-                </Link>
-                <nav className="flex items-center gap-1.5 text-sm">
-                    <a
-                        href="https://github.com/Particle-Academy/prism"
-                        className="rounded-lg px-3 py-1.5 transition-colors hover:text-[var(--k-cyan)]"
-                        style={{ color: 'var(--k-ink-2)' }}
-                    >
-                        GitHub
-                    </a>
-                    <a
-                        href="https://packagist.org/packages/particle-academy/prism"
-                        className="hidden rounded-lg px-3 py-1.5 transition-colors hover:text-[var(--k-cyan)] sm:block"
-                        style={{ color: 'var(--k-ink-2)' }}
-                    >
-                        Packagist
-                    </a>
-                </nav>
-            </div>
-        </header>
-    );
+    void version;
+    const path = usePage().url.split('?')[0];
+    return <LabTopbar current={path} />;
 }
 
 export function KineticFooter() {
-    return (
-        <footer className="k-hairline-top mt-24">
-            <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-6 py-10 sm:flex-row">
-                <p className="k-mono">MIT License · created by TJ Miller &amp; the open-source community</p>
-                <p className="k-mono">
-                    maintained by{' '}
-                    <a href="https://github.com/Particle-Academy" className="k-grad-text normal-case tracking-normal">
-                        Particle Academy
-                    </a>
-                </p>
-            </div>
-        </footer>
-    );
+    return null;
 }

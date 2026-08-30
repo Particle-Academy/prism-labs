@@ -42,7 +42,7 @@ class AgentCapabilitiesTest extends TestCase
         $this->assertStringStartsWith('browser_', $browserAttachment->id);
         $this->assertStringStartsWith('surface_', $surfaceAttachment->id);
         $this->assertNotSame($browserAttachment->id, $surfaceAttachment->id);
-        $this->assertCount(1, $humanPlus->tools($surfaceAttachment->id));
+        $this->assertCount(1, $humanPlus->tools($session, $surfaceAttachment->id));
     }
 
     private function browserEngine(): BrowserEngine

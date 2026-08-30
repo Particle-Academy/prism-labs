@@ -1,8 +1,6 @@
 import { ContentRenderer } from '@particle-academy/react-fancy';
-import { Head } from '@inertiajs/react';
 import { FormEvent, useMemo, useState } from 'react';
-import { KineticFooter, KineticNav } from '../../components/kinetic';
-import { LabNav, labBlurb } from '../../components/lab-nav';
+import { LabShell } from '../../components/lab-shell';
 
 type ProviderInfo = {
     key: string;
@@ -15,8 +13,9 @@ type ProviderInfo = {
     described: boolean;
 };
 type Metrics = { latency_ms: number; prompt_tokens: number; completion_tokens: number; provider_reported_cost: number | null; cost_source: string; steps: number; tool_calls: number; finish_reason: string };
+type Capabilities = { mode: 'none' | 'browser' | 'human_plus' | 'both'; browser: Record<string, unknown> | null; human_plus: Record<string, unknown> | null };
 
-export default function Chat({ version, providers, undescribed, phoenixUrl }: { version: string; providers: ProviderInfo[]; undescribed: string[]; phoenixUrl: string }) {
+export default function Chat({ version, providers, undescribed, phoenixUrl, capabilities: initialCapabilities }: { version: string; providers: ProviderInfo[]; undescribed: string[]; phoenixUrl: string; capabilities: Capabilities }) {
     // Only text providers can drive this form; audio/embeddings ones are
     // reported in the status panel instead of being offered here.
     const textProviders = useMemo(() => providers.filter(p => p.modality === 'text'), [providers]);
@@ -38,6 +37,9 @@ export default function Chat({ version, providers, undescribed, phoenixUrl }: { 
     const [result, setResult] = useState<{ text: string; metrics: Metrics; phoenix_url: string } | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [running, setRunning] = useState(false);
+    const [capabilities, setCapabilities] = useState(initialCapabilities);
+    const [capabilityBusy, setCapabilityBusy] = useState(false);
+    const [invitation, setInvitation] = useState({ relay_url: '', session_id: '', token: '', surface_id: '', application: '' });
 
     const current = useMemo(() => textProviders.find(p => p.key === provider), [textProviders, provider]);
     const readyCount = textProviders.filter(p => p.configured).length;
@@ -68,10 +70,25 @@ export default function Chat({ version, providers, undescribed, phoenixUrl }: { 
         finally { setRunning(false); }
     }
 
-    return <div className="k-page"><Head title="Prism Lab"><meta name="description" content="Run real Prism generations and inspect their telemetry in Phoenix." /></Head><KineticNav version={version} />
-        <main className="mx-auto max-w-7xl px-6 py-16"><LabNav current="/lab/chat" /><p className="k-mono mb-4">Local only · real generations</p><div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end"><div><h1 className="text-5xl font-extrabold tracking-[-.05em] sm:text-7xl">Prism <span className="k-grad-text">Lab</span></h1><p className="mt-5 max-w-2xl text-lg text-[var(--k-ink-2)]">{labBlurb('/lab/chat')}</p></div><a className="k-btn k-btn--ghost" href={phoenixUrl} target="_blank" rel="noreferrer">Open Phoenix ↗</a></div>
-        <div className="mt-12 grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(340px,.85fr)]"><form onSubmit={submit} className="k-card space-y-6 p-6 sm:p-8"><div className="grid gap-4 sm:grid-cols-3"><Field label={`Provider · ${readyCount}/${textProviders.length} ready`}><select value={provider} onChange={e => chooseProvider(e.target.value)} className="lab-input">{textProviders.map(p => <option key={p.key} value={p.key}>{p.label}{p.configured ? '' : ' — not configured'}</option>)}</select></Field><Field label="Model"><input className="lab-input" value={model} onChange={e => setModel(e.target.value)} /></Field><Field label="Feature"><select className="lab-input" value={feature} onChange={e => setFeature(e.target.value as 'text' | 'tools' | 'research')}><option value="tools">Tools · multi-step</option><option value="research">Research · Perplexity search</option><option value="text">Text</option></select></Field></div><Field label="Prompt"><textarea className="lab-input min-h-48 resize-y" value={prompt} onChange={e => setPrompt(e.target.value)} /></Field>{keyWarning && <Notice>{keyWarning}</Notice>}<button className="k-btn k-btn--grad disabled:cursor-wait disabled:opacity-60" disabled={running}>{running ? 'Running generation…' : 'Run generation →'}</button></form>
-        <section className="k-card min-h-96 p-6 sm:p-8"><p className="k-mono mb-5">Trace output</p>{error && <Notice>{error}</Notice>}{!result && !error && <p className="text-[var(--k-ink-3)]">Response text, token usage, tool activity, and latency will appear here.</p>}{result && <div className="space-y-7"><ContentRenderer value={result.text} format="markdown" className="leading-7 text-[var(--k-ink)]" /><div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-[var(--k-hairline)] sm:grid-cols-3">{Object.entries(result.metrics).map(([key, value]) => <div key={key} className="bg-[var(--k-bg-1)] p-4"><div className="k-mono">{key.replaceAll('_', ' ')}</div><div className="mt-1 font-semibold tabular-nums">{value ?? '—'}</div></div>)}</div><a className="k-btn k-btn--ghost" href={result.phoenix_url} target="_blank" rel="noreferrer">Inspect trace in Phoenix ↗</a></div>}</section></div></main><KineticFooter /></div>;
+    async function capabilityRequest(path: string, method: 'POST' | 'DELETE', body?: object) {
+        setCapabilityBusy(true); setError(null);
+        const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
+        try {
+            const response = await fetch(path, { method, headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': csrf }, body: body ? JSON.stringify(body) : undefined });
+            const payload = await response.json();
+            if (!response.ok) throw new Error(payload.message ?? 'Capability operation failed.');
+            const status = await fetch('/lab/capabilities', { headers: { Accept: 'application/json' } });
+            setCapabilities(await status.json());
+            if (path.includes('human-plus') && method === 'POST') setInvitation(value => ({ ...value, token: '' }));
+        } catch (reason) { setError(reason instanceof Error ? reason.message : 'Capability operation failed.'); }
+        finally { setCapabilityBusy(false); }
+    }
+
+    void version;
+    return <LabShell title="Harness Agent" current="/lab/chat" eyebrow="Prism.php · durable Harness session"><div className="lab-page-heading"><div><h1 className="lab-title">Agent workspace</h1><p className="lab-lead">Operate the Lab through one durable agent with parity, research, Browser, and Human+ capabilities.</p></div><a className="k-btn k-btn--ghost" href={phoenixUrl} target="_blank" rel="noreferrer">Open trace diagnostics ↗</a></div>
+        <section className="k-card mt-10 p-6 sm:p-8"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="k-mono">Harness capabilities · {capabilities.mode}</p><h2 className="mt-2 text-2xl font-bold">Browser and Human+</h2></div><div className="flex gap-2">{capabilities.browser ? <button className="k-btn k-btn--ghost" disabled={capabilityBusy} onClick={() => capabilityRequest('/lab/capabilities/browser', 'DELETE')}>Close browser</button> : <button className="k-btn k-btn--grad" disabled={capabilityBusy} onClick={() => capabilityRequest('/lab/capabilities/browser', 'POST')}>Open headless browser</button>}</div></div><p className="mt-3 text-[var(--k-ink-2)]">Browser runs a guarded headless Chromium service. Human+ joins an active Fancy surface through its stable JSON/MCP bridge; a human may or may not be present.</p><div className="mt-6 grid gap-4 lg:grid-cols-2"><pre className="overflow-auto rounded-xl bg-[var(--k-bg-2)] p-4 text-xs">{JSON.stringify(capabilities.browser ?? { state: 'detached' }, null, 2)}</pre><div>{capabilities.human_plus ? <div><pre className="overflow-auto rounded-xl bg-[var(--k-bg-2)] p-4 text-xs">{JSON.stringify(capabilities.human_plus, null, 2)}</pre><button className="k-btn k-btn--ghost mt-3" disabled={capabilityBusy} onClick={() => capabilityRequest('/lab/capabilities/human-plus', 'DELETE')}>Leave Human+ session</button></div> : <div className="grid gap-3 sm:grid-cols-2">{Object.entries(invitation).map(([key, value]) => <Field key={key} label={key.replaceAll('_', ' ')}><input type={key === 'token' ? 'password' : 'text'} className="lab-input" value={value} autoComplete="off" onChange={event => setInvitation(current => ({ ...current, [key]: event.target.value }))} /></Field>)}<button className="k-btn k-btn--grad sm:col-span-2" disabled={capabilityBusy} onClick={() => capabilityRequest('/lab/capabilities/human-plus', 'POST', invitation)}>Join Human+ session</button></div>}</div></div></section>
+        <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(340px,.85fr)]"><form onSubmit={submit} className="k-card space-y-6 p-6 sm:p-8"><div className="grid gap-4 sm:grid-cols-3"><Field label={`Provider · ${readyCount}/${textProviders.length} ready`}><select value={provider} onChange={e => chooseProvider(e.target.value)} className="lab-input">{textProviders.map(p => <option key={p.key} value={p.key}>{p.label}{p.configured ? '' : ' — not configured'}</option>)}</select></Field><Field label="Model"><input className="lab-input" value={model} onChange={e => setModel(e.target.value)} /></Field><Field label="Feature"><select className="lab-input" value={feature} onChange={e => setFeature(e.target.value as 'text' | 'tools' | 'research')}><option value="tools">Tools · multi-step</option><option value="research">Research · Perplexity search</option><option value="text">Text</option></select></Field></div><Field label="Prompt"><textarea className="lab-input min-h-48 resize-y" value={prompt} onChange={e => setPrompt(e.target.value)} /></Field>{keyWarning && <Notice>{keyWarning}</Notice>}<button className="k-btn k-btn--grad disabled:cursor-wait disabled:opacity-60" disabled={running}>{running ? 'Running generation…' : 'Run generation →'}</button></form>
+        <section className="k-card min-h-96 p-6 sm:p-8"><p className="k-mono mb-5">Agent response</p>{error && <Notice>{error}</Notice>}{!result && !error && <p className="text-[var(--k-ink-3)]">The agent response, run state, token usage, tool activity, and cost appear here.</p>}{result && <div className="space-y-7"><ContentRenderer value={result.text} format="markdown" className="leading-7 text-[var(--k-ink)]" /><div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-[var(--k-hairline)] sm:grid-cols-3">{Object.entries(result.metrics).map(([key, value]) => <div key={key} className="bg-[var(--k-bg-1)] p-4"><div className="k-mono">{key.replaceAll('_', ' ')}</div><div className="mt-1 font-semibold tabular-nums">{value ?? '—'}</div></div>)}</div><a className="k-btn k-btn--ghost" href={result.phoenix_url} target="_blank" rel="noreferrer">Inspect trace in Phoenix ↗</a></div>}</section></div></LabShell>;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="block"><span className="k-mono mb-2 block">{label}</span>{children}</label>; }

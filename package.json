@@ -6,7 +6,8 @@
         "build": "vite build && vite build --ssr",
         "build:client": "vite build",
         "build:ssr": "vite build --ssr",
-        "dev": "vite"
+        "dev": "vite",
+        "smoke:human-plus-browser": "node scripts/human-plus-browser-smoke.mjs"
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4.3.3",
@@ -16,18 +17,23 @@
         "@vitejs/plugin-react": "^6.1.0",
         "concurrently": "^10.0.5",
         "laravel-vite-plugin": "^3.2",
+        "playwright": "^1.62.1",
         "tailwindcss": "^4.3.3",
         "typescript": "^7.0.2",
         "vite": "^8.2.2"
     },
     "dependencies": {
         "@inertiajs/react": "^3.7.0",
+        "@particle-academy/agent-integrations": "^0.44.0",
+        "@particle-academy/fancy-app-update": "^0.2.0",
+        "@particle-academy/fancy-code": "^0.11.0",
         "@particle-academy/fancy-echarts": "^6.0.0",
+        "@particle-academy/fancy-flow": "^0.65.2",
         "@particle-academy/fancy-inertia": "^0.11.0",
         "@particle-academy/fancy-pwa": "^0.2.0",
         "@particle-academy/fancy-query": "^0.8.0",
         "@particle-academy/fancy-screens": "^0.7.1",
-        "@particle-academy/react-fancy": "^5.24.0",
+        "@particle-academy/react-fancy": "^5.26.0",
         "@tanstack/react-query": "^5.102.0",
         "react": "^19.2.8",
         "react-dom": "^19.2.8"

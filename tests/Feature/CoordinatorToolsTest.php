@@ -36,6 +36,7 @@ class CoordinatorToolsTest extends TestCase
         $this->assertContains('search_web', $names);
         $this->assertContains('research', $names);
         $this->assertContains('roster', $names);
+        $this->assertContains('draft_benchmark', $names);
     }
 
     public function test_every_tool_the_coordinator_offers_is_uniquely_named(): void
