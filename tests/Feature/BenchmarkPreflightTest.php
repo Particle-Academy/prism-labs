@@ -35,6 +35,9 @@ class BenchmarkPreflightTest extends TestCase
 
         $this->assertCount(1, $failures);
         $this->assertStringContainsString('lanes 1, 2, 3', $failures[0]);
+        // The caller adds the "Benchmark preflight failed" prefix; saying it
+        // here too printed it twice on screen.
+        $this->assertStringNotContainsString('Benchmark preflight failed', $failures[0]);
     }
 
     public function test_the_language_is_spelled_the_way_its_project_spells_it(): void

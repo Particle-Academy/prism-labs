@@ -57,8 +57,13 @@ final readonly class BenchmarkPreflight
                 continue;
             }
 
+            // No "Benchmark preflight failed" prefix here. The caller adds one
+            // (BenchmarkController), and saying it in both places produced
+            // "Benchmark preflight failed: Benchmark preflight failed for
+            // TypeScript" on screen. A failure sentence should not assume it is
+            // the whole notice.
             $failures[] = sprintf(
-                'Benchmark preflight failed for %s (%s). %s%s',
+                '%s (%s): %s%s',
                 $this->display($language),
                 $this->describeLanes($lanes),
                 $probe->explain($this->display($language), 'benchmark'),
