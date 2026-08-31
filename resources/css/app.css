@@ -68,6 +68,17 @@
 
 :root {
     --k-bg: #07070b;
+
+    /* The PANEL base — drawers, the composer, anything that must be OPAQUE
+       over page content. It was used in two places and never defined, and an
+       undefined custom property makes the whole declaration invalid at
+       computed-value time: `background: var(--k-bg-0)` resolved to
+       `transparent`, so the PLab drawer and its composer let the page show
+       straight through them and the chat was unreadable.
+       Aliased rather than repeating #07070b, so the panel base cannot drift
+       away from the page base by someone editing one of them. */
+    --k-bg-0: var(--k-bg);
+
     --k-bg-1: #0b0b12;
     --k-bg-2: #101018;
     --k-ink: #f4f3fb;
@@ -77,8 +88,18 @@
     --k-hairline: #1d1b29;
     --k-hairline-2: #2c2940;
     --k-mag: #ff2e88;
+
+    /* The value was already here, spelled literally inside --k-grad, and used
+       by name in four places that had no definition to reach. Every
+       `color-mix(… var(--k-violet) …)` was therefore invalid, which is why the
+       agent launcher and user bubbles lost their accent borders. */
+    --k-violet: #8b5cff;
+
     --k-cyan: #1fd4ff;
-    --k-grad: linear-gradient(100deg, #ff2e88, #8b5cff, #1fd4ff);
+    --k-grad: linear-gradient(100deg, var(--k-mag), var(--k-violet), var(--k-cyan));
+
+    /* Used by the message code blocks and draft digests. */
+    --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
 }
 
 /* Prism Lab operations shell — workflow-first, with telemetry as a sidecar. */
