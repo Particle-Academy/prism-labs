@@ -3498,12 +3498,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/Particle-Academy/prism-harness.git",
-                "reference": "c7e85ccab47c945cf47f61b160b0701fa01a2834"
+                "reference": "1d6b1ae39120104f65b9e7615f36fba8650abb6b"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Particle-Academy/prism-harness/zipball/c7e85ccab47c945cf47f61b160b0701fa01a2834",
-                "reference": "c7e85ccab47c945cf47f61b160b0701fa01a2834",
+                "url": "https://api.github.com/repos/Particle-Academy/prism-harness/zipball/1d6b1ae39120104f65b9e7615f36fba8650abb6b",
+                "reference": "1d6b1ae39120104f65b9e7615f36fba8650abb6b",
                 "shasum": ""
             },
             "require": {
@@ -3572,7 +3572,7 @@
                 "source": "https://github.com/Particle-Academy/prism-harness/tree/main",
                 "issues": "https://github.com/Particle-Academy/prism-harness/issues"
             },
-            "time": "2026-08-31T05:12:03+00:00"
+            "time": "2026-08-31T14:46:12+00:00"
         },
         {
             "name": "particle-academy/prism-human-plus",
