@@ -31,8 +31,49 @@ final class LanguageAgent
 
     public function offers(string $tool): bool
     {
+        return $this->probe($tool)->isOffered();
+    }
+
+    /**
+     * Whether this agent offers a tool, and when it does not, WHY.
+     *
+     * The bool above cannot distinguish an agent that answered and lacks the
+     * tool from one that never answered at all, and those need opposite
+     * responses from whoever reads the result. See {@see CapabilityProbe}.
+     */
+    /**
+     * The tools this agent actually offers, or null when it could not be asked.
+     *
+     * Null and [] are different answers and are kept apart: an agent that did
+     * not respond has an unknown toolset, and an agent that responded with
+     * nothing has an empty one.
+     *
+     * @return list<string>|null
+     */
+    public function toolNames(): ?array
+    {
         if ($this->agent->endpoint === null || $this->agent->endpoint === '') {
-            return false;
+            return null;
+        }
+
+        try {
+            return array_map(
+                fn (object $definition): string => (string) $definition->name,
+                PrismMcp::client($this->agent->endpoint)
+                    ->withTimeout((float) config('team.timeouts.status'))
+                    ->withoutCache()
+                    ->client()
+                    ->definitions(),
+            );
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    public function probe(string $tool): CapabilityProbe
+    {
+        if ($this->agent->endpoint === null || $this->agent->endpoint === '') {
+            return CapabilityProbe::NoEndpoint;
         }
 
         try {
@@ -44,14 +85,17 @@ final class LanguageAgent
 
             foreach ($definitions as $definition) {
                 if ($definition->name === $tool) {
-                    return true;
+                    return CapabilityProbe::Offered;
                 }
             }
         } catch (Throwable) {
-            return false;
+            // The endpoint exists and did not answer. Reported as its own
+            // state rather than folded into "does not offer it", because a
+            // process that is down comes back and a missing tool does not.
+            return CapabilityProbe::Unreachable;
         }
 
-        return false;
+        return CapabilityProbe::NotOffered;
     }
 
     /**
