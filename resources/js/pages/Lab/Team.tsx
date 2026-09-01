@@ -372,6 +372,132 @@ function ParityPanel({ parity }: { parity: Parity | null }) {
     );
 }
 
+interface HarnessStep {
+    step: string;
+    observed: unknown;
+    expected: unknown;
+    ok: boolean;
+}
+
+interface HarnessLane {
+    agent: string;
+    language: string;
+    reachable: boolean;
+    reason: string | null;
+    report: {
+        ok: boolean;
+        package: string;
+        session_key: string;
+        thread_messages: number;
+        steps: HarnessStep[];
+    } | null;
+}
+
+/**
+ * The harness ports, exercised end to end in both languages.
+ *
+ * Asked of the AGENTS, not run here. That is the whole claim: the Lab is a
+ * consumer reaching a package over the wire, in a process that did not build
+ * it. Running the same scenario inside this app would only prove PHP can call
+ * PHP.
+ */
+function HarnessPanel() {
+    const [lanes, setLanes] = useState<HarnessLane[] | null>(null);
+    const [agree, setAgree] = useState<string | null>(null);
+    const [error, setError] = useState<string | null>(null);
+    const [running, setRunning] = useState(false);
+
+    const probe = useCallback(async () => {
+        setRunning(true);
+        setError(null);
+        try {
+            const response = await fetch('/lab/team/harness', { headers: { Accept: 'application/json' } });
+            if (!response.ok) throw new Error(`the harness probe returned ${response.status}`);
+            const body = await response.json();
+            setLanes(body.lanes);
+            setAgree(body.keys_agree ? body.shared_session_key : null);
+        } catch (caught) {
+            setError(caught instanceof Error ? caught.message : 'could not reach the lanes');
+        } finally {
+            setRunning(false);
+        }
+    }, []);
+
+    // After paint, like the roster. Two network calls, each of which can time
+    // out on a lane that is down.
+    useEffect(() => {
+        void probe();
+    }, [probe]);
+
+    return (
+        <div data-testid="harness-panel">
+            <div className="mb-4 flex items-center gap-4">
+                <button
+                    type="button"
+                    className="k-btn k-btn--ghost"
+                    onClick={() => void probe()}
+                    disabled={running}
+                    data-testid="harness-rerun"
+                >
+                    {running ? 'Running…' : 'Run again'}
+                </button>
+                {agree !== null && (
+                    <span className="k-mono text-xs" data-testid="harness-shared-key">
+                        every lane resolved the same session: <strong>{agree}</strong>
+                    </span>
+                )}
+            </div>
+
+            {error && <Callout>{error}</Callout>}
+
+            <div className="grid gap-4 lg:grid-cols-2">
+                {lanes === null
+                    ? Array.from({ length: 2 }, (_, i) => (
+                          <div
+                              key={i}
+                              className="h-64 animate-pulse rounded-xl border"
+                              style={{ borderColor: 'var(--k-hairline)', background: 'var(--k-bg-1)' }}
+                          />
+                      ))
+                    : lanes.map(lane => (
+                          <div
+                              key={lane.agent}
+                              className="rounded-xl border p-4"
+                              style={{ borderColor: 'var(--k-hairline)', background: 'var(--k-bg-1)' }}
+                              data-testid={`harness-lane-${lane.language}`}
+                          >
+                              <div className="mb-3 flex items-baseline justify-between">
+                                  <span className="k-mono">{lane.agent}</span>
+                                  <span
+                                      className="k-mono text-xs"
+                                      data-testid={`harness-verdict-${lane.language}`}
+                                  >
+                                      {lane.report?.ok ? 'all properties hold' : lane.reason ?? 'failed'}
+                                  </span>
+                              </div>
+
+                              {lane.report && (
+                                  <>
+                                      <p className="k-mono mb-3 text-xs opacity-70">
+                                          {lane.report.package} · {lane.report.thread_messages} thread messages
+                                      </p>
+                                      <ul className="space-y-1">
+                                          {lane.report.steps.map(step => (
+                                              <li key={step.step} className="k-mono text-xs">
+                                                  <span aria-hidden>{step.ok ? '✓' : '✗'}</span>{' '}
+                                                  <span className={step.ok ? '' : 'font-bold'}>{step.step}</span>
+                                              </li>
+                                          ))}
+                                      </ul>
+                                  </>
+                              )}
+                          </div>
+                      ))}
+            </div>
+        </div>
+    );
+}
+
 export default function Team({
     version,
     learnings: initialLearnings,
@@ -502,6 +628,11 @@ export default function Team({
                               ))
                             : roster.map(member => <MemberCard key={member.name} member={member} />)}
                     </div>
+                </section>
+
+                <section className="mt-16">
+                    <h2 className="k-mono mb-5">Durable sessions · the harness in three languages</h2>
+                    <HarnessPanel />
                 </section>
 
                 <section className="mt-16">

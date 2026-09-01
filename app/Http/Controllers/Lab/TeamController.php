@@ -8,7 +8,9 @@ use App\Conformance\ConformanceRun;
 use App\Http\Controllers\Controller;
 use App\Lab\InstalledVersions;
 use App\Learnings\Learning;
+use App\Team\AgentRoster;
 use App\Team\Coordinator;
+use App\Team\LanguageAgent;
 use App\Team\Nudge;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -79,6 +81,50 @@ final class TeamController extends Controller
     public function roster(Coordinator $coordinator): JsonResponse
     {
         return response()->json(['roster' => $coordinator->roster()]);
+    }
+
+    /**
+     * The harness ports, exercised END TO END in both languages.
+     *
+     * Asked of the AGENTS rather than run here, which is the point: the Lab is
+     * a consumer reaching a package over the wire in a process that did not
+     * build it. Running the same scenario inside this app would prove that PHP
+     * can call PHP.
+     *
+     * Not probed on page load, for the same reason the roster is not — two
+     * network calls, and a lane that is down would hold the board behind its
+     * timeout.
+     */
+    public function harness(AgentRoster $roster): JsonResponse
+    {
+        $lanes = [];
+
+        foreach ($roster->addressable() as $agent) {
+            $probe = (new LanguageAgent($agent))->call('harness_probe', [], (float) config('team.timeouts.work'));
+
+            $lanes[] = [
+                'agent' => $agent->name,
+                'language' => $agent->language,
+                'reachable' => $probe['ok'] === true,
+                'reason' => $probe['reason'] ?? null,
+                'report' => $probe['data'] ?? null,
+            ];
+        }
+
+        // The claim worth surfacing: every reachable lane produced the SAME
+        // session address. That is what lets a PHP app and a TypeScript or
+        // Python agent resolve one conversation, and it is checked here rather
+        // than described because a drift would otherwise be invisible.
+        $keys = array_values(array_unique(array_filter(array_map(
+            fn (array $lane): ?string => $lane['report']['session_key'] ?? null,
+            $lanes,
+        ))));
+
+        return response()->json([
+            'lanes' => $lanes,
+            'shared_session_key' => count($keys) === 1 ? $keys[0] : null,
+            'keys_agree' => count($keys) === 1,
+        ]);
     }
 
     public function ask(Request $request, Coordinator $coordinator): JsonResponse

@@ -39,6 +39,11 @@ if (app()->environment('local')) {
         Route::get('/lab/team', [TeamController::class, 'show'])->name('lab.team');
         Route::get('/lab/team/roster', [TeamController::class, 'roster'])->name('lab.team.roster');
 
+        // The harness ports, exercised end to end in BOTH languages. Fetched
+        // separately from the page for the same reason the roster is: two
+        // network calls, and a down lane would hold the board behind a timeout.
+        Route::get('/lab/team/harness', [TeamController::class, 'harness'])->name('lab.team.harness');
+
         // Asking Prism is slow — it delegates, and a teammate may reason for a
         // while — so it gets a looser throttle than the page routes.
         // Hands one 0L to the coding agent in this workspace, over Genie's MCP.
