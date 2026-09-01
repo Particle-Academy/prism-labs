@@ -393,6 +393,176 @@ interface HarnessLane {
     } | null;
 }
 
+interface EcosystemCheck {
+    step: string;
+    ok: boolean;
+}
+
+interface EcosystemFamily {
+    family: string;
+    checks: EcosystemCheck[];
+}
+
+interface EcosystemLane {
+    agent: string;
+    language: string;
+    reachable: boolean;
+    reason: string | null;
+    report: {
+        ok: boolean;
+        language: string;
+        passed: number;
+        total: number;
+        families: EcosystemFamily[];
+    } | null;
+}
+
+/**
+ * The six satellite ports, exercised end to end in both languages.
+ *
+ * Rendered by FAMILY rather than by lane, which is the difference that makes it
+ * worth having: a family is green only when both languages agree it is, and a
+ * port that passes in TypeScript while failing in Python is exactly the parity
+ * failure two languages exist to catch. Grouping by lane would show two green
+ * columns and hide the disagreement between them.
+ */
+function EcosystemPanel() {
+    const [lanes, setLanes] = useState<EcosystemLane[] | null>(null);
+    const [families, setFamilies] = useState<Record<string, boolean>>({});
+    const [error, setError] = useState<string | null>(null);
+    const [running, setRunning] = useState(false);
+
+    const probe = useCallback(async () => {
+        setRunning(true);
+        setError(null);
+        try {
+            const response = await fetch('/lab/team/ecosystem', { headers: { Accept: 'application/json' } });
+            if (!response.ok) throw new Error(`the ecosystem probe returned ${response.status}`);
+            const body = await response.json();
+            setLanes(body.lanes);
+            setFamilies(body.families ?? {});
+        } catch (caught) {
+            setError(caught instanceof Error ? caught.message : 'could not reach the lanes');
+        } finally {
+            setRunning(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        void probe();
+    }, [probe]);
+
+    // Every check name a lane reported, per family. Names are identical across
+    // languages by construction — the two probes mirror each other check for
+    // check — so a name appearing in one lane and not the other is itself the
+    // signal that they have drifted apart.
+    const rows = (name: string) => {
+        const seen = new Map<string, Record<string, boolean>>();
+
+        for (const lane of lanes ?? []) {
+            for (const family of lane.report?.families ?? []) {
+                if (family.family !== name) continue;
+
+                for (const check of family.checks) {
+                    const row = seen.get(check.step) ?? {};
+
+                    row[lane.language] = check.ok;
+                    seen.set(check.step, row);
+                }
+            }
+        }
+
+        return [...seen.entries()];
+    };
+
+    const languages = (lanes ?? []).map(lane => lane.language);
+
+    return (
+        <div data-testid="ecosystem-panel">
+            <div className="mb-4 flex items-center gap-4">
+                <button
+                    type="button"
+                    className="k-btn k-btn--ghost"
+                    onClick={() => void probe()}
+                    disabled={running}
+                    data-testid="ecosystem-rerun"
+                >
+                    {running ? 'Running…' : 'Run again'}
+                </button>
+                {lanes !== null && (
+                    <span className="k-mono text-xs opacity-70" data-testid="ecosystem-summary">
+                        {lanes
+                            .map(lane =>
+                                lane.report
+                                    ? `${lane.language} ${lane.report.passed}/${lane.report.total}`
+                                    : `${lane.language} unreachable`,
+                            )
+                            .join(' · ')}
+                    </span>
+                )}
+            </div>
+
+            {error && <Callout>{error}</Callout>}
+
+            <div className="grid gap-4 lg:grid-cols-2">
+                {lanes === null
+                    ? Array.from({ length: 6 }, (_, i) => (
+                          <div
+                              key={i}
+                              className="h-48 animate-pulse rounded-xl border"
+                              style={{ borderColor: 'var(--k-hairline)', background: 'var(--k-bg-1)' }}
+                          />
+                      ))
+                    : Object.keys(families).map(name => (
+                          <div
+                              key={name}
+                              className="rounded-xl border p-4"
+                              style={{ borderColor: 'var(--k-hairline)', background: 'var(--k-bg-1)' }}
+                              data-testid={`ecosystem-family-${name}`}
+                          >
+                              <div className="mb-3 flex items-baseline justify-between">
+                                  <span className="k-mono">prism-{name}</span>
+                                  <span
+                                      className="k-mono text-xs"
+                                      data-testid={`ecosystem-verdict-${name}`}
+                                  >
+                                      {families[name] ? 'both languages agree' : 'languages disagree'}
+                                  </span>
+                              </div>
+
+                              <ul className="space-y-1">
+                                  {rows(name).map(([step, byLanguage]) => (
+                                      <li key={step} className="k-mono text-xs">
+                                          <span aria-hidden>
+                                              {languages
+                                                  .map(language =>
+                                                      byLanguage[language] === undefined
+                                                          ? '·'
+                                                          : byLanguage[language]
+                                                            ? '✓'
+                                                            : '✗',
+                                                  )
+                                                  .join('')}
+                                          </span>{' '}
+                                          <span
+                                              className={
+                                                  languages.every(language => byLanguage[language])
+                                                      ? ''
+                                                      : 'font-bold'
+                                              }
+                                          >
+                                              {step}
+                                          </span>
+                                      </li>
+                                  ))}
+                              </ul>
+                          </div>
+                      ))}
+            </div>
+        </div>
+    );
+}
+
 /**
  * The harness ports, exercised end to end in both languages.
  *
@@ -633,6 +803,11 @@ export default function Team({
                 <section className="mt-16">
                     <h2 className="k-mono mb-5">Durable sessions · the harness in three languages</h2>
                     <HarnessPanel />
+                </section>
+
+                <section className="mt-16">
+                    <h2 className="k-mono mb-5">The satellites · six families, two languages</h2>
+                    <EcosystemPanel />
                 </section>
 
                 <section className="mt-16">

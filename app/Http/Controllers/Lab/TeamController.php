@@ -10,6 +10,7 @@ use App\Lab\InstalledVersions;
 use App\Learnings\Learning;
 use App\Team\AgentRoster;
 use App\Team\Coordinator;
+use App\Team\EcosystemVerdicts;
 use App\Team\LanguageAgent;
 use App\Team\Nudge;
 use Illuminate\Http\JsonResponse;
@@ -124,6 +125,43 @@ final class TeamController extends Controller
             'lanes' => $lanes,
             'shared_session_key' => count($keys) === 1 ? $keys[0] : null,
             'keys_agree' => count($keys) === 1,
+        ]);
+    }
+
+    /**
+     * The six satellite ports, exercised END TO END in both languages.
+     *
+     * Asked of the AGENTS, like the harness probe, and for the same reason: the
+     * Lab is a consumer reaching packages over the wire in a process that did
+     * not build them.
+     *
+     * What comes back is a per-family verdict rather than one boolean. Six
+     * families collapsed into "green" would hide five of them the moment one
+     * broke, and the board's whole job is to say WHICH claim stopped holding.
+     */
+    public function ecosystem(AgentRoster $roster): JsonResponse
+    {
+        $lanes = [];
+
+        foreach ($roster->addressable() as $agent) {
+            $probe = (new LanguageAgent($agent))->call('ecosystem_probe', [], (float) config('team.timeouts.work'));
+
+            $lanes[] = [
+                'agent' => $agent->name,
+                'language' => $agent->language,
+                'reachable' => $probe['ok'] === true,
+                'reason' => $probe['reason'] ?? null,
+                'report' => $probe['data'] ?? null,
+            ];
+        }
+
+        // Which families every reachable lane got right, and which any lane got
+        // wrong. A family is only green when BOTH languages agree it is —
+        // a port that passes in TypeScript and fails in Python is a parity
+        // failure, which is the entire point of having two.
+        return response()->json([
+            'lanes' => $lanes,
+            ...EcosystemVerdicts::merge($lanes),
         ]);
     }
 

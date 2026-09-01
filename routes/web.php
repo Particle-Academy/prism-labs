@@ -44,6 +44,11 @@ if (app()->environment('local')) {
         // network calls, and a down lane would hold the board behind a timeout.
         Route::get('/lab/team/harness', [TeamController::class, 'harness'])->name('lab.team.harness');
 
+        // The six satellite ports, exercised the same way. A separate route
+        // from the harness one on purpose: they are separate claims, and a
+        // family that breaks should cost its own panel rather than both.
+        Route::get('/lab/team/ecosystem', [TeamController::class, 'ecosystem'])->name('lab.team.ecosystem');
+
         // Asking Prism is slow — it delegates, and a teammate may reason for a
         // while — so it gets a looser throttle than the page routes.
         // Hands one 0L to the coding agent in this workspace, over Genie's MCP.
