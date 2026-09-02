@@ -13,6 +13,8 @@ use App\Team\LanguageAgent;
 use FancyFlow\Contracts\NodeExecutor;
 use FancyFlow\Runtime\ExecutionContext;
 use FancyFlow\Runtime\RunEvent;
+use Prism\Harness\AgentResponse;
+use Prism\Prism\Enums\FinishReason;
 use Throwable;
 
 final readonly class BenchmarkLaneExecutor implements NodeExecutor
@@ -76,9 +78,28 @@ final readonly class BenchmarkLaneExecutor implements NodeExecutor
         $payload = ['spec_digest' => $spec->digest, 'specification' => $spec->specification, 'rubric' => $spec->rubric, 'budgets' => $spec->budgets, 'surface_mode' => $spec->surface_mode, 'workspace_path' => $lane->workspace_path];
         $this->activity->record($lane, 'agent.request', 'Frozen benchmark specification sent to the lane agent.', ['workspace' => $lane->workspace_path]);
         if ($lane->language === 'php') {
-            $response = $this->sessions->resolveScope('benchmark:'.$lane->benchmark_run_id.':'.$lane->id)
-                ->usingMode('benchmark')->usingProvider($lane->provider)->usingModel($lane->model)
+            $session = $this->sessions->resolveScope('benchmark:'.$lane->benchmark_run_id.':'.$lane->id)
+                ->usingMode('benchmark')->usingProvider($lane->provider)->usingModel($lane->model);
+
+            // The SPEC's budget decides the ceiling, not the mode's constant.
+            //
+            // `budgets` is serialised into the prompt below, so the agent reads
+            // `max_turns` and plans a job that size. When the mode enforced its
+            // own smaller number the agent was told one limit and cut off at
+            // another: claude-opus-5 was promised 20 turns, spent exactly the
+            // mode's 10 building a five-scene video, and had all of it
+            // discarded for want of a proof file it never got to write. The
+            // run then read as a verdict on the model. It was a verdict on the
+            // disagreement.
+            $turns = $spec->budgets['max_turns'] ?? null;
+            if (is_numeric($turns) && (int) $turns > 0) {
+                $session = $session->usingMaxSteps((int) $turns);
+            }
+
+            $response = $session
                 ->send('Execute this frozen Prism Lab benchmark lane. Build the requested artifact in the workspace. Before finishing, write PROOF_OF_WORKING.json with exactly these top-level fields: spec_digest (the supplied digest), working_artifact (relative path), checks (object), zero_learning (non-empty string), and receipts (a non-empty array of objects with kind and payload). Prose alone is not proof and the lane will fail closed if this file is missing or invalid. Specification: '.json_encode($payload, JSON_THROW_ON_ERROR));
+
+            $this->recordTruncation($lane, $response, is_numeric($turns) ? (int) $turns : null);
 
             return ['ok' => true, 'text' => $response->text(), 'run_id' => $response->runId];
         }
@@ -94,6 +115,36 @@ final readonly class BenchmarkLaneExecutor implements NodeExecutor
         }
 
         return (new LanguageAgent($agent))->call('benchmark', $payload);
+    }
+
+    /**
+     * Say so when the loop STOPPED rather than finished.
+     *
+     * Reaching the step ceiling returns normally, so a lane cut off mid-build
+     * recorded `agent.completed — Agent returned its lane result`: exactly what
+     * a lane that genuinely finished records. Reading that stream, a truncated
+     * run looks like an agent that simply forgot the last step, and the first
+     * diagnosis written from it in this workspace was wrong for that reason.
+     *
+     * The tell is the pair, not either half: the model still wanted to call a
+     * tool (`ToolCalls`) AND the loop had no steps left. `Stop` at the ceiling
+     * is a genuine finish that happened to land on the last step.
+     */
+    private function recordTruncation(BenchmarkLane $lane, AgentResponse $response, ?int $allowed): void
+    {
+        $used = count($response->response->steps);
+
+        if ($allowed === null || $used < $allowed || $response->response->finishReason !== FinishReason::ToolCalls) {
+            return;
+        }
+
+        $this->activity->record(
+            $lane,
+            'agent.truncated',
+            sprintf('Agent stopped at the step ceiling: %d of %d steps used, and it was still calling tools.', $used, $allowed),
+            ['steps_used' => $used, 'steps_allowed' => $allowed, 'finish_reason' => $response->response->finishReason->value],
+            'error',
+        );
     }
 
     /** @param array<string, mixed> $result */

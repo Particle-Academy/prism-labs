@@ -6,6 +6,7 @@ namespace Tests\Feature;
 
 use App\Benchmarks\BenchmarkDesigner;
 use App\Benchmarks\BenchmarkFuse;
+use App\Benchmarks\BenchmarkLaneExecutor;
 use App\Benchmarks\BenchmarkRunReconciler;
 use App\Benchmarks\BenchmarkWorkflow;
 use App\Benchmarks\LaneActivity;
@@ -29,11 +30,16 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use Prism\Harness\Flow\HarnessAgentExecutor;
+use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Testing\TextResponseFake;
+use Prism\Prism\Text\Step;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\Usage;
 use Prism\Workspace\Exceptions\PathRefused;
+use ReflectionMethod;
 use Tests\TestCase;
 
 final class LabExperimentFoundationsTest extends TestCase
@@ -273,6 +279,81 @@ final class LabExperimentFoundationsTest extends TestCase
     private function inertiaRequest(): Request
     {
         return Request::create('/lab/benchmarks/runs', 'GET', server: ['HTTP_X_INERTIA' => 'true', 'HTTP_X_INERTIA_VERSION' => '']);
+    }
+
+    public function test_the_frozen_spec_budget_sets_the_step_ceiling_not_the_mode_constant(): void
+    {
+        // `budgets` is serialised into the agent's prompt, so the agent reads
+        // max_turns and plans a job that size. When the mode enforced its own
+        // smaller number the agent was told one limit and cut off at another:
+        // claude-opus-5 was promised 20 turns, spent exactly the mode's 10 on a
+        // five-scene video, and had all of it discarded for want of a proof
+        // file it never reached. That run read as a verdict on the model; it
+        // was a verdict on the disagreement.
+        config(['prism-harness.agent.modes.benchmark.max_steps' => 10]);
+        config(['prism-harness.agent.modes.benchmark.tools' => ['workspace_list']]);
+        $fake = Prism::fake([TextResponseFake::make()->withText('done')]);
+
+        $designer = app(BenchmarkDesigner::class);
+        $spec = $designer->draft('budget honoured', 'application', 'standard', ['acceptance' => ['x']], ['working' => 10], [[
+            'language' => 'php', 'harness' => 'cli', 'provider' => 'anthropic', 'model' => 'claude-opus-5',
+        ]], ['max_turns' => 20, 'cost' => 1]);
+        $run = $designer->launch($designer->approve($designer->requestApproval($spec)));
+        $lane = $run->lanes()->firstOrFail();
+        $lane->forceFill(['status' => 'running', 'workspace_path' => storage_path('framework/testing/ws')])->save();
+
+        try {
+            (new ReflectionMethod(BenchmarkLaneExecutor::class, 'run'))
+                ->invoke(app(BenchmarkLaneExecutor::class), $lane, $spec->refresh());
+        } catch (Throwable) {
+            // The proof step is not what this test is about; the request is.
+        }
+
+        $fake->assertRequest(function (array $requests): void {
+            $this->assertSame(20, $requests[0]->maxSteps(), 'The spec promised 20 turns, so the run must get 20 — not the mode constant.');
+        });
+    }
+
+    public function test_a_lane_cut_off_at_the_step_ceiling_does_not_report_itself_as_completed(): void
+    {
+        // Hitting the ceiling returns NORMALLY, so a lane cut off mid-build
+        // recorded `agent.completed - Agent returned its lane result`: exactly
+        // what a lane that genuinely finished records. The first diagnosis
+        // written from that stream in this workspace was wrong for this reason.
+        //
+        // The tell is the PAIR: the model still wanted a tool (`ToolCalls`) and
+        // the loop had no steps left. `Stop` on the last step is a real finish.
+        config(['prism-harness.agent.modes.benchmark.tools' => ['workspace_list']]);
+        Prism::fake([
+            TextResponseFake::make()->withText('cut off')
+                ->withFinishReason(FinishReason::ToolCalls)
+                ->withSteps(collect(array_fill(0, 3, new Step(
+                    text: 'step', finishReason: FinishReason::ToolCalls, toolCalls: [], toolResults: [],
+                    providerToolCalls: [], usage: new Usage(1, 1), meta: new Meta('x', 'y'),
+                    messages: [], systemPrompts: [],
+                )))),
+        ]);
+
+        $designer = app(BenchmarkDesigner::class);
+        $spec = $designer->draft('truncated', 'application', 'standard', ['acceptance' => ['x']], ['working' => 10], [[
+            'language' => 'php', 'harness' => 'cli', 'provider' => 'anthropic', 'model' => 'claude-opus-5',
+        ]], ['max_turns' => 3, 'cost' => 1]);
+        $run = $designer->launch($designer->approve($designer->requestApproval($spec)));
+        $lane = $run->lanes()->firstOrFail();
+        $lane->forceFill(['status' => 'running', 'workspace_path' => storage_path('framework/testing/ws')])->save();
+
+        try {
+            (new ReflectionMethod(BenchmarkLaneExecutor::class, 'run'))
+                ->invoke(app(BenchmarkLaneExecutor::class), $lane, $spec->refresh());
+        } catch (Throwable) {
+            // Reaching the proof step is not what this test is about.
+        }
+
+        $truncation = $lane->activities()->where('kind', 'agent.truncated')->first();
+
+        $this->assertNotNull($truncation, 'A lane stopped at the ceiling must not be indistinguishable from one that finished.');
+        $this->assertStringContainsString('3 of 3 steps', (string) $truncation->summary);
+        $this->assertSame('error', $truncation->level);
     }
 
     public function test_benchmark_run_data_can_be_purged_by_scope(): void
