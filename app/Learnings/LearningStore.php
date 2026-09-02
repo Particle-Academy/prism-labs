@@ -61,11 +61,19 @@ final class LearningStore
     }
 
     /**
-     * Next id, derived from the FILES rather than the table.
+     * Next id — the highest either store has seen, plus one.
      *
-     * The files are the record, and they outlive any one database — a Lab
-     * rebuilt from scratch must not start reissuing 0L-0001 over learnings
-     * that already exist on disk.
+     * The files lead, because they are the record and they outlive any one
+     * database: a Lab rebuilt from scratch must not start reissuing 0L-0001
+     * over learnings that already exist on disk.
+     *
+     * But the table is consulted too, and NOT for symmetry. `ref` is UNIQUE
+     * there, so a ref derived from the files alone can be rejected by the
+     * database — which is exactly what happened when markdown files were
+     * deleted while their rows stayed: the scan re-issued a ref the table
+     * still held, the insert failed on the constraint, and the learning was
+     * lost. Deriving identity from one store while another enforces
+     * uniqueness over it is the whole bug; asking both is the fix.
      */
     public function nextRef(): string
     {
@@ -77,6 +85,14 @@ final class LearningStore
             if (preg_match('/0L-(\d+)/', basename($file), $m) === 1) {
                 $highest = max($highest, (int) $m[1]);
             }
+        }
+
+        // Cheap, and only ever moves the number forward. A gap in the sequence
+        // is harmless; a collision costs a learning.
+        $claimed = Learning::query()->max('ref');
+
+        if (is_string($claimed) && preg_match('/0L-(\d+)/', $claimed, $m) === 1) {
+            $highest = max($highest, (int) $m[1]);
         }
 
         return sprintf('0L-%04d', $highest + 1);

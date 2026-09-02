@@ -109,6 +109,36 @@ class LearningStoreTest extends TestCase
         $this->assertSame('0L-0002', $this->store()->nextRef());
     }
 
+    public function test_the_next_ref_never_reissues_one_the_table_still_holds(): void
+    {
+        // The inverse of the test above, and the one that actually bit. `ref`
+        // is UNIQUE in the table, so a ref derived from the files alone is
+        // rejected when a markdown file was deleted while its row stayed —
+        // the insert fails on the constraint and the learning is lost. It
+        // happened in this workspace: fixture-named 0Ls were cleaned off disk
+        // and the next real learning collided with a row nobody could see.
+        $first = $this->store()->file(
+            title: 'First', filedBy: 'prism.php', languages: ['php'],
+            whatWasLearned: 'a', evidence: 'b', whyItMatters: 'c',
+        );
+
+        foreach (glob($this->dir.'/*') ?: [] as $file) {
+            unlink($file);
+        }
+
+        $this->assertSame('0L-0001', $first->ref);
+        $this->assertSame('0L-0002', $this->store()->nextRef());
+
+        // And the next real filing succeeds rather than dying on the
+        // constraint — a gap in the sequence is harmless, a collision is not.
+        $second = $this->store()->file(
+            title: 'Second', filedBy: 'prism.php', languages: ['php'],
+            whatWasLearned: 'a', evidence: 'b', whyItMatters: 'c',
+        );
+
+        $this->assertSame('0L-0002', $second->ref);
+    }
+
     public function test_it_quotes_a_title_that_yaml_would_read_as_structure(): void
     {
         // Titles are model-written and will eventually contain a colon.

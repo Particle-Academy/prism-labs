@@ -9,6 +9,7 @@ use App\Learnings\Severity;
 use App\Models\BenchmarkLane;
 use App\Models\BenchmarkRun;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Throwable;
 
 /**
@@ -120,11 +121,18 @@ final readonly class BenchmarkLearningRecorder
     {
         $lines = $lanes->map(function (BenchmarkLane $lane): string {
             $reason = $this->failureText($lane);
-            $events = $lane->activities()->count();
+
+            // Both stores, because the lane inspector shows both merged and a
+            // reader comparing the two must not find them disagreeing. Counting
+            // activities alone reported "6 recorded events" for a lane whose
+            // stream showed sixteen — the tool calls are `lab_operations`, and
+            // they are the part that says what the agent actually DID.
+            $activities = $lane->activities()->count();
+            $operations = DB::table('lab_operations')->where('benchmark_lane_id', $lane->id)->count();
 
             return sprintf(
-                '`lane-%d` %s/%s: %s — %d recorded event(s)%s',
-                $lane->ordinal, $lane->language, $lane->model, $lane->status, $events,
+                '`lane-%d` %s/%s: %s — %d activity event(s), %d tool operation(s)%s',
+                $lane->ordinal, $lane->language, $lane->model, $lane->status, $activities, $operations,
                 is_string($reason) && $reason !== '' ? ' — '.mb_substr($reason, 0, 400) : '',
             );
         })->implode("\n");
