@@ -1,7 +1,7 @@
 import { Link, router } from '@inertiajs/react';
 import { FileViewer } from '@particle-academy/fancy-code';
 import { TreeNav, type TreeNodeData } from '@particle-academy/react-fancy';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { LabShell } from '../../components/lab-shell';
 
 type Lane = { id: string; ordinal: number; language: string; harness: string; provider: string; model: string; status: string; last_seen_at?: string | null; workflow_run_id?: number | null; workspace_path?: string | null; started_at?: string | null; finished_at?: string | null; proof?: { text?: string; failure_class?: string; unreachable?: boolean; reason?: string } | null };
@@ -75,13 +75,54 @@ function LaneCard({ lane, flow, node, worker, selected, onSelect }: { lane: Lane
 function LaneInspector({ runId, lane, onClose }: { runId: string; lane: Lane; onClose: () => void }) {
     const [inspection, setInspection] = useState<LaneInspection | null>(null);
     const [opened, setOpened] = useState<OpenFile | null>(null);
-    const load = async () => {
-        const response = await fetch(`/lab/benchmarks/runs/${runId}/lanes/${lane.id}`, { headers: { Accept: 'application/json' } });
-        if (response.ok) setInspection(await response.json());
+
+    // Cursors, so each poll asks only for what arrived since the last one.
+    // Kept in refs rather than state: the interval closure must read the
+    // CURRENT value, and re-creating the interval on every tick to capture new
+    // state would defeat the point.
+    const sinceActivity = useRef<number | null>(null);
+    // A TIMESTAMP, not a key: lab_operations ids are random UUIDs. The server
+    // treats it inclusively because operations share a second, so the boundary
+    // second comes back every poll and is de-duplicated on merge below.
+    const sinceOperation = useRef<string | null>(null);
+
+    const load = async (withFiles: boolean) => {
+        const query = new URLSearchParams();
+        if (sinceActivity.current !== null) query.set('since_activity', String(sinceActivity.current));
+        if (sinceOperation.current !== null) query.set('since_operation', sinceOperation.current);
+        query.set('files', withFiles ? '1' : '0');
+
+        const response = await fetch(`/lab/benchmarks/runs/${runId}/lanes/${lane.id}?${query}`, { headers: { Accept: 'application/json' } });
+        if (!response.ok) return;
+        const payload: Omit<LaneInspection, 'files'> & { files: FileEntry[] | null; incremental: boolean } = await response.json();
+
+        if (payload.activities.length) sinceActivity.current = Math.max(...payload.activities.map(item => item.id));
+        if (payload.operations.length) sinceOperation.current = payload.operations.map(item => item.started_at).sort().at(-1) ?? sinceOperation.current;
+
+        setInspection(previous => (!previous || !payload.incremental) ? { ...payload, files: payload.files ?? [] } : {
+            lane: payload.lane,
+            activities: [...previous.activities, ...payload.activities],
+            operations: mergeById(previous.operations, payload.operations),
+            // A null `files` means "unchanged, I did not ask" — never "empty".
+            files: payload.files ?? previous.files,
+        });
+
+        // A new file event is the only reliable signal that the tree moved, so
+        // the expensive listing is fetched when something wrote, not on a timer.
+        return payload.activities.some(item => item.kind === 'file.written');
     };
+
     useEffect(() => {
-        setOpened(null); void load();
-        const timer = window.setInterval(() => void load(), 3000);
+        setOpened(null);
+        setInspection(null);
+        sinceActivity.current = null;
+        sinceOperation.current = null;
+        void load(true);
+
+        const timer = window.setInterval(async () => {
+            // Re-list the workspace only when this tick reported a write.
+            if (await load(false)) void load(true);
+        }, 3000);
         return () => window.clearInterval(timer);
     }, [lane.id]);
     const openFile = async (value: string | string[] | null) => {
@@ -98,6 +139,14 @@ function LaneInspector({ runId, lane, onClose }: { runId: string; lane: Lane; on
     const events = [...(inspection?.activities ?? []).map(item => ({ key: `a-${item.id}`, at: item.created_at, kind: item.kind, status: item.level, summary: item.summary, detail: item.detail })), ...(inspection?.operations ?? []).map(item => ({ key: `o-${item.id}`, at: item.started_at, kind: item.kind, status: item.status, summary: operationSummary(item), detail: item.metadata }))].sort((a, b) => a.at.localeCompare(b.at));
 
     return <section className="lab-inspector"><header><div><small>Lane inspector</small><h2>{lane.language} activity and workspace</h2><p>{inspection?.lane.workspace_path ?? 'Provisioning workspace…'}</p></div><button className="k-btn k-btn--ghost" type="button" onClick={onClose}>Close inspector</button></header><div className="lab-inspector-grid"><section className="lab-panel lab-stream"><div className="lab-panel-head"><span>Live activity</span><span>{events.length} events</span></div>{events.length === 0 ? <p className="lab-empty">Waiting for the first persisted agent event…</p> : events.map(event => <article key={event.key} className={`lab-event is-${event.status}`}><i /><div><time>{new Date(event.at).toLocaleTimeString()}</time><b>{event.summary}</b><small>{event.kind}</small>{event.detail && <details><summary>Event details</summary><pre>{JSON.stringify(event.detail, null, 2)}</pre></details>}</div></article>)}</section><section className="lab-panel lab-workspace"><div className="lab-panel-head"><span>Workspace files</span><span>{inspection?.files.length ?? 0} entries</span></div><div className="lab-ide"><aside>{inspection && <TreeNav nodes={toTree(inspection.files)} selectedId={opened?.path} onSelect={(id, node) => { if (node.type === 'file') void openFile(id); }} defaultExpandAll />}</aside><div className="lab-code-pane">{opened ? <><div className="lab-file-tab"><b>{opened.path}</b><span>{opened.size.toLocaleString()} bytes</span></div><FileViewer filename={opened.path} mime={opened.mime} src={opened.src} value={opened.content} readOnly style={{ height: 720 }} /></> : <p className="lab-empty">Choose a file from the workspace tree to inspect its current contents.</p>}</div></div></section></div></section>;
+}
+
+// The operations cursor is an inclusive timestamp, so the boundary second
+// arrives again on the next poll. Merge by id and the repeat costs nothing.
+function mergeById(previous: Operation[], incoming: Operation[]): Operation[] {
+    if (!incoming.length) return previous;
+    const seen = new Set(previous.map(item => item.id));
+    return [...previous, ...incoming.filter(item => !seen.has(item.id))];
 }
 
 function mediaMime(path: string): string | undefined {

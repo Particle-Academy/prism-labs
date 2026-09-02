@@ -123,22 +123,72 @@ final class BenchmarkController extends Controller
         }
     }
 
-    public function lane(BenchmarkRun $run, BenchmarkLane $lane, LaneWorkspace $workspace): JsonResponse
+    /**
+     * INCREMENTAL by default. The caller says what it already has and gets
+     * back only what is newer.
+     *
+     * This endpoint used to re-send 500 activities, 500 operations AND a full
+     * workspace listing every three seconds, almost all of it identical to the
+     * previous poll. Genie serves this site through a SINGLE php-cgi worker
+     * (`php_fastcgi 127.0.0.1:<port>`), so one request at a time is the whole
+     * site's capacity — and a request costing 0.55-1.0s every 3s, alongside the
+     * page's own 5s poll, kept that worker saturated for the length of a run.
+     * When it fell behind, Caddy had nothing to queue against and answered 502.
+     *
+     * The fix is not a longer interval, which would only make a live run less
+     * live. It is to stop re-sending what the client already has.
+     */
+    public function lane(Request $request, BenchmarkRun $run, BenchmarkLane $lane, LaneWorkspace $workspace): JsonResponse
     {
         abort_unless($lane->benchmark_run_id === $run->id, 404);
 
-        return response()->json([
-            'lane' => $lane,
-            'activities' => $lane->activities()->latest('id')->limit(500)->get()->reverse()->values(),
-            'operations' => DB::table('lab_operations')->where('benchmark_lane_id', $lane->id)->orderBy('started_at')->limit(500)->get()->map(function ($operation) {
+        $input = $request->validate([
+            'since_activity' => ['nullable', 'integer', 'min:0'],
+            'since_operation' => ['nullable', 'date'],
+            'files' => ['nullable', 'in:0,1'],
+        ]);
+
+        $sinceActivity = $input['since_activity'] ?? null;
+        $sinceOperation = $input['since_operation'] ?? null;
+
+        $activities = $lane->activities()
+            ->when($sinceActivity !== null, fn ($query) => $query->where('id', '>', $sinceActivity))
+            ->orderBy('id')->limit(500)->get();
+
+        // Cursored on `started_at`, NOT on the key. `lab_operations.id` is a
+        // random UUID v4 — `b7595171…` then `2ae5301f…` — so "everything after
+        // this id" is meaningless and would drop or duplicate rows at random.
+        //
+        // The cursor is INCLUSIVE (`>=`) because several operations routinely
+        // share a second: four tool calls landed on 15:01:10 in one run, and an
+        // exclusive bound would have silently dropped three of them. That
+        // re-sends the boundary second, so the client de-duplicates by id —
+        // cheap, and it cannot lose a row, which the alternative can.
+        $operations = DB::table('lab_operations')->where('benchmark_lane_id', $lane->id)
+            ->when($sinceOperation !== null, fn ($query) => $query->where('started_at', '>=', $sinceOperation))
+            ->orderBy('started_at')->limit(500)->get()->map(function ($operation) {
                 if (is_string($operation->metadata)) {
                     $decoded = json_decode($operation->metadata, true);
                     $operation->metadata = is_array($decoded) ? $decoded : null;
                 }
 
                 return $operation;
-            }),
-            'files' => $workspace->files($lane),
+            });
+
+        // The workspace tree is the expensive part and the slowest to change.
+        // The client asks for it on first load and when it has reason to think
+        // a file appeared, not on every tick.
+        $wantsFiles = ($input['files'] ?? '1') === '1';
+
+        return response()->json([
+            'lane' => $lane,
+            'activities' => $activities,
+            'operations' => $operations,
+            'files' => $wantsFiles ? $workspace->files($lane) : null,
+            // Says how to merge: a full reply replaces, an incremental one
+            // appends. Without it the client cannot tell an empty incremental
+            // reply from a workspace that genuinely has nothing in it.
+            'incremental' => $sinceActivity !== null || $sinceOperation !== null,
         ]);
     }
 

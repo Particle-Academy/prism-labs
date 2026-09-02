@@ -325,6 +325,82 @@ final class LabExperimentFoundationsTest extends TestCase
         }
     }
 
+    public function test_lane_inspection_returns_only_what_the_caller_does_not_have(): void
+    {
+        // The 502s. This endpoint re-sent 500 activities, 500 operations and a
+        // whole workspace listing every three seconds, and Genie serves this
+        // site through ONE php-cgi worker -- so a live run kept the site's
+        // entire capacity busy re-sending what the client already had.
+        $designer = app(BenchmarkDesigner::class);
+        $spec = $designer->draft('incremental', 'application', 'standard', ['acceptance' => ['x']], ['working' => 10], [[
+            'language' => 'php', 'harness' => 'cli', 'provider' => 'anthropic', 'model' => 'claude-opus-5',
+        ]], ['cost' => 1]);
+        $run = $designer->launch($designer->approve($designer->requestApproval($spec)));
+        $lane = $run->lanes()->firstOrFail();
+
+        $activity = app(LaneActivity::class);
+        $activity->record($lane, 'lane.started', 'first');
+        $activity->record($lane, 'file.written', 'second');
+
+        $full = app(BenchmarkController::class)->lane(Request::create('/'), $run, $lane, app(LaneWorkspace::class));
+        $first = $full->getData(true);
+
+        $this->assertCount(2, $first['activities']);
+        $this->assertFalse($first['incremental']);
+        $this->assertIsArray($first['files'], 'A first load must carry the workspace listing.');
+
+        // Now ask again as the poller does: cursor set, files not wanted.
+        $cursor = max(array_column($first['activities'], 'id'));
+        $next = app(BenchmarkController::class)->lane(
+            Request::create('/', 'GET', ['since_activity' => $cursor, 'files' => '0']),
+            $run, $lane, app(LaneWorkspace::class),
+        )->getData(true);
+
+        $this->assertSame([], $next['activities'], 'Nothing new happened, so nothing should come back.');
+        $this->assertTrue($next['incremental']);
+        $this->assertNull($next['files'], 'An unrequested listing must be null -- never an empty array, which reads as "no files".');
+
+        // And a new row after the cursor does come back, alone.
+        $activity->record($lane, 'lane.finished', 'third');
+        $after = app(BenchmarkController::class)->lane(
+            Request::create('/', 'GET', ['since_activity' => $cursor, 'files' => '0']),
+            $run, $lane, app(LaneWorkspace::class),
+        )->getData(true);
+
+        $this->assertCount(1, $after['activities']);
+        $this->assertSame('third', $after['activities'][0]['summary']);
+    }
+
+    public function test_the_operation_cursor_cannot_drop_rows_that_share_a_second(): void
+    {
+        // `lab_operations.id` is a random UUID v4, so a key-ordered cursor is
+        // meaningless -- it would include or drop rows at random. The cursor is
+        // `started_at`, and it must be INCLUSIVE: four tool calls landed on the
+        // same second in a real run, and an exclusive bound loses three of them.
+        $designer = app(BenchmarkDesigner::class);
+        $spec = $designer->draft('cursor ties', 'application', 'standard', ['acceptance' => ['x']], ['working' => 10], [[
+            'language' => 'php', 'harness' => 'cli', 'provider' => 'anthropic', 'model' => 'claude-opus-5',
+        ]], ['cost' => 1]);
+        $run = $designer->launch($designer->approve($designer->requestApproval($spec)));
+        $lane = $run->lanes()->firstOrFail();
+
+        // Deliberately out of key order and all on one second.
+        $moment = now()->startOfSecond();
+        foreach (['ffffffff-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000002', '88888888-0000-4000-8000-000000000003'] as $id) {
+            DB::table('lab_operations')->insert([
+                'id' => $id, 'benchmark_lane_id' => $lane->id, 'kind' => 'tool.call', 'status' => 'completed',
+                'started_at' => $moment, 'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
+
+        $payload = app(BenchmarkController::class)->lane(
+            Request::create('/', 'GET', ['since_operation' => (string) $moment, 'files' => '0']),
+            $run, $lane, app(LaneWorkspace::class),
+        )->getData(true);
+
+        $this->assertCount(3, $payload['operations'], 'An inclusive cursor must return every row sharing the boundary second.');
+    }
+
     public function test_lane_inspection_decodes_tool_metadata_for_the_activity_stream(): void
     {
         $designer = app(BenchmarkDesigner::class);
@@ -339,7 +415,7 @@ final class LabExperimentFoundationsTest extends TestCase
             'metadata' => ['tool_name' => 'workspace_write', 'tool_call_id' => 'tool-1'],
         ]);
 
-        $response = app(BenchmarkController::class)->lane($run, $lane, app(LaneWorkspace::class));
+        $response = app(BenchmarkController::class)->lane(Request::create('/'), $run, $lane, app(LaneWorkspace::class));
 
         $this->assertSame('workspace_write', $response->getData(true)['operations'][0]['metadata']['tool_name']);
     }
