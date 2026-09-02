@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Benchmarks;
 
+use App\Jobs\ScoreLaneJob;
 use App\Lab\LabSession;
 use App\Models\BenchmarkLane;
 use App\Models\BenchmarkRun;
@@ -180,5 +181,12 @@ final readonly class BenchmarkLaneExecutor implements NodeExecutor
             'spec_digest' => $spec->digest,
             'receipts' => count($receipts),
         ]);
+
+        // "Submitted for independent scoring" was, until now, a sentence with
+        // nothing behind it: proof was accepted and no judge ever ran. Scoring
+        // is dispatched here rather than done here, because it is a model call
+        // and this method runs inside the lane's own job — a judge running in
+        // line would extend the lane it is judging.
+        ScoreLaneJob::dispatch($lane->id);
     }
 }

@@ -52,6 +52,26 @@ return [
                 'max_steps' => 10,
             ],
             /*
+             * The judge. NO TOOLS, deliberately and load-bearingly.
+             *
+             * The Lab already argues this for `verify_claim` above: a verifier
+             * able to file its own finding is a second author, not a check. A
+             * judge that could read or write the workspace it is scoring is the
+             * same defect — it could look past the receipts at the artifact
+             * itself, and the entire claim of this surface is that a score
+             * rests on evidence the builder chose to submit and can be
+             * re-checked by anyone.
+             *
+             * One step, because it is handed everything and asked for a verdict.
+             */
+            'scoring' => [
+                'system_prompt' => PromptFile::content('scoring'),
+                'tools' => [],
+                'skills' => [],
+                'max_steps' => 1,
+            ],
+
+            /*
              * The overseer calling a live run. No tools and a single step on
              * purpose: it is handed the events and asked for a sentence, so
              * anything it could reach for would only be a way to be slower and

@@ -19,6 +19,7 @@ use App\Learnings\Severity;
 use App\Models\BenchmarkCommentary;
 use App\Models\BenchmarkLane;
 use App\Models\BenchmarkRun;
+use App\Models\BenchmarkScore;
 use App\Models\BenchmarkSpec;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -142,6 +143,8 @@ final class BenchmarkController extends Controller
                 'status' => $lane->status,
                 'scored' => $lane->score !== null,
                 'score' => $lane->score,
+                'dimensions' => BenchmarkScore::query()->where('benchmark_lane_id', $lane->id)
+                    ->orderByDesc('weight')->get(['dimension', 'weight', 'score', 'justification', 'cited_receipt'])->all(),
                 'working_artifact' => $lane->proof['working_artifact'] ?? null,
                 'spec_digest' => $lane->proof['spec_digest'] ?? null,
                 'zero_learning' => $lane->proof['zero_learning'] ?? null,

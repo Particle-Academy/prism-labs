@@ -175,6 +175,29 @@
 .lab-consensus-row small { color: var(--k-ink-3); margin-top: .35rem; font: .68rem ui-monospace, monospace; }
 .lab-review-question { font-size: 1.15rem; margin: 1rem 0 1.5rem; }
 .lab-synthesis { white-space: pre-wrap; color: var(--k-ink-2); line-height: 1.65; }
+
+/* What the roster did, and what each agent actually said. Both were recorded
+   from the first build and neither was displayed. */
+.lab-tally { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem 1.1rem; padding: .7rem .85rem; border: 1px solid #2d3150; border-radius: 11px; background: #111321; color: var(--k-ink-2); font-size: .76rem; }
+.lab-tally b { color: var(--k-ink); }
+.lab-tally .is-warn b { color: #fbbf24; }
+.lab-tally .is-dissent b { color: var(--k-mag); }
+.lab-tally small { flex-basis: 100%; color: var(--k-ink-3); font-size: .7rem; }
+.lab-responses { display: grid; gap: .7rem; margin: 1rem 0 1.6rem; }
+.lab-response { border: 1px solid #252a3a; border-radius: 11px; padding: .85rem; background: #10121b; }
+.lab-response.is-unavailable { border-left: 3px solid #fb7185; }
+.lab-response header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+.lab-response header small { display: block; color: var(--k-ink-3); font: .65rem ui-monospace, monospace; text-transform: uppercase; letter-spacing: .08em; }
+.lab-response header b { font-size: .9rem; }
+.lab-response > p { margin-top: .7rem; color: var(--k-ink-2); font-size: .8rem; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.lab-response details { margin-top: .7rem; color: var(--k-cyan); font-size: .74rem; }
+.lab-response details pre { margin-top: .45rem; color: var(--k-ink-3); font-size: .68rem; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 14rem; overflow: auto; }
+.lab-response > p.lab-dissent { border-left: 2px solid var(--k-mag); padding-left: .7rem; color: #fbcfe8; }
+.lab-dissent b { display: block; color: var(--k-ink); font-size: .68rem; text-transform: uppercase; letter-spacing: .07em; margin-bottom: .25rem; }
+.lab-abandon { margin-top: 1.6rem; padding-top: 1.1rem; border-top: 1px solid #252a3a; }
+.lab-abandon b { font-size: .8rem; }
+.lab-abandon p { color: var(--k-ink-3); font-size: .74rem; margin: .3rem 0 .9rem; }
+.lab-consensus-grid .lab-learning { margin-top: 1.5rem; padding: 1rem; border: 1px solid #252a3a; border-radius: 12px; background: #10121b; }
 .lab-how { display: flex; flex-wrap: wrap; align-items: center; gap: .65rem 1.2rem; margin-top: 1.3rem; padding: .9rem 1rem; border: 1px solid #2d3150; border-radius: 11px; background: #111321; color: var(--k-ink-3); font-size: .75rem; }
 .lab-how b { color: var(--k-ink); }
 .lab-lanes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .85rem; margin-top: 1.3rem; }
@@ -193,6 +216,18 @@
 /* A running lane that has gone quiet. Amber, not red: silence is a warning
    about the lane, not a verdict on it -- the agent may still be mid-call. */
 .lab-beat-stalled { color: #fbbf24; }
+
+/* Per-dimension rubric scores. */
+.lab-dimensions { display: grid; gap: .5rem; margin-top: .9rem; }
+.lab-dimensions > div { padding: .6rem .7rem; border: 1px solid #252a3a; border-radius: 8px; background: #0e1017; }
+.lab-dimension-head { display: flex; align-items: baseline; gap: .6rem; }
+.lab-dimension-head b { font-size: .8rem; flex: 1; }
+.lab-dimension-weight { font-size: .64rem; color: var(--k-ink-3); }
+.lab-dimension-score { font-size: .95rem; font-weight: 600; color: var(--k-cyan); font-variant-numeric: tabular-nums; }
+.lab-dimensions p { margin-top: .35rem; font-size: .74rem; color: var(--k-ink-2); overflow-wrap: anywhere; }
+.lab-dimensions small { display: block; margin-top: .35rem; font-size: .64rem; }
+.lab-dimensions small.is-cited { color: #4ade80; }
+.lab-dimensions small.is-uncited { color: #fbbf24; }
 
 /* Run results: proof, checks, receipts and the run's 0Learning. */
 .lab-results { margin-top: 1.6rem; display: grid; gap: .8rem; }

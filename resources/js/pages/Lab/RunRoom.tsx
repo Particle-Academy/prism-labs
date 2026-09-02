@@ -16,7 +16,8 @@ type OpenFile = { path: string; content?: string; language?: string; size: numbe
 type Worker = { state: 'starting' | 'active' | 'stalled' | 'settled'; message: string };
 type Commentary = { id: number; line: string; created_at: string };
 type Receipt = { id: string; kind: string; digest: string; payload: unknown };
-type LaneResult = { lane_id: string; ordinal: number; provider: string; model: string; status: string; scored: boolean; score: string | null; working_artifact: string | null; spec_digest: string | null; zero_learning: string | null; checks: Record<string, unknown>; receipts: Receipt[] };
+type Dimension = { dimension: string; weight: number; score: number; justification: string; cited_receipt: string | null };
+type LaneResult = { lane_id: string; ordinal: number; provider: string; model: string; status: string; scored: boolean; score: string | null; dimensions: Dimension[]; working_artifact: string | null; spec_digest: string | null; zero_learning: string | null; checks: Record<string, unknown>; receipts: Receipt[] };
 type RunLearning = { ref: string; title: string; severity: string; severity_label: string; what_was_learned: string; evidence: string; why_it_matters: string; what_should_change: string | null; path: string };
 
 /**
@@ -124,6 +125,22 @@ function Results({ results, learning, settled }: { results: LaneResult[]; learni
                     a "0" here would read as a verdict rather than a gap. */}
                 <span className={`lab-score ${result.scored ? '' : 'is-unscored'}`}>{result.scored ? result.score : 'not scored'}</span>
             </header>
+
+            {result.dimensions.length > 0 && <div className="lab-dimensions">
+                {result.dimensions.map(d => <div key={d.dimension}>
+                    <div className="lab-dimension-head">
+                        <b>{d.dimension}</b>
+                        <span className="lab-dimension-weight">{Math.round(d.weight * 100)}% of total</span>
+                        <span className="lab-dimension-score">{Math.round(d.score)}</span>
+                    </div>
+                    <p>{d.justification}</p>
+                    {/* A judgement that names no evidence is an opinion. The judge
+                        is required to cite one or to say plainly that it could not. */}
+                    <small className={d.cited_receipt ? 'is-cited' : 'is-uncited'}>
+                        {d.cited_receipt ? `evidence: ${d.cited_receipt}` : 'no receipt supported this dimension'}
+                    </small>
+                </div>)}
+            </div>}
 
             <div className="lab-checks">
                 {Object.entries(result.checks).map(([name, value]) => <div key={name}>
