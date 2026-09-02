@@ -15,6 +15,9 @@ type LaneInspection = { lane: Lane; activities: Activity[]; operations: Operatio
 type OpenFile = { path: string; content?: string; language?: string; size: number; src?: string; mime?: string };
 type Worker = { state: 'starting' | 'active' | 'stalled' | 'settled'; message: string };
 type Commentary = { id: number; line: string; created_at: string };
+type Receipt = { id: string; kind: string; digest: string; payload: unknown };
+type LaneResult = { lane_id: string; ordinal: number; provider: string; model: string; status: string; scored: boolean; score: string | null; working_artifact: string | null; spec_digest: string | null; zero_learning: string | null; checks: Record<string, unknown>; receipts: Receipt[] };
+type RunLearning = { ref: string; title: string; severity: string; severity_label: string; what_was_learned: string; evidence: string; why_it_matters: string; what_should_change: string | null; path: string };
 
 /**
  * Poll intervals, chosen against a HARD REQUEST BUDGET rather than against how
@@ -45,7 +48,7 @@ function whenVisible(work: () => void): void {
     if (document.visibilityState === 'visible') work();
 }
 
-export default function RunRoom({ run, flows, nodes, worker, commentary }: { run: Run; flows: Record<string, Flow>; nodes: Node[]; worker: Worker; commentary: Commentary[] }) {
+export default function RunRoom({ run, flows, nodes, worker, commentary, results, learning }: { run: Run; flows: Record<string, Flow>; nodes: Node[]; worker: Worker; commentary: Commentary[]; results: LaneResult[]; learning: RunLearning | null }) {
     const active = ['queued', 'ready', 'running'].includes(run.status);
     const [selectedLane, setSelectedLane] = useState<Lane | null>(null);
     useEffect(() => {
@@ -55,7 +58,7 @@ export default function RunRoom({ run, flows, nodes, worker, commentary }: { run
         // `reload()` already sets both. Passing it was a type error that failed
         // the Build gate, and removing it changes nothing at runtime.
         const timer = window.setInterval(
-            () => whenVisible(() => router.reload({ only: ['run', 'flows', 'nodes', 'worker', 'commentary'] })),
+            () => whenVisible(() => router.reload({ only: ['run', 'flows', 'nodes', 'worker', 'commentary', 'results', 'learning'] })),
             PAGE_POLL_MS,
         );
         return () => window.clearInterval(timer);
@@ -80,7 +83,67 @@ export default function RunRoom({ run, flows, nodes, worker, commentary }: { run
         <section className="lab-how"><b>What happens now</b><span>1. Each lane gets an isolated durable Flow run.</span><span>2. A worker claims it and contacts that language’s Harness.</span><span>3. The agent builds and drives the app, then submits proof and 0Learning.</span><span>4. PLabs scores only evidence-backed receipts.</span></section>
         <section className="lab-lanes">{run.lanes.map(lane => <LaneCard key={lane.id} lane={lane} worker={worker} selected={selectedLane?.id === lane.id} onSelect={() => setSelectedLane(lane)} flow={lane.workflow_run_id ? flows[String(lane.workflow_run_id)] : undefined} node={nodes.find(item => item.run_key === flows[String(lane.workflow_run_id)]?.run_key)} />)}</section>
         {selectedLane && <LaneInspector runId={run.id} lane={selectedLane} onClose={() => setSelectedLane(null)} />}
+        <Results results={results} learning={learning} settled={!active} />
     </LabShell>;
+}
+
+/**
+ * What the run PRODUCED — the half of this page that did not exist.
+ *
+ * The Run Room showed how lanes were going and then, the moment they finished,
+ * nothing at all: the proof, the checks, the receipts and the run's own
+ * 0Learning were all recorded and none were displayed. "PLabs scores only
+ * evidence-backed receipts" was a claim the Lab made about itself on a page
+ * that never showed a receipt.
+ */
+function Results({ results, learning, settled }: { results: LaneResult[]; learning: RunLearning | null; settled: boolean }) {
+    if (results.length === 0 && !learning) {
+        return settled
+            ? <section className="lab-panel lab-results-empty"><b>No results</b><p>This run settled without any lane submitting a Proof-of-Working, and filed no learning. That is itself unusual — every terminal run is supposed to leave a 0L behind.</p></section>
+            : null;
+    }
+
+    return <section className="lab-results">
+        <div className="lab-panel-head"><span>Results</span><span>{results.length} lane(s) with proof</span></div>
+
+        {learning && <article className={`lab-panel lab-learning is-${learning.severity}`}>
+            <header><small>0Learning · {learning.severity_label}</small><h3>{learning.ref} — {learning.title}</h3></header>
+            <dl>
+                <dt>What was learned</dt><dd>{learning.what_was_learned}</dd>
+                <dt>Evidence</dt><dd>{learning.evidence}</dd>
+                <dt>Why it matters</dt><dd>{learning.why_it_matters}</dd>
+                {learning.what_should_change && <><dt>What should change</dt><dd>{learning.what_should_change}</dd></>}
+            </dl>
+            <footer><code>{learning.path}</code></footer>
+        </article>}
+
+        {results.map(result => <article key={result.lane_id} className="lab-panel lab-result">
+            <header>
+                <div><small>Lane {result.ordinal} · {result.provider} · {result.model}</small><h3>{result.working_artifact ?? 'No artifact named'}</h3></div>
+                {/* Absent, not zero. Nothing in the Lab computes a score yet, and
+                    a "0" here would read as a verdict rather than a gap. */}
+                <span className={`lab-score ${result.scored ? '' : 'is-unscored'}`}>{result.scored ? result.score : 'not scored'}</span>
+            </header>
+
+            <div className="lab-checks">
+                {Object.entries(result.checks).map(([name, value]) => <div key={name}>
+                    <b>{name.replaceAll('_', ' ')}</b>
+                    <span>{typeof value === 'boolean' ? (value ? 'claimed pass' : 'claimed fail') : String(value)}</span>
+                </div>)}
+            </div>
+
+            {result.zero_learning && <p className="lab-result-learning"><b>Lane 0Learning</b>{result.zero_learning}</p>}
+
+            <details className="lab-receipts">
+                <summary>{result.receipts.length} receipt(s) — the evidence a score would have to rest on</summary>
+                {result.receipts.map(receipt => <div key={receipt.id} className="lab-receipt">
+                    <b>{receipt.kind}</b>
+                    <code title="Digest of the payload as submitted">{receipt.digest.slice(0, 16)}…</code>
+                    <pre>{JSON.stringify(receipt.payload, null, 2)}</pre>
+                </div>)}
+            </details>
+        </article>)}
+    </section>;
 }
 
 // How long ago the lane last recorded anything, and whether that is worrying.

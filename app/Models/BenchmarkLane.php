@@ -27,6 +27,21 @@ final class BenchmarkLane extends Model
         return $this->hasMany(BenchmarkLaneActivity::class)->orderBy('id');
     }
 
+    /**
+     * The independently checkable evidence this lane submitted.
+     *
+     * A lane fails closed without at least one, so a completed lane always has
+     * receipts — and until now nothing ever showed them, which made "PLabs
+     * scores only evidence-backed receipts" a claim the Lab asserted about
+     * itself and never displayed.
+     *
+     * @return HasMany<BenchmarkReceipt, $this>
+     */
+    public function receipts(): HasMany
+    {
+        return $this->hasMany(BenchmarkReceipt::class)->orderBy('created_at');
+    }
+
     protected function casts(): array
     {
         return [

@@ -45,7 +45,7 @@ final class BenchmarkController extends Controller
 
     public function runRoom(BenchmarkRun $run): Response
     {
-        $run->load(['spec', 'lanes']);
+        $run->load(['spec', 'lanes.receipts']);
         $workflowIds = $run->lanes->pluck('workflow_run_id')->filter()->values();
         $queued = $run->lanes->where('status', 'queued')->count();
         $running = $run->lanes->where('status', 'running')->values();
@@ -97,6 +97,8 @@ final class BenchmarkController extends Controller
         return Inertia::render('Lab/RunRoom', [
             'run' => $run,
             'worker' => $worker,
+            'results' => $this->results($run),
+            'learning' => $this->learning($run),
             'commentary' => BenchmarkCommentary::query()
                 ->where('benchmark_run_id', $run->id)
                 ->orderBy('id')->limit(200)->get(['id', 'line', 'created_at']),
@@ -109,6 +111,78 @@ final class BenchmarkController extends Controller
                 'run_key', 'node_id', 'status', 'attempts', 'error', 'claimed_at', 'completed_at', 'updated_at',
             ]),
         ]);
+    }
+
+    /**
+     * What each lane actually PRODUCED.
+     *
+     * A completed lane submits a digest-bound Proof-of-Working — the artifact
+     * it built, the checks it claims, its own 0Learning — plus at least one
+     * independently checkable receipt, because it fails closed without one.
+     * None of that was ever shown. The Run Room displayed how a lane was going
+     * and then, when it finished, nothing at all: the page that exists to make
+     * a benchmark legible went blank at the moment it had something to say.
+     *
+     * `score` is deliberately reported as absent rather than as zero. Nothing
+     * in the Lab computes one yet — `ProofRecorder` accepts a score and no
+     * caller passes it — and a "0" on screen would be read as a verdict rather
+     * than as a gap.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function results(BenchmarkRun $run): array
+    {
+        return $run->lanes
+            ->filter(fn (BenchmarkLane $lane): bool => is_array($lane->proof) && isset($lane->proof['checks']))
+            ->map(fn (BenchmarkLane $lane): array => [
+                'lane_id' => $lane->id,
+                'ordinal' => $lane->ordinal,
+                'provider' => $lane->provider,
+                'model' => $lane->model,
+                'status' => $lane->status,
+                'scored' => $lane->score !== null,
+                'score' => $lane->score,
+                'working_artifact' => $lane->proof['working_artifact'] ?? null,
+                'spec_digest' => $lane->proof['spec_digest'] ?? null,
+                'zero_learning' => $lane->proof['zero_learning'] ?? null,
+                'checks' => is_array($lane->proof['checks'] ?? null) ? $lane->proof['checks'] : [],
+                'receipts' => $lane->receipts->map(fn ($receipt): array => [
+                    'id' => $receipt->id,
+                    'kind' => $receipt->kind,
+                    'digest' => $receipt->digest,
+                    'payload' => $receipt->payload,
+                ])->values()->all(),
+            ])->values()->all();
+    }
+
+    /**
+     * The 0Learning this run filed, if it has settled.
+     *
+     * Every terminal run files one — including the ones that produced nothing,
+     * which are the most worth reading. It was written to disk and to the
+     * database and then shown on no page belonging to the run that produced it.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function learning(BenchmarkRun $run): ?array
+    {
+        if (! is_string($run->learning_ref) || $run->learning_ref === '') {
+            return null;
+        }
+
+        $learning = Learning::query()->where('ref', $run->learning_ref)->first();
+
+        return $learning === null ? null : [
+            'ref' => $learning->ref,
+            'title' => $learning->title,
+            'severity' => $learning->severity->value,
+            'severity_label' => $learning->severity->label(),
+            'what_was_learned' => $learning->what_was_learned,
+            'evidence' => $learning->evidence,
+            'why_it_matters' => $learning->why_it_matters,
+            'what_should_change' => $learning->what_should_change,
+            'path' => $learning->path,
+        ];
     }
 
     /**

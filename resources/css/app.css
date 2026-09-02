@@ -194,6 +194,36 @@
    about the lane, not a verdict on it -- the agent may still be mid-call. */
 .lab-beat-stalled { color: #fbbf24; }
 
+/* Run results: proof, checks, receipts and the run's 0Learning. */
+.lab-results { margin-top: 1.6rem; display: grid; gap: .8rem; }
+.lab-results-empty { margin-top: 1.6rem; }
+.lab-results-empty p { color: var(--k-ink-2); font-size: .78rem; margin-top: .4rem; }
+.lab-result header, .lab-learning header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+.lab-result h3, .lab-learning h3 { font-size: .95rem; margin-top: .2rem; }
+.lab-result small, .lab-learning small { color: var(--k-ink-2); font-size: .66rem; text-transform: uppercase; letter-spacing: .08em; }
+.lab-score { font-size: .72rem; padding: .25rem .6rem; border-radius: 999px; border: 1px solid var(--k-cyan); color: var(--k-cyan); white-space: nowrap; }
+.lab-score.is-unscored { border-color: #3a4256; color: var(--k-ink-3); }
+.lab-checks { display: grid; gap: .4rem; margin-top: .9rem; }
+.lab-checks > div { padding: .5rem .65rem; border-left: 2px solid #2b3350; background: #10121b; border-radius: 0 6px 6px 0; }
+.lab-checks b { display: block; font-size: .72rem; color: var(--k-ink); text-transform: capitalize; }
+.lab-checks span { display: block; font-size: .72rem; color: var(--k-ink-2); margin-top: .2rem; overflow-wrap: anywhere; }
+.lab-result-learning { margin-top: .9rem; font-size: .76rem; color: var(--k-ink-2); border-left: 2px solid var(--k-violet); padding-left: .7rem; }
+.lab-result-learning b { display: block; color: var(--k-ink); font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; margin-bottom: .25rem; }
+.lab-receipts { margin-top: .9rem; }
+.lab-receipts summary { cursor: pointer; color: var(--k-cyan); font-size: .74rem; }
+.lab-receipt { margin-top: .6rem; padding: .6rem; border: 1px solid #252a3a; border-radius: 8px; background: #0e1017; }
+.lab-receipt b { font-size: .74rem; }
+.lab-receipt code { margin-left: .5rem; font-size: .66rem; color: var(--k-ink-3); }
+.lab-receipt pre { margin-top: .45rem; font-size: .68rem; color: var(--k-ink-2); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 16rem; overflow: auto; }
+.lab-learning dl { margin-top: .8rem; display: grid; gap: .55rem; }
+.lab-learning dt { font-size: .66rem; text-transform: uppercase; letter-spacing: .07em; color: var(--k-ink-3); }
+.lab-learning dd { font-size: .78rem; color: var(--k-ink); overflow-wrap: anywhere; }
+.lab-learning footer { margin-top: .8rem; }
+.lab-learning footer code { font-size: .66rem; color: var(--k-ink-3); }
+.lab-learning.is-urgent { border-left: 3px solid #fb7185; }
+.lab-learning.is-notable { border-left: 3px solid #fbbf24; }
+.lab-learning.is-info { border-left: 3px solid var(--k-cyan); }
+
 /* The overseer's ticker. Horizontal, newest on the right, scrolled to on
    arrival rather than animated on a loop -- a marquee that cycles old lines
    forever reads as live when the run has finished. */
