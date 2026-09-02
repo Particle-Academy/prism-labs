@@ -3334,16 +3334,16 @@
         },
         {
             "name": "particle-academy/prism",
-            "version": "v0.115.0-alpha.1",
+            "version": "v0.115.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/Particle-Academy/prism.git",
-                "reference": "4e83207b91eb5000d69f5856378ef66ee94b0284"
+                "reference": "a746657cf82a09f5338dc9149c0a650be44910ac"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Particle-Academy/prism/zipball/4e83207b91eb5000d69f5856378ef66ee94b0284",
-                "reference": "4e83207b91eb5000d69f5856378ef66ee94b0284",
+                "url": "https://api.github.com/repos/Particle-Academy/prism/zipball/a746657cf82a09f5338dc9149c0a650be44910ac",
+                "reference": "a746657cf82a09f5338dc9149c0a650be44910ac",
                 "shasum": ""
             },
             "require": {
@@ -3353,6 +3353,7 @@
                 "laravel/framework": "^12.61.1|^13.12.0",
                 "php": "^8.2",
                 "psr/http-message": "^1.1|^2.0",
+                "symfony/console": "^7.2|^8.0",
                 "symfony/http-foundation": "^7.2|^8.0",
                 "symfony/polyfill-php83": "^1.32"
             },
@@ -3412,7 +3413,7 @@
             "description": "A powerful Laravel package for integrating Large Language Models (LLMs) into your applications. Actively maintained fork of prism-php/prism.",
             "support": {
                 "issues": "https://github.com/Particle-Academy/prism/issues",
-                "source": "https://github.com/Particle-Academy/prism/tree/v0.115.0-alpha.1"
+                "source": "https://github.com/Particle-Academy/prism/tree/v0.115.1"
             },
             "funding": [
                 {
@@ -3420,7 +3421,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-08-26T02:23:39+00:00"
+            "time": "2026-09-02T02:42:01+00:00"
         },
         {
             "name": "particle-academy/prism-browser",
@@ -3428,12 +3429,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/Particle-Academy/prism-browser.git",
-                "reference": "6f78f7c1b635ff6a48bdd0bf15bfabf09441cc76"
+                "reference": "216fbeef4be99e28536ec4ff32c06e8704b7f0d3"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Particle-Academy/prism-browser/zipball/6f78f7c1b635ff6a48bdd0bf15bfabf09441cc76",
-                "reference": "6f78f7c1b635ff6a48bdd0bf15bfabf09441cc76",
+                "url": "https://api.github.com/repos/Particle-Academy/prism-browser/zipball/216fbeef4be99e28536ec4ff32c06e8704b7f0d3",
+                "reference": "216fbeef4be99e28536ec4ff32c06e8704b7f0d3",
                 "shasum": ""
             },
             "require": {
@@ -3490,7 +3491,7 @@
                 "source": "https://github.com/Particle-Academy/prism-browser/tree/main",
                 "issues": "https://github.com/Particle-Academy/prism-browser/issues"
             },
-            "time": "2026-08-30T21:12:04+00:00"
+            "time": "2026-09-02T03:03:12+00:00"
         },
         {
             "name": "particle-academy/prism-harness",
@@ -3498,12 +3499,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/Particle-Academy/prism-harness.git",
-                "reference": "1d6b1ae39120104f65b9e7615f36fba8650abb6b"
+                "reference": "51e62db217fdf9c9d8e8090900236a2e4dbaf4e2"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Particle-Academy/prism-harness/zipball/1d6b1ae39120104f65b9e7615f36fba8650abb6b",
-                "reference": "1d6b1ae39120104f65b9e7615f36fba8650abb6b",
+                "url": "https://api.github.com/repos/Particle-Academy/prism-harness/zipball/51e62db217fdf9c9d8e8090900236a2e4dbaf4e2",
+                "reference": "51e62db217fdf9c9d8e8090900236a2e4dbaf4e2",
                 "shasum": ""
             },
             "require": {
@@ -3572,7 +3573,7 @@
                 "source": "https://github.com/Particle-Academy/prism-harness/tree/main",
                 "issues": "https://github.com/Particle-Academy/prism-harness/issues"
             },
-            "time": "2026-08-31T14:46:12+00:00"
+            "time": "2026-09-02T03:03:18+00:00"
         },
         {
             "name": "particle-academy/prism-human-plus",
@@ -3580,12 +3581,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/Particle-Academy/prism-human-plus.git",
-                "reference": "941a9849c967f2302d8ed587e04d7765596d5eaa"
+                "reference": "56e4ba36d8ef09059a747e8a9428a69a1379ce38"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Particle-Academy/prism-human-plus/zipball/941a9849c967f2302d8ed587e04d7765596d5eaa",
-                "reference": "941a9849c967f2302d8ed587e04d7765596d5eaa",
+                "url": "https://api.github.com/repos/Particle-Academy/prism-human-plus/zipball/56e4ba36d8ef09059a747e8a9428a69a1379ce38",
+                "reference": "56e4ba36d8ef09059a747e8a9428a69a1379ce38",
                 "shasum": ""
             },
             "require": {
@@ -3643,7 +3644,7 @@
                 "source": "https://github.com/Particle-Academy/prism-human-plus/tree/main",
                 "issues": "https://github.com/Particle-Academy/prism-human-plus/issues"
             },
-            "time": "2026-08-30T21:12:06+00:00"
+            "time": "2026-09-02T04:27:41+00:00"
         },
         {
             "name": "particle-academy/prism-mcp",
@@ -3794,16 +3795,16 @@
         },
         {
             "name": "particle-academy/prism-perplexity",
-            "version": "v0.1.0",
+            "version": "v0.2.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/Particle-Academy/prism-perplexity.git",
-                "reference": "d783dbb7664b1d7cc75a0f8abbf54ffc8239bc5a"
+                "reference": "88b2567ee3b1c8c931cb73c9074ee970324bb454"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Particle-Academy/prism-perplexity/zipball/d783dbb7664b1d7cc75a0f8abbf54ffc8239bc5a",
-                "reference": "d783dbb7664b1d7cc75a0f8abbf54ffc8239bc5a",
+                "url": "https://api.github.com/repos/Particle-Academy/prism-perplexity/zipball/88b2567ee3b1c8c931cb73c9074ee970324bb454",
+                "reference": "88b2567ee3b1c8c931cb73c9074ee970324bb454",
                 "shasum": ""
             },
             "require": {
@@ -3852,9 +3853,9 @@
             ],
             "support": {
                 "issues": "https://github.com/Particle-Academy/prism-perplexity/issues",
-                "source": "https://github.com/Particle-Academy/prism-perplexity/tree/v0.1.0"
+                "source": "https://github.com/Particle-Academy/prism-perplexity/tree/v0.2.0"
             },
-            "time": "2026-08-25T07:16:03+00:00"
+            "time": "2026-08-30T06:22:57+00:00"
         },
         {
             "name": "particle-academy/prism-workspace",
