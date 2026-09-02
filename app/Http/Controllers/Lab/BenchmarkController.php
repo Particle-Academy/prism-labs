@@ -21,6 +21,7 @@ use App\Models\BenchmarkSpec;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -48,14 +49,32 @@ final class BenchmarkController extends Controller
         $running = $run->lanes->where('status', 'running')->values();
         $oldestJob = DB::table('jobs')->where('queue', 'default')->min('available_at');
         $queueAge = is_numeric($oldestJob) ? max(0, now()->timestamp - (int) $oldestJob) : null;
+
+        // Each lane carries when it was last heard from, so the page can say
+        // whether an agent is WORKING or STUCK. Without it a lane reads
+        // "Agent is working" from the second it is claimed until the moment it
+        // fails, and the two states are indistinguishable — which is exactly
+        // how a six-minute lane that had already stopped producing looked.
+        $this->attachHeartbeats($run->lanes);
+
+        $settled = $run->lanes->whereIn('status', ['completed', 'failed', 'cancelled'])->count();
         $worker = match (true) {
             $running->isNotEmpty() => [
                 'state' => 'active',
-                'message' => sprintf('Worker active on the %s lane. %d lane(s) remain queued behind it.', $running->first()->language, $queued),
+                // Named by POSITION, not by what is left behind it. "0 lane(s)
+                // remain queued" is true of the last lane of ten and of a run
+                // with one lane, and tells a reader neither how far along the
+                // run is nor how much is left.
+                'message' => sprintf(
+                    'Lane %d of %d running on %s · %s. %d finished, %d still queued.',
+                    $running->first()->ordinal, $run->lanes->count(),
+                    $running->first()->provider, $running->first()->model,
+                    $settled, $queued,
+                ),
             ],
             $queued > 0 && $queueAge !== null && $queueAge >= 15 => [
                 'state' => 'stalled',
-                'message' => sprintf('No worker has claimed the queue for %d seconds. The run is not progressing.', $queueAge),
+                'message' => sprintf('No worker has claimed the queue for %d seconds. %d of %d lanes are done and the run is not progressing.', $queueAge, $settled, $run->lanes->count()),
             ],
             $queued > 0 => [
                 'state' => 'starting',
@@ -76,6 +95,32 @@ final class BenchmarkController extends Controller
                 'run_key', 'node_id', 'status', 'attempts', 'error', 'claimed_at', 'completed_at', 'updated_at',
             ]),
         ]);
+    }
+
+    /**
+     * Stamp each lane with the last moment anything was recorded for it.
+     *
+     * Read from BOTH stores: `benchmark_lane_activities` carries the narrated
+     * milestones and `lab_operations` carries the tool calls, and an agent deep
+     * in a build emits the second for minutes without emitting the first. Using
+     * activities alone would report a busy lane as silent.
+     *
+     * @param  Collection<int, BenchmarkLane>  $lanes
+     */
+    private function attachHeartbeats($lanes): void
+    {
+        $ids = $lanes->pluck('id');
+        $activity = DB::table('benchmark_lane_activities')->whereIn('benchmark_lane_id', $ids)
+            ->groupBy('benchmark_lane_id')->pluck(DB::raw('max(created_at)'), 'benchmark_lane_id');
+        $operations = DB::table('lab_operations')->whereIn('benchmark_lane_id', $ids)
+            ->groupBy('benchmark_lane_id')->pluck(DB::raw('max(started_at)'), 'benchmark_lane_id');
+
+        foreach ($lanes as $lane) {
+            $latest = collect([$activity[$lane->id] ?? null, $operations[$lane->id] ?? null])
+                ->filter()->map(fn ($value): string => (string) $value)->max();
+
+            $lane->setAttribute('last_seen_at', $latest);
+        }
     }
 
     public function lane(BenchmarkRun $run, BenchmarkLane $lane, LaneWorkspace $workspace): JsonResponse

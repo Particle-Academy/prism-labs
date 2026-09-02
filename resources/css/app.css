@@ -190,6 +190,10 @@
 .lab-lane-error { margin-top: 1rem; padding: .8rem; border-left: 3px solid #fb7185; background: rgba(251,113,133,.07); }
 .lab-lane-error p { color: #fecdd3; font-size: .72rem; margin-top: .35rem; overflow-wrap: anywhere; }
 .lab-lane details { margin-top: 1rem; color: var(--k-cyan); }
+/* A running lane that has gone quiet. Amber, not red: silence is a warning
+   about the lane, not a verdict on it -- the agent may still be mid-call. */
+.lab-beat-stalled { color: #fbbf24; }
+
 .lab-lane pre { white-space: pre-wrap; color: var(--k-ink-2); font-size: .7rem; margin-top: .6rem; max-height: 20rem; overflow: auto; }
 .lab-review-actions { display: flex; gap: .6rem; flex-wrap: wrap; }
 .lab-spec-meta { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .6rem; margin-top: 1.3rem; }

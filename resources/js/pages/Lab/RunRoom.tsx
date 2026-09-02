@@ -4,7 +4,7 @@ import { TreeNav, type TreeNodeData } from '@particle-academy/react-fancy';
 import { useEffect, useState } from 'react';
 import { LabShell } from '../../components/lab-shell';
 
-type Lane = { id: string; ordinal: number; language: string; harness: string; provider: string; model: string; status: string; workflow_run_id?: number | null; workspace_path?: string | null; started_at?: string | null; finished_at?: string | null; proof?: { text?: string; failure_class?: string; unreachable?: boolean; reason?: string } | null };
+type Lane = { id: string; ordinal: number; language: string; harness: string; provider: string; model: string; status: string; last_seen_at?: string | null; workflow_run_id?: number | null; workspace_path?: string | null; started_at?: string | null; finished_at?: string | null; proof?: { text?: string; failure_class?: string; unreachable?: boolean; reason?: string } | null };
 type Run = { id: string; status: string; started_at?: string | null; cancelled_at?: string | null; cancel_reason?: string | null; spec: { name: string; revision: number; digest: string; surface_mode: string; budgets: Record<string, number> }; lanes: Lane[] };
 type Flow = { id: number; run_key: string; status: string; awaiting_node?: string | null; awaiting_kind?: string | null; error?: string | null; updated_at: string };
 type Node = { run_key: string; node_id: string; status: string; attempts: number; error?: string | null; claimed_at?: string | null; completed_at?: string | null };
@@ -51,10 +51,25 @@ export default function RunRoom({ run, flows, nodes, worker }: { run: Run; flows
     </LabShell>;
 }
 
+// How long ago the lane last recorded anything, and whether that is worrying.
+//
+// "Agent is working" is printed from the moment a lane is claimed until the
+// moment it fails, so a lane that has silently stopped looks exactly like one
+// mid-build. The only thing that separates them is when it was last heard from.
+function heartbeat(lane: Lane): { label: string; stalled: boolean } | null {
+    if (!lane.last_seen_at) return null;
+    const seconds = Math.max(0, Math.round((Date.now() - new Date(lane.last_seen_at.replace(' ', 'T') + 'Z').getTime()) / 1000));
+    const label = seconds < 60 ? `${seconds}s ago` : seconds < 3600 ? `${Math.floor(seconds / 60)}m ${seconds % 60}s ago` : `${Math.floor(seconds / 3600)}h ago`;
+    // A model call can legitimately run a couple of minutes before the next
+    // tool result lands, so silence is only notable past that.
+    return { label, stalled: seconds > 150 };
+}
+
 function LaneCard({ lane, flow, node, worker, selected, onSelect }: { lane: Lane; flow?: Flow; node?: Node; worker: Worker; selected: boolean; onSelect: () => void }) {
     const failure = lane.proof?.reason ?? node?.error ?? flow?.error ?? lane.proof?.failure_class;
-    const stage = lane.status === 'queued' && !node ? (worker.state === 'stalled' ? 'Worker unavailable · run stalled' : worker.state === 'active' ? 'Workspace ready · waiting behind active lane' : 'Workspace ready · waiting for worker claim') : lane.status === 'running' ? 'Agent is working' : lane.status === 'awaiting_proof' ? 'Waiting for Proof-of-Working' : lane.status;
-    return <article className={`lab-panel lab-lane ${selected ? 'is-selected' : ''}`} onClick={onSelect} role="button" tabIndex={0} onKeyDown={event => { if (event.key === 'Enter') onSelect(); }}><div className="lab-lane-head"><div><small>Lane {lane.ordinal}</small><h2>{lane.language}</h2></div><span className={`lab-status is-${lane.status}`}>{lane.status}</span></div><dl><dt>Current step</dt><dd>{stage}</dd><dt>Harness</dt><dd>{lane.harness}</dd><dt>Provider</dt><dd>{lane.provider} · {lane.model}</dd><dt>Fancy Flow</dt><dd>{flow ? `${flow.run_key} · ${flow.status}` : 'Dispatching…'}</dd><dt>Attempts</dt><dd>{node?.attempts ?? 0}</dd><dt>Started</dt><dd>{lane.started_at ?? node?.claimed_at ?? 'Not claimed'}</dd></dl>{failure && <div className="lab-lane-error"><b>Why it stopped</b><p>{failure}</p></div>}<span className="lab-inspect-link">Inspect activity and files →</span></article>;
+    const beat = lane.status === 'running' ? heartbeat(lane) : null;
+    const stage = lane.status === 'queued' && !node ? (worker.state === 'stalled' ? 'Worker unavailable · run stalled' : worker.state === 'active' ? 'Workspace ready · waiting behind active lane' : 'Workspace ready · waiting for worker claim') : lane.status === 'running' ? (beat ? (beat.stalled ? `No activity for ${beat.label.replace(' ago', '')} · may be stuck` : `Agent is working · last activity ${beat.label}`) : 'Agent is working') : lane.status === 'awaiting_proof' ? 'Waiting for Proof-of-Working' : lane.status;
+    return <article className={`lab-panel lab-lane ${selected ? 'is-selected' : ''}`} onClick={onSelect} role="button" tabIndex={0} onKeyDown={event => { if (event.key === 'Enter') onSelect(); }}><div className="lab-lane-head"><div><small>Lane {lane.ordinal}</small><h2>{lane.language}</h2></div><span className={`lab-status is-${lane.status}`}>{lane.status}</span></div><dl><dt>Current step</dt><dd>{stage}</dd><dt>Harness</dt><dd>{lane.harness}</dd><dt>Provider</dt><dd>{lane.provider} · {lane.model}</dd><dt>Fancy Flow</dt><dd>{flow ? `${flow.run_key} · ${flow.status}` : 'Dispatching…'}</dd><dt>Attempts</dt><dd>{node?.attempts ?? 0}</dd><dt>Started</dt><dd>{lane.started_at ?? node?.claimed_at ?? 'Not claimed'}</dd>{beat && <><dt>Last heard from</dt><dd className={beat.stalled ? 'lab-beat-stalled' : undefined}>{beat.label}</dd></>}</dl>{failure && <div className="lab-lane-error"><b>Why it stopped</b><p>{failure}</p></div>}<span className="lab-inspect-link">Inspect activity and files →</span></article>;
 }
 
 function LaneInspector({ runId, lane, onClose }: { runId: string; lane: Lane; onClose: () => void }) {

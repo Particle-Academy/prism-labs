@@ -24,8 +24,10 @@ use FancyFlow\Laravel\Jobs\AdvanceWorkflowJob;
 use FancyFlow\Laravel\Models\WorkflowRun;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
 use Prism\Harness\Flow\HarnessAgentExecutor;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Testing\TextResponseFake;
@@ -209,6 +211,68 @@ final class LabExperimentFoundationsTest extends TestCase
         $this->assertStringContainsString('claude-sonnet-4-20250514', (string) $learning->what_should_change);
         $this->assertStringContainsString('NEW REVISION', (string) $learning->what_should_change);
         $this->assertStringContainsString('not_found_error', (string) $learning->evidence);
+    }
+
+    public function test_the_run_room_names_lane_position_rather_than_only_what_trails_it(): void
+    {
+        // "0 lane(s) remain queued behind it" is true of the last lane of ten
+        // and of a single-lane run, and says neither how far along the run is
+        // nor how much is left. A two-lane run whose first lane had finished
+        // reported exactly that and read as though nothing else existed.
+        $designer = app(BenchmarkDesigner::class);
+        $spec = $designer->draft('position', 'application', 'standard', ['acceptance' => ['x']], ['working' => 10], [
+            ['language' => 'php', 'harness' => 'cli', 'provider' => 'anthropic', 'model' => 'claude-opus-5'],
+            ['language' => 'php', 'harness' => 'cli', 'provider' => 'openai', 'model' => 'gpt-4.1-mini'],
+        ], ['cost' => 1]);
+        $run = $designer->launch($designer->approve($designer->requestApproval($spec)));
+
+        $lanes = $run->lanes()->orderBy('ordinal')->get();
+        $lanes[0]->forceFill(['status' => 'failed', 'finished_at' => now()])->save();
+        $lanes[1]->forceFill(['status' => 'running', 'started_at' => now()])->save();
+
+        // The controller directly: Lab routes only register under `local`.
+        $props = app(BenchmarkController::class)->runRoom($run->refresh())->toResponse($this->inertiaRequest())->getData(true)['props'];
+
+        $this->assertStringContainsString('Lane 2 of 2', $props['worker']['message']);
+        $this->assertStringContainsString('1 finished', $props['worker']['message']);
+        $this->assertStringContainsString('0 still queued', $props['worker']['message']);
+    }
+
+    public function test_a_running_lane_reports_when_it_was_last_heard_from(): void
+    {
+        // Without this the card prints "Agent is working" from the moment a
+        // lane is claimed until the moment it fails, so a lane that has gone
+        // silent is indistinguishable from one mid-build. Read from BOTH
+        // stores: an agent deep in a build emits tool operations for minutes
+        // without emitting a narrated activity.
+        $designer = app(BenchmarkDesigner::class);
+        $spec = $designer->draft('heartbeat', 'application', 'standard', ['acceptance' => ['x']], ['working' => 10], [
+            ['language' => 'php', 'harness' => 'cli', 'provider' => 'anthropic', 'model' => 'claude-opus-5'],
+        ], ['cost' => 1]);
+        $run = $designer->launch($designer->approve($designer->requestApproval($spec)));
+        $lane = $run->lanes()->firstOrFail();
+        $lane->forceFill(['status' => 'running', 'started_at' => now()->subMinutes(5)])->save();
+
+        // Only a tool operation, deliberately: activities alone would report
+        // this busy lane as never having been heard from.
+        DB::table('lab_operations')->insert([
+            'id' => (string) Str::ulid(), 'benchmark_lane_id' => $lane->id, 'kind' => 'tool.call',
+            'status' => 'completed', 'started_at' => now()->subSeconds(20),
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $props = app(BenchmarkController::class)->runRoom($run->refresh())->toResponse($this->inertiaRequest())->getData(true)['props'];
+
+        $this->assertNotNull(
+            $props['run']['lanes'][0]['last_seen_at'],
+            'A running lane must report when it was last heard from, or a stalled lane is indistinguishable from a busy one.',
+        );
+    }
+
+    /** Inertia only answers with JSON to an Inertia request; without the header it renders HTML. */
+    private function inertiaRequest(): Request
+    {
+        return Request::create('/lab/benchmarks/runs', 'GET', server: ['HTTP_X_INERTIA' => 'true', 'HTTP_X_INERTIA_VERSION' => '']);
     }
 
     public function test_benchmark_run_data_can_be_purged_by_scope(): void
