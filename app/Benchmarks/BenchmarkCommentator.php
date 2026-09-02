@@ -10,6 +10,7 @@ use App\Models\BenchmarkCommentary;
 use App\Models\BenchmarkLaneActivity;
 use App\Models\BenchmarkRun;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Throwable;
 
 /**
@@ -49,19 +50,32 @@ final readonly class BenchmarkCommentator
 
     private function generate(BenchmarkRun $run): ?BenchmarkCommentary
     {
-        $since = (int) BenchmarkCommentary::query()->where('benchmark_run_id', $run->id)->max('after_activity_id');
         $laneIds = $run->lanes()->pluck('id');
+        $marks = BenchmarkCommentary::query()->where('benchmark_run_id', $run->id);
+        $sinceActivity = (int) (clone $marks)->max('after_activity_id');
+        $sinceOperation = (clone $marks)->max('after_operation_at');
 
-        $events = BenchmarkLaneActivity::query()
+        $activities = BenchmarkLaneActivity::query()
             ->whereIn('benchmark_lane_id', $laneIds)
-            ->where('id', '>', $since)
-            ->orderBy('id')
-            ->limit(self::BATCH)
-            ->get();
+            ->where('id', '>', $sinceActivity)
+            ->orderBy('id')->limit(self::BATCH)->get();
 
-        if ($events->isEmpty()) {
+        // BOTH stores. `benchmark_lane_activities` carries the narrated
+        // milestones and `lab_operations` carries the tool calls, and an agent
+        // deep in a build emits the second for minutes without emitting the
+        // first. Reading activities alone left the ticker silent through
+        // exactly the stretch worth calling — the same mistake the lane
+        // heartbeat made before it was taught to read both.
+        $operations = DB::table('lab_operations')
+            ->whereIn('benchmark_lane_id', $laneIds)
+            ->when(is_string($sinceOperation), fn ($query) => $query->where('started_at', '>', $sinceOperation))
+            ->orderBy('started_at')->limit(self::BATCH)->get();
+
+        if ($activities->isEmpty() && $operations->isEmpty()) {
             return null;
         }
+
+        $events = $this->feed($run, $activities, $operations);
 
         $model = $this->catalogue->cheapestConfigured();
 
@@ -87,23 +101,60 @@ final readonly class BenchmarkCommentator
             // line, and a model that ignores "one or two short lines" must not
             // be able to fill the screen.
             'line' => mb_substr($line, 0, 400),
-            'after_activity_id' => (int) $events->max('id'),
+            'after_activity_id' => $activities->isEmpty() ? $sinceActivity : (int) $activities->max('id'),
+            'after_operation_at' => $operations->isEmpty() ? $sinceOperation : $operations->max('started_at'),
         ]);
     }
 
-    /** @param Collection<int, BenchmarkLaneActivity> $events */
-    private function prompt(BenchmarkRun $run, Collection $events): string
+    /**
+     * One feed in time order, from both stores.
+     *
+     * A tool call says WHAT the agent did and an activity says what the lane
+     * REACHED, and the commentary is only specific when it has both: "writes
+     * Scene3Code.tsx" comes from the first, "stopped at the step ceiling" from
+     * the second.
+     *
+     * @param  Collection<int, BenchmarkLaneActivity>  $activities
+     * @param  Collection<int, object>  $operations
+     * @return list<array{at: string, lane: string, kind: string, detail: string}>
+     */
+    private function feed(BenchmarkRun $run, Collection $activities, Collection $operations): array
     {
         $lanes = $run->lanes->mapWithKeys(fn ($lane): array => [
             $lane->id => sprintf('Lane %d (%s %s)', $lane->ordinal, $lane->provider, $lane->model),
         ]);
 
-        $feed = $events->map(fn (BenchmarkLaneActivity $event): string => sprintf(
-            '- %s %s: %s',
-            $lanes[$event->benchmark_lane_id] ?? 'Lane ?',
-            $event->kind,
-            mb_substr((string) $event->summary, 0, 160),
-        ))->implode("\n");
+        $rows = $activities->map(fn (BenchmarkLaneActivity $event): array => [
+            'at' => (string) $event->created_at,
+            'lane' => $lanes[$event->benchmark_lane_id] ?? 'Lane ?',
+            'kind' => (string) $event->kind,
+            'detail' => mb_substr((string) $event->summary, 0, 160),
+        ])->values()->all();
+
+        foreach ($operations as $operation) {
+            $metadata = is_string($operation->metadata ?? null) ? json_decode($operation->metadata, true) : null;
+            $tool = is_array($metadata) ? ($metadata['tool_name'] ?? null) : null;
+
+            $rows[] = [
+                'at' => (string) $operation->started_at,
+                'lane' => $lanes[$operation->benchmark_lane_id] ?? 'Lane ?',
+                'kind' => (string) $operation->kind,
+                'detail' => is_string($tool) ? $tool : (string) $operation->status,
+            ];
+        }
+
+        usort($rows, fn (array $a, array $b): int => $a['at'] <=> $b['at']);
+
+        return array_slice($rows, -self::BATCH);
+    }
+
+    /** @param list<array{at: string, lane: string, kind: string, detail: string}> $events */
+    private function prompt(BenchmarkRun $run, array $events): string
+    {
+        $feed = implode("\n", array_map(
+            fn (array $event): string => sprintf('- %s %s: %s', $event['lane'], $event['kind'], $event['detail']),
+            $events,
+        ));
 
         $recent = BenchmarkCommentary::query()
             ->where('benchmark_run_id', $run->id)

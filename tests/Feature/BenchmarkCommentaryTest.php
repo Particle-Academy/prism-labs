@@ -13,7 +13,9 @@ use App\Models\BenchmarkCommentary;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Str;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Testing\TextResponseFake;
 use Tests\TestCase;
@@ -113,6 +115,29 @@ class BenchmarkCommentaryTest extends TestCase
 
         $this->assertNotNull($second);
         $this->assertGreaterThan($first->after_activity_id, $second->after_activity_id);
+    }
+
+    public function test_it_calls_tool_activity_even_when_no_milestone_has_landed(): void
+    {
+        // The silence bug, pinned. An agent deep in a build emits tool calls
+        // into `lab_operations` for minutes without writing a single row to
+        // `benchmark_lane_activities` — so a commentator reading only the
+        // second went quiet through exactly the stretch worth calling. The
+        // lane heartbeat had already made this mistake once.
+        Prism::fake([TextResponseFake::make()->withText('Sonnet 5 is writing files fast.')]);
+        $run = $this->liveRun();
+        $lane = $run->lanes()->firstOrFail();
+
+        DB::table('lab_operations')->insert([
+            'id' => (string) Str::uuid(), 'benchmark_lane_id' => $lane->id, 'kind' => 'tool.call',
+            'status' => 'completed', 'metadata' => json_encode(['tool_name' => 'workspace_write']),
+            'started_at' => now(), 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $line = app(BenchmarkCommentator::class)->call($run->refresh());
+
+        $this->assertNotNull($line, 'Tool calls alone must be enough to say something.');
+        $this->assertNotNull($line->after_operation_at, 'The operation cursor must advance, or the same call repeats forever.');
     }
 
     public function test_a_failing_overseer_never_takes_the_run_with_it(): void
