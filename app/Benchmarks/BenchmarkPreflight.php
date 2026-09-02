@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Benchmarks;
 
+use App\Lab\ModelPolicy;
 use App\Lab\ProviderRegistry;
 use App\Models\BenchmarkSpec;
 use App\Team\AgentRoster;
@@ -53,7 +54,7 @@ final readonly class BenchmarkPreflight
         'python' => 'py',
     ];
 
-    public function __construct(private AgentRoster $roster, private ProviderRegistry $providers) {}
+    public function __construct(private AgentRoster $roster, private ProviderRegistry $providers, private ModelPolicy $models) {}
 
     /** @return list<string> */
     public function failures(BenchmarkSpec $spec): array
@@ -148,6 +149,21 @@ final readonly class BenchmarkPreflight
                     $provider, $where, $this->providers->setupHint($provider),
                 );
             }
+        }
+
+        // And the model, which is a SPENDING decision rather than a
+        // correctness one. A spec is frozen when it is approved, so a model
+        // chosen carelessly at design time is one that every run of that spec
+        // pays for until somebody cuts a new revision.
+        foreach ($spec->lane_matrix as $index => $lane) {
+            $provider = (string) ($lane['provider'] ?? '');
+            $model = (string) ($lane['model'] ?? '');
+
+            if ($provider === '' || $model === '' || $this->models->permits($provider, $model)) {
+                continue;
+            }
+
+            $failures[] = sprintf('%s: %s', $this->describeLanes([$index + 1]), $this->models->refusal($provider, $model));
         }
 
         return $failures;

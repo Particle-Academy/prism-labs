@@ -5,6 +5,7 @@ import { PLabAgentLauncher } from './plab-agent';
 const primary = [
     ['/lab', 'Cockpit'],
     ['/lab/benchmarks', 'Benchmarks'],
+    ['/lab/models', 'Models'],
     ['/lab/consensus', 'Consensus'],
     ['/lab/evidence', 'Evidence'],
 ] as const;

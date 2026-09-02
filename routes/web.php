@@ -7,6 +7,7 @@ use App\Http\Controllers\Lab\ChatController;
 use App\Http\Controllers\Lab\CockpitController;
 use App\Http\Controllers\Lab\ConsensusController;
 use App\Http\Controllers\Lab\HumanPlusFixtureController;
+use App\Http\Controllers\Lab\ModelPolicyController;
 use App\Http\Controllers\Lab\TeamController;
 use App\Http\Controllers\Lab\TelemetryController;
 use App\Http\Controllers\Lab\TestSuiteController;
@@ -77,6 +78,8 @@ if (app()->environment('local')) {
         Route::post('/lab/tests', [TestSuiteController::class, 'run'])->middleware('throttle:10,1')->name('lab.tests.run');
         Route::get('/lab/threads', [ThreadController::class, 'show'])->name('lab.threads');
         Route::get('/lab/telemetry', [TelemetryController::class, 'show'])->name('lab.telemetry');
+        Route::get('/lab/models', [ModelPolicyController::class, 'show'])->name('lab.models');
+        Route::post('/lab/models', [ModelPolicyController::class, 'update'])->middleware('throttle:20,1')->name('lab.models.update');
         Route::get('/lab/benchmarks', [BenchmarkController::class, 'show'])->name('lab.benchmarks');
         Route::get('/lab/benchmarks/specs/{spec}', [BenchmarkController::class, 'specification'])->name('lab.benchmark-specs.show');
         Route::get('/lab/benchmarks/runs/{run}', [BenchmarkController::class, 'runRoom'])->name('lab.benchmark-runs.show');

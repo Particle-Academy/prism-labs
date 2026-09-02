@@ -194,6 +194,18 @@
    about the lane, not a verdict on it -- the agent may still be mid-call. */
 .lab-beat-stalled { color: #fbbf24; }
 
+/* Model spend policy list. */
+.lab-model-list { list-style: none; margin-top: .8rem; display: grid; gap: .35rem; }
+.lab-model-list label { display: flex; align-items: center; gap: .7rem; padding: .55rem .7rem; border: 1px solid #252a3a; border-radius: 8px; background: #10121b; cursor: pointer; }
+.lab-model-list label:hover { border-color: #36405a; }
+.lab-model-list input { accent-color: var(--k-cyan); width: 1rem; height: 1rem; }
+.lab-model-name { font-weight: 600; min-width: 9rem; }
+.lab-model-list code { color: var(--k-ink-2); font-size: .72rem; flex: 1; }
+.lab-tier { font-size: .64rem; text-transform: uppercase; letter-spacing: .06em; padding: .18rem .45rem; border-radius: 999px; border: 1px solid currentColor; }
+.lab-tier.is-cheap { color: #4ade80; }
+.lab-tier.is-mid { color: #fbbf24; }
+.lab-tier.is-expensive { color: #fb7185; }
+
 .lab-lane pre { white-space: pre-wrap; color: var(--k-ink-2); font-size: .7rem; margin-top: .6rem; max-height: 20rem; overflow: auto; }
 .lab-review-actions { display: flex; gap: .6rem; flex-wrap: wrap; }
 .lab-spec-meta { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .6rem; margin-top: 1.3rem; }
