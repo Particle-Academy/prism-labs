@@ -16,6 +16,35 @@ type OpenFile = { path: string; content?: string; language?: string; size: numbe
 type Worker = { state: 'starting' | 'active' | 'stalled' | 'settled'; message: string };
 type Commentary = { id: number; line: string; created_at: string };
 
+/**
+ * Poll intervals, chosen against a HARD REQUEST BUDGET rather than against how
+ * live the page feels.
+ *
+ * Genie serves this site through one `php-cgi` worker, and `php-cgi` exits
+ * after `PHP_FCGI_MAX_REQUESTS` — default 500 — after which nothing respawns it
+ * and the site 502s until someone restarts it by hand. Measured: it died at
+ * request 500 on the nose. So every poll spends a share of a fixed budget, and
+ * the old 5s page + 3s inspector pair burned all 500 in about sixteen minutes,
+ * which is roughly how long a benchmark run lasts. That is the crash.
+ *
+ * These numbers roughly double the time to exhaustion. `whenVisible` does more
+ * than the numbers do: a backgrounded tab spends nothing at all, and a Run Room
+ * left open on a second monitor was previously just as expensive as a watched
+ * one.
+ *
+ * Slower polling costs less than it used to, because the commentary no longer
+ * depends on it — `CallTheRunJob` keeps its own cadence server-side, so lines
+ * accumulate whether or not anyone is looking and simply arrive on the next
+ * poll.
+ */
+const PAGE_POLL_MS = 8000;
+const INSPECTOR_POLL_MS = 5000;
+
+/** Skip a tick entirely when nobody can see the result. */
+function whenVisible(work: () => void): void {
+    if (document.visibilityState === 'visible') work();
+}
+
 export default function RunRoom({ run, flows, nodes, worker, commentary }: { run: Run; flows: Record<string, Flow>; nodes: Node[]; worker: Worker; commentary: Commentary[] }) {
     const active = ['queued', 'ready', 'running'].includes(run.status);
     const [selectedLane, setSelectedLane] = useState<Lane | null>(null);
@@ -24,10 +53,11 @@ export default function RunRoom({ run, flows, nodes, worker, commentary }: { run
         // No `preserveScroll` here: Inertia types `ReloadOptions` as
         // `Omit<VisitOptions, 'preserveScroll' | 'preserveState'>` because
         // `reload()` already sets both. Passing it was a type error that failed
-        // the Build gate, and removing it changes nothing at runtime — this
-        // page polls every 5s while a run is live, so a scroll jump would be
-        // very visible if it had been load-bearing.
-        const timer = window.setInterval(() => router.reload({ only: ['run', 'flows', 'nodes', 'worker', 'commentary'] }), 5000);
+        // the Build gate, and removing it changes nothing at runtime.
+        const timer = window.setInterval(
+            () => whenVisible(() => router.reload({ only: ['run', 'flows', 'nodes', 'worker', 'commentary'] })),
+            PAGE_POLL_MS,
+        );
         return () => window.clearInterval(timer);
     }, [active]);
 
@@ -148,10 +178,10 @@ function LaneInspector({ runId, lane, onClose }: { runId: string; lane: Lane; on
         sinceOperation.current = null;
         void load(true);
 
-        const timer = window.setInterval(async () => {
+        const timer = window.setInterval(() => whenVisible(async () => {
             // Re-list the workspace only when this tick reported a write.
             if (await load(false)) void load(true);
-        }, 3000);
+        }), INSPECTOR_POLL_MS);
         return () => window.clearInterval(timer);
     }, [lane.id]);
     const openFile = async (value: string | string[] | null) => {
