@@ -10,7 +10,7 @@ return [
     'llm' => [
         'driver' => 'prism',
         'provider' => env('PRISM_COORDINATOR_PROVIDER', 'anthropic'),
-        'model' => env('PRISM_COORDINATOR_MODEL', 'claude-sonnet-4-5'),
+        'model' => env('PRISM_COORDINATOR_MODEL', 'claude-opus-5'),
     ],
     'timeout_ms' => null,
     'events' => true,

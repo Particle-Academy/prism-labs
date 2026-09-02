@@ -34,7 +34,7 @@ return [
     */
     'coordinator' => [
         'provider' => env('PRISM_COORDINATOR_PROVIDER', 'anthropic'),
-        'model' => env('PRISM_COORDINATOR_MODEL', 'claude-sonnet-4-5'),
+        'model' => env('PRISM_COORDINATOR_MODEL', 'claude-opus-5'),
         'max_steps' => (int) env('PRISM_COORDINATOR_MAX_STEPS', 8),
 
         // The default HTTP timeout is 30s, and a coordinator step routinely

@@ -12,6 +12,9 @@ use App\Benchmarks\LaneWorkspace;
 use App\Http\Controllers\Controller;
 use App\Lab\BenchmarkStore;
 use App\Lab\InstalledVersions;
+use App\Learnings\Learning;
+use App\Learnings\LearningStore;
+use App\Learnings\Severity;
 use App\Models\BenchmarkLane;
 use App\Models\BenchmarkRun;
 use App\Models\BenchmarkSpec;
@@ -22,6 +25,7 @@ use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Throwable;
 
 final class BenchmarkController extends Controller
 {
@@ -163,10 +167,20 @@ final class BenchmarkController extends Controller
         return to_route('lab.benchmark-specs.show', $spec);
     }
 
-    public function launch(BenchmarkSpec $spec, BenchmarkDesigner $designer, BenchmarkWorkflow $workflow, BenchmarkPreflight $preflight): RedirectResponse
+    public function launch(BenchmarkSpec $spec, BenchmarkDesigner $designer, BenchmarkWorkflow $workflow, BenchmarkPreflight $preflight, LearningStore $learnings): RedirectResponse
     {
         $failures = $preflight->failures($spec);
         if ($failures !== []) {
+            // A refused launch files a 0L too.
+            //
+            // Every terminal RUN files one, but a preflight refusal never
+            // creates a run — so without this, the single most informative
+            // outcome the Lab produces (the benchmark cannot start at all, and
+            // here is precisely why) is the one outcome that left no trace.
+            // A learning is owed for every test, and "it could not run" is a
+            // finding about the ecosystem rather than an absence of one.
+            $this->recordRefusedLaunch($learnings, $spec, $failures);
+
             return to_route('lab.benchmark-specs.show', $spec)->with('error', 'Benchmark preflight failed: '.implode(' ', $failures));
         }
 
@@ -174,6 +188,37 @@ final class BenchmarkController extends Controller
         $workflow->dispatch($run);
 
         return to_route('lab.benchmark-runs.show', $run);
+    }
+
+    /**
+     * @param  list<string>  $failures
+     */
+    private function recordRefusedLaunch(LearningStore $learnings, BenchmarkSpec $spec, array $failures): void
+    {
+        $title = sprintf('%s r%d — refused before any lane started', $spec->name, $spec->revision);
+
+        // One learning per spec revision per refusal, not one per click. The
+        // Launch button is right there and a blocked operator will press it
+        // again; a 0L per press buries the finding under copies of itself.
+        if (Learning::query()->where('title', $title)->exists()) {
+            return;
+        }
+
+        try {
+            $learnings->file(
+                title: $title,
+                filedBy: 'prism-lab/benchmark',
+                languages: array_values(array_unique(array_column($spec->lane_matrix, 'language'))),
+                whatWasLearned: "The preflight refused this benchmark, so no lane ran and the spec answered nothing about the languages it compares.\n\n".
+                    'That refusal is the finding. The spec is approved and frozen, the lanes are well formed, and the run still cannot start — so what is missing is capability in the ecosystem, not correctness in the specification.',
+                evidence: implode("\n", array_map(fn (string $failure): string => '- '.$failure, $failures)),
+                whyItMatters: 'A benchmark that cannot start looks like nothing happened, and nothing happening leaves no record. The cost of designing a fair spec has already been paid by the time the preflight speaks, so losing the refusal means paying it again to reach the same wall.',
+                whatShouldChange: 'Read the failures above as a capability gap. If a lane names an agent that does not offer the tool the lane needs, adding an endpoint that returns "not implemented" would move the failure later and say less than this refusal already does — the missing piece is the contract behind it.',
+                severity: Severity::Urgent,
+            );
+        } catch (Throwable $failure) {
+            report($failure);
+        }
     }
 
     public function stop(BenchmarkRun $run, BenchmarkFuse $fuse): RedirectResponse

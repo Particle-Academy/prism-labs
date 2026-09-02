@@ -23,7 +23,7 @@ class ProviderRegistry
      */
     private const DESCRIPTORS = [
         'openai' => ['label' => 'OpenAI', 'env' => 'OPENAI_API_KEY', 'model' => 'gpt-4.1-mini', 'modality' => 'text'],
-        'anthropic' => ['label' => 'Anthropic', 'env' => 'ANTHROPIC_API_KEY', 'model' => 'claude-sonnet-4-5', 'modality' => 'text'],
+        'anthropic' => ['label' => 'Anthropic', 'env' => 'ANTHROPIC_API_KEY', 'model' => 'claude-opus-5', 'modality' => 'text'],
         // A moving alias, not a pinned version: gemini-2.0-flash sat here until
         // Google delisted it, and a prefilled default that names a withdrawn
         // model fails on the user's first request rather than at configuration

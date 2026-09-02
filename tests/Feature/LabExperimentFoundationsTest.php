@@ -15,6 +15,7 @@ use App\Consensus\ConsensusCoordinator;
 use App\Http\Controllers\Lab\AgentConversationController;
 use App\Http\Controllers\Lab\BenchmarkController;
 use App\Lab\LabSession;
+use App\Learnings\Learning;
 use App\Models\BenchmarkLane;
 use App\Models\ConsensusRun;
 use App\Models\LabOperation;
@@ -142,6 +143,72 @@ final class LabExperimentFoundationsTest extends TestCase
 
         $this->assertSame('failed', $run->refresh()->status);
         $this->assertNotNull($run->finished_at);
+    }
+
+    public function test_every_terminal_run_files_a_learning_including_one_where_every_lane_failed(): void
+    {
+        // The requirement, stated as a test: a benchmark that produced nothing
+        // is the one most worth writing down. The spend and the elapsed time
+        // are gone by the time it fails, so an unrecorded total failure means
+        // the next operator pays the same cost to reach the same dead end.
+        $designer = app(BenchmarkDesigner::class);
+        $spec = $designer->draft('total failure', 'application', 'standard', ['acceptance' => ['learns']], ['working' => 10], [[
+            'language' => 'php', 'harness' => 'prism-harness', 'provider' => 'anthropic', 'model' => 'claude-opus-5',
+        ]], ['cost' => 1]);
+        $run = $designer->launch($designer->approve($designer->requestApproval($spec)));
+        $run->forceFill(['status' => 'running', 'started_at' => now()])->save();
+        $run->lanes()->update(['status' => 'failed', 'finished_at' => now()]);
+
+        app(BenchmarkRunReconciler::class)->reconcile($run);
+
+        $ref = $run->refresh()->learning_ref;
+        $this->assertNotNull($ref, 'A run where every lane failed must still leave a 0L behind.');
+        $this->assertDatabaseHas('learnings', ['ref' => $ref, 'severity' => 'urgent']);
+    }
+
+    public function test_a_run_stopped_by_the_operator_still_files_a_learning(): void
+    {
+        // The emergency stop used to be the ONE outcome that left nothing at
+        // all — no run reconciliation, no receipts, no 0L. It is also the
+        // outcome where a human already decided something was wrong, which is
+        // exactly the judgement worth keeping.
+        Queue::fake();
+        $designer = app(BenchmarkDesigner::class);
+        $spec = $designer->draft('stopped', 'application', 'standard', ['acceptance' => ['stops']], ['working' => 10], [[
+            'language' => 'php', 'harness' => 'prism-harness', 'provider' => 'anthropic', 'model' => 'claude-opus-5',
+        ]], ['cost' => 1]);
+        $run = $designer->launch($designer->approve($designer->requestApproval($spec)));
+        app(BenchmarkWorkflow::class)->dispatch($run);
+
+        app(BenchmarkFuse::class)->trip($run);
+
+        $this->assertNotNull($run->refresh()->learning_ref, 'An operator stop must still leave a 0L behind.');
+    }
+
+    public function test_a_learning_names_a_rejected_model_id_rather_than_the_exception_class(): void
+    {
+        // The failure text lives in the lane ACTIVITY, not in `proof`: an
+        // exception path records only `failure_class` ("PrismException" —
+        // true and useless), while the sentence that identifies the cause is
+        // the activity summary. Reading the proof alone missed the 404 on the
+        // very run that motivated the check, so the fix is pinned here.
+        $designer = app(BenchmarkDesigner::class);
+        $spec = $designer->draft('dead model', 'application', 'standard', ['acceptance' => ['names it']], ['working' => 10], [[
+            'language' => 'php', 'harness' => 'prism-harness', 'provider' => 'anthropic', 'model' => 'claude-sonnet-4-20250514',
+        ]], ['cost' => 1]);
+        $run = $designer->launch($designer->approve($designer->requestApproval($spec)));
+        $run->forceFill(['status' => 'running', 'started_at' => now()])->save();
+
+        $lane = $run->lanes()->firstOrFail();
+        $lane->forceFill(['status' => 'failed', 'proof' => ['failure_class' => 'Prism\\Prism\\Exceptions\\PrismException'], 'finished_at' => now()])->save();
+        app(LaneActivity::class)->record($lane, 'agent.exception', 'Anthropic Error [404]: not_found_error - model: claude-sonnet-4-20250514', [], 'error');
+
+        app(BenchmarkRunReconciler::class)->reconcile($run);
+
+        $learning = Learning::query()->where('ref', $run->refresh()->learning_ref)->firstOrFail();
+        $this->assertStringContainsString('claude-sonnet-4-20250514', (string) $learning->what_should_change);
+        $this->assertStringContainsString('NEW REVISION', (string) $learning->what_should_change);
+        $this->assertStringContainsString('not_found_error', (string) $learning->evidence);
     }
 
     public function test_benchmark_run_data_can_be_purged_by_scope(): void

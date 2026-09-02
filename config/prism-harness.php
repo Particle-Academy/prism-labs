@@ -7,7 +7,7 @@ use App\Prompts\PromptFile;
 return [
     'agent' => [
         'provider' => env('PRISM_COORDINATOR_PROVIDER', 'anthropic'),
-        'model' => env('PRISM_COORDINATOR_MODEL', 'claude-sonnet-4-5'),
+        'model' => env('PRISM_COORDINATOR_MODEL', 'claude-opus-5'),
         'lock_ttl' => (int) env('HARNESS_RUN_LOCK_TTL', 600),
         'lock_wait' => 0,
         'authorize_tools' => false,

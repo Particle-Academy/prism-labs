@@ -26,6 +26,13 @@
         <env name="DB_CONNECTION" value="sqlite"/>
         <env name="DB_DATABASE" value=":memory:"/>
         <env name="DB_URL" value=""/>
+        <!-- 0L learnings are FILES, and the store writes them wherever it is
+             pointed - the database being :memory: does not sandbox the disk.
+             Benchmark runs now file a learning on every terminal outcome, so
+             without this every `php artisan test` would drop fixture-named
+             learnings ("fuse", "settlement") into the workspace knowledge base
+             alongside the real ones. -->
+        <env name="PRISM_LEARNINGS_PATH" value="./storage/framework/testing/learnings"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>

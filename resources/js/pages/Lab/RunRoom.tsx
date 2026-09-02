@@ -20,7 +20,13 @@ export default function RunRoom({ run, flows, nodes, worker }: { run: Run; flows
     const [selectedLane, setSelectedLane] = useState<Lane | null>(null);
     useEffect(() => {
         if (!active) return;
-        const timer = window.setInterval(() => router.reload({ only: ['run', 'flows', 'nodes', 'worker'], preserveScroll: true }), 5000);
+        // No `preserveScroll` here: Inertia types `ReloadOptions` as
+        // `Omit<VisitOptions, 'preserveScroll' | 'preserveState'>` because
+        // `reload()` already sets both. Passing it was a type error that failed
+        // the Build gate, and removing it changes nothing at runtime — this
+        // page polls every 5s while a run is live, so a scroll jump would be
+        // very visible if it had been load-bearing.
+        const timer = window.setInterval(() => router.reload({ only: ['run', 'flows', 'nodes', 'worker'] }), 5000);
         return () => window.clearInterval(timer);
     }, [active]);
 
