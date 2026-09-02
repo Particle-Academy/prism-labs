@@ -27,6 +27,8 @@ final class Learning extends Model
         return [
             'languages' => 'array',
             'severity' => Severity::class,
+            'sent_at' => 'datetime',
+            'acted_at' => 'datetime',
         ];
     }
 }

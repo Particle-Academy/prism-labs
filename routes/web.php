@@ -6,6 +6,7 @@ use App\Http\Controllers\Lab\CapabilityController;
 use App\Http\Controllers\Lab\ChatController;
 use App\Http\Controllers\Lab\CockpitController;
 use App\Http\Controllers\Lab\ConsensusController;
+use App\Http\Controllers\Lab\EvidenceController;
 use App\Http\Controllers\Lab\HumanPlusFixtureController;
 use App\Http\Controllers\Lab\ModelPolicyController;
 use App\Http\Controllers\Lab\TeamController;
@@ -32,7 +33,13 @@ if (app()->environment('local')) {
         Route::get('/lab/consensus', [ConsensusController::class, 'show'])->name('lab.consensus');
         Route::post('/lab/consensus', [ConsensusController::class, 'store'])->middleware('throttle:6,1')->name('lab.consensus.store');
         Route::post('/lab/consensus/{run}/review', [ConsensusController::class, 'review'])->middleware('throttle:10,1')->name('lab.consensus.review');
-        Route::inertia('/lab/evidence', 'Lab/Evidence')->name('lab.evidence');
+        // Closing a run nobody will synthesise is a real outcome, not the
+        // absence of one — and it is the outcome that files the 0L saying the
+        // agent calls were spent and nothing was concluded from them.
+        Route::post('/lab/consensus/{run}/abandon', [ConsensusController::class, 'abandon'])->middleware('throttle:10,1')->name('lab.consensus.abandon');
+        Route::get('/lab/evidence', [EvidenceController::class, 'show'])->name('lab.evidence');
+        Route::post('/lab/evidence/send', [EvidenceController::class, 'send'])->middleware('throttle:10,1')->name('lab.evidence.send');
+        Route::post('/lab/evidence/close', [EvidenceController::class, 'close'])->middleware('throttle:30,1')->name('lab.evidence.close');
         // The team board. The roster is fetched separately from the page render
         // because probing means one network call per addressable lane, and a
         // lane that is down would otherwise hold the whole page behind its

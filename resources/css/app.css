@@ -217,6 +217,15 @@
    about the lane, not a verdict on it -- the agent may still be mid-call. */
 .lab-beat-stalled { color: #fbbf24; }
 
+/* The 0Learning registry. */
+.lab-learning-closed { display: grid; grid-template-columns: 6rem 1fr; gap: .2rem .7rem; padding: .55rem 0; border-bottom: 1px solid #1b2030; }
+.lab-learning-closed b { font-size: .72rem; color: var(--k-ink-3); }
+.lab-learning-closed span { font-size: .76rem; }
+.lab-learning-closed p { grid-column: 2; font-size: .72rem; color: var(--k-ink-2); }
+.lab-close-learning { display: flex; gap: .5rem; margin-top: .6rem; }
+.lab-close-learning input { flex: 1; background: #0e1017; border: 1px solid #252a3a; border-radius: 6px; padding: .4rem .6rem; color: var(--k-ink); font-size: .74rem; }
+.lab-close-learning input:focus { outline: none; border-color: var(--k-cyan); }
+
 /* Per-dimension rubric scores. */
 .lab-dimensions { display: grid; gap: .5rem; margin-top: .9rem; }
 .lab-dimensions > div { padding: .6rem .7rem; border: 1px solid #252a3a; border-radius: 8px; background: #0e1017; }
