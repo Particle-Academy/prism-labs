@@ -10,11 +10,13 @@ use App\Benchmarks\BenchmarkPreflight;
 use App\Benchmarks\BenchmarkWorkflow;
 use App\Benchmarks\LaneWorkspace;
 use App\Http\Controllers\Controller;
+use App\Jobs\CallTheRunJob;
 use App\Lab\BenchmarkStore;
 use App\Lab\InstalledVersions;
 use App\Learnings\Learning;
 use App\Learnings\LearningStore;
 use App\Learnings\Severity;
+use App\Models\BenchmarkCommentary;
 use App\Models\BenchmarkLane;
 use App\Models\BenchmarkRun;
 use App\Models\BenchmarkSpec;
@@ -22,6 +24,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -83,9 +86,22 @@ final class BenchmarkController extends Controller
             default => ['state' => 'settled', 'message' => 'No lane is waiting for the workflow worker.'],
         };
 
+        // Ask the overseer for the next line, but only DISPATCH here: the
+        // commentary is model-generated, and a model call inside a page request
+        // stalls the Lab's single FastCGI worker until Caddy gives up on it.
+        // Throttled, because this page polls every five seconds and several
+        // viewers may be watching the same run.
+        if (in_array($run->status, ['queued', 'ready', 'running'], true)
+            && Cache::add('commentary:'.$run->id, true, now()->addSeconds(12))) {
+            CallTheRunJob::dispatch($run->id);
+        }
+
         return Inertia::render('Lab/RunRoom', [
             'run' => $run,
             'worker' => $worker,
+            'commentary' => BenchmarkCommentary::query()
+                ->where('benchmark_run_id', $run->id)
+                ->orderBy('id')->limit(200)->get(['id', 'line', 'created_at']),
             'flows' => DB::table('fancy_flow_workflow_runs')->whereIn('id', $workflowIds)->get([
                 'id', 'run_key', 'status', 'awaiting_node', 'awaiting_kind', 'error', 'created_at', 'updated_at',
             ])->keyBy('id'),

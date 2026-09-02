@@ -194,6 +194,22 @@
    about the lane, not a verdict on it -- the agent may still be mid-call. */
 .lab-beat-stalled { color: #fbbf24; }
 
+/* The overseer's ticker. Horizontal, newest on the right, scrolled to on
+   arrival rather than animated on a loop -- a marquee that cycles old lines
+   forever reads as live when the run has finished. */
+.lab-ticker { display: flex; align-items: stretch; gap: 0; margin: 1rem 0 .2rem; border: 1px solid #252a3a; border-radius: 10px; background: linear-gradient(90deg, #12141f, #0e1017); overflow: hidden; }
+.lab-ticker > b { display: flex; align-items: center; gap: .45rem; padding: .6rem .85rem; background: #171a26; border-right: 1px solid #252a3a; font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; color: var(--k-cyan); white-space: nowrap; }
+.lab-ticker > b i { width: .42rem; height: .42rem; border-radius: 50%; background: #4ade80; animation: lab-ticker-pulse 1.4s ease-in-out infinite; }
+.lab-ticker-rail { display: flex; align-items: center; gap: 2.2rem; overflow-x: auto; scrollbar-width: none; padding: .6rem .95rem; }
+.lab-ticker-rail::-webkit-scrollbar { display: none; }
+.lab-ticker-rail span { display: inline-flex; align-items: baseline; gap: .55rem; white-space: nowrap; font-size: .78rem; color: var(--k-ink); }
+.lab-ticker-rail time { font-size: .62rem; color: var(--k-ink-2); font-variant-numeric: tabular-nums; }
+.lab-ticker-rail span:last-child { color: #fff; font-weight: 500; }
+.lab-ticker.is-settled .lab-ticker-rail span:last-child { color: var(--k-ink); font-weight: 400; }
+.lab-ticker.is-waiting { color: var(--k-ink-2); font-size: .76rem; }
+.lab-ticker.is-waiting span { padding: .6rem .95rem; }
+@keyframes lab-ticker-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+
 /* Model spend policy list. */
 .lab-model-list { list-style: none; margin-top: .8rem; display: grid; gap: .35rem; }
 .lab-model-list label { display: flex; align-items: center; gap: .7rem; padding: .55rem .7rem; border: 1px solid #252a3a; border-radius: 8px; background: #10121b; cursor: pointer; }

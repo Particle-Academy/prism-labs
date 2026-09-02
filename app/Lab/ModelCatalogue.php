@@ -88,6 +88,26 @@ final class ModelCatalogue
         return array_column($this->all(), 'key');
     }
 
+    /**
+     * The cheapest catalogued model on a configured provider, or null when the
+     * Lab holds no usable key at all.
+     *
+     * Used for work that is INCIDENTAL to a run rather than the subject of it —
+     * commentary, summaries. Spending benchmark money on narrating the
+     * benchmark would be a strange trade.
+     *
+     * @return array{provider: string, model: string}|null
+     */
+    public function cheapestConfigured(): ?array
+    {
+        $order = ['cheap' => 0, 'mid' => 1, 'expensive' => 2];
+        $usable = array_values(array_filter($this->all(), fn (array $row): bool => $row['configured']));
+
+        usort($usable, fn (array $a, array $b): int => ($order[$a['tier']] ?? 9) <=> ($order[$b['tier']] ?? 9));
+
+        return $usable === [] ? null : ['provider' => $usable[0]['provider'], 'model' => $usable[0]['id']];
+    }
+
     public function has(string $provider, string $model): bool
     {
         return in_array($provider.':'.$model, $this->keys(), true);

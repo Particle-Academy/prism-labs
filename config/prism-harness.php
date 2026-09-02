@@ -51,6 +51,19 @@ return [
                 'tools' => ['search_web', 'research', 'ask_ts', 'ask_py', 'file_learning'],
                 'max_steps' => 10,
             ],
+            /*
+             * The overseer calling a live run. No tools and a single step on
+             * purpose: it is handed the events and asked for a sentence, so
+             * anything it could reach for would only be a way to be slower and
+             * less accurate than the batch it was already given.
+             */
+            'commentary' => [
+                'system_prompt' => PromptFile::content('commentary'),
+                'tools' => [],
+                'skills' => [],
+                'max_steps' => 1,
+            ],
+
             'benchmark' => [
                 'system_prompt' => PromptFile::content('benchmark'),
                 'tools' => ['roster', 'search_web', 'research', 'fact_check', 'file_learning', 'workspace_list', 'workspace_read', 'workspace_write', 'workspace_delete', 'remotion_render'],

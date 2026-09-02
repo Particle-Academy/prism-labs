@@ -14,8 +14,9 @@ type FileEntry = { path: string; name: string; kind: 'file' | 'dir'; size?: numb
 type LaneInspection = { lane: Lane; activities: Activity[]; operations: Operation[]; files: FileEntry[] };
 type OpenFile = { path: string; content?: string; language?: string; size: number; src?: string; mime?: string };
 type Worker = { state: 'starting' | 'active' | 'stalled' | 'settled'; message: string };
+type Commentary = { id: number; line: string; created_at: string };
 
-export default function RunRoom({ run, flows, nodes, worker }: { run: Run; flows: Record<string, Flow>; nodes: Node[]; worker: Worker }) {
+export default function RunRoom({ run, flows, nodes, worker, commentary }: { run: Run; flows: Record<string, Flow>; nodes: Node[]; worker: Worker; commentary: Commentary[] }) {
     const active = ['queued', 'ready', 'running'].includes(run.status);
     const [selectedLane, setSelectedLane] = useState<Lane | null>(null);
     useEffect(() => {
@@ -26,7 +27,7 @@ export default function RunRoom({ run, flows, nodes, worker }: { run: Run; flows
         // the Build gate, and removing it changes nothing at runtime — this
         // page polls every 5s while a run is live, so a scroll jump would be
         // very visible if it had been load-bearing.
-        const timer = window.setInterval(() => router.reload({ only: ['run', 'flows', 'nodes', 'worker'] }), 5000);
+        const timer = window.setInterval(() => router.reload({ only: ['run', 'flows', 'nodes', 'worker', 'commentary'] }), 5000);
         return () => window.clearInterval(timer);
     }, [active]);
 
@@ -43,6 +44,7 @@ export default function RunRoom({ run, flows, nodes, worker }: { run: Run; flows
 
     return <LabShell title={run.spec.name} current="/lab/benchmarks" eyebrow={`Run ${run.id} · ${active ? 'live updates every 5s' : 'settled'}`}>
         <div className="lab-page-heading"><div><h1 className="lab-title">{run.spec.name}</h1><p className="lab-lead">Frozen revision {run.spec.revision} · {run.spec.digest.slice(0, 14)}… · {run.spec.surface_mode.replace('_', '+')}</p></div><div className="lab-run-actions">{active && <button type="button" className="k-btn k-btn--danger" onClick={stop}>Emergency stop</button>}{!active && <button type="button" className="k-btn k-btn--ghost" onClick={remove}>Delete run</button>}<Link href="/lab/benchmarks" className="k-btn k-btn--ghost">Back to Studio</Link></div></div>
+        <Ticker lines={commentary} live={active} />
         {run.status === 'cancelled' && <section className="lab-fuse-tripped"><b>Fuse tripped</b><span>{run.cancel_reason ?? 'This run was stopped by the operator.'}</span><span>No queued lane can start and any late provider result is discarded. A new run is required to continue.</span></section>}
         {active && <section className={`lab-worker-state is-${worker.state}`}><i /><div><b>{worker.state === 'stalled' ? 'Worker attention required' : worker.state === 'active' ? 'Worker is running' : 'Preparing execution'}</b><span>{worker.message}</span></div></section>}
         <section className="lab-how"><b>What happens now</b><span>1. Each lane gets an isolated durable Flow run.</span><span>2. A worker claims it and contacts that language’s Harness.</span><span>3. The agent builds and drives the app, then submits proof and 0Learning.</span><span>4. PLabs scores only evidence-backed receipts.</span></section>
@@ -58,11 +60,38 @@ export default function RunRoom({ run, flows, nodes, worker }: { run: Run; flows
 // mid-build. The only thing that separates them is when it was last heard from.
 function heartbeat(lane: Lane): { label: string; stalled: boolean } | null {
     if (!lane.last_seen_at) return null;
-    const seconds = Math.max(0, Math.round((Date.now() - new Date(lane.last_seen_at.replace(' ', 'T') + 'Z').getTime()) / 1000));
+    const seconds = Math.max(0, Math.round((Date.now() - asDate(lane.last_seen_at).getTime()) / 1000));
     const label = seconds < 60 ? `${seconds}s ago` : seconds < 3600 ? `${Math.floor(seconds / 60)}m ${seconds % 60}s ago` : `${Math.floor(seconds / 3600)}h ago`;
     // A model call can legitimately run a couple of minutes before the next
     // tool result lands, so silence is only notable past that.
     return { label, stalled: seconds > 150 };
+}
+
+/**
+ * The overseer calling the run, across the top of the screen.
+ *
+ * Scrolls only when there is something to say and the run is live. A ticker
+ * that keeps sliding over a finished run reads as though the run is still
+ * going, which is the one thing this page must never imply — the whole reason
+ * the heartbeat exists on the cards below.
+ */
+function Ticker({ lines, live }: { lines: Commentary[]; live: boolean }) {
+    const latest = useRef<HTMLDivElement | null>(null);
+    useEffect(() => { latest.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'end' }); }, [lines.length]);
+
+    if (lines.length === 0) {
+        return live ? <section className="lab-ticker is-waiting"><b>PLab</b><span>Warming up — the overseer starts calling once the first lane reports.</span></section> : null;
+    }
+
+    return <section className={`lab-ticker ${live ? 'is-live' : 'is-settled'}`}>
+        <b>PLab{live && <i />}</b>
+        <div className="lab-ticker-rail">
+            {lines.map((item, index) => <span key={item.id} ref={index === lines.length - 1 ? latest : undefined}>
+                <time>{asDate(item.created_at).toLocaleTimeString()}</time>
+                {item.line}
+            </span>)}
+        </div>
+    </section>;
 }
 
 function LaneCard({ lane, flow, node, worker, selected, onSelect }: { lane: Lane; flow?: Flow; node?: Node; worker: Worker; selected: boolean; onSelect: () => void }) {
@@ -147,6 +176,15 @@ function mergeById(previous: Operation[], incoming: Operation[]): Operation[] {
     if (!incoming.length) return previous;
     const seen = new Set(previous.map(item => item.id));
     return [...previous, ...incoming.filter(item => !seen.has(item.id))];
+}
+
+// Two timestamp shapes reach this page and they are not interchangeable.
+// Eloquent serialises a model's `created_at` as ISO 8601 already; a value read
+// through the query builder arrives as "Y-m-d H:i:s" with no zone. Appending
+// `Z` to the first produces an invalid date, which is exactly what the ticker
+// rendered before this existed.
+function asDate(value: string): Date {
+    return new Date(/[TZ]|[+-]\d{2}:?\d{2}$/.test(value) ? value : value.replace(' ', 'T') + 'Z');
 }
 
 function mediaMime(path: string): string | undefined {
