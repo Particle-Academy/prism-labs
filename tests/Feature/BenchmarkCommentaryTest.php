@@ -43,18 +43,53 @@ class BenchmarkCommentaryTest extends TestCase
         return $designer->launch($designer->approve($designer->requestApproval($spec)));
     }
 
-    public function test_the_page_dispatches_commentary_and_never_generates_it_in_the_request(): void
+    public function test_the_page_never_generates_or_dispatches_commentary(): void
     {
+        // Two separate reasons, both load-bearing.
+        //
         // A model call inside a page request stalls the Lab's only FastCGI
-        // worker until Caddy gives up and answers 502. The request may do no
-        // more than dispatch.
+        // worker until Caddy gives up and answers 502 — so the page must never
+        // generate. And the page must not DRIVE it either: dispatching from
+        // here made the commentary a record of somebody watching rather than a
+        // record of the run, and it stopped dead whenever the site did.
         Queue::fake();
         $run = $this->liveRun();
         $run->forceFill(['status' => 'running'])->save();
 
         app(BenchmarkController::class)->runRoom($run->refresh());
 
+        Queue::assertNothingPushed();
+        $this->assertSame(0, BenchmarkCommentary::query()->count());
+    }
+
+    public function test_the_broadcast_keeps_its_own_cadence_while_the_run_is_live(): void
+    {
+        // Each call schedules the next one, so the ticker keeps moving with the
+        // tab closed and picks up again after the site has been down.
+        Queue::fake();
+        Prism::fake([TextResponseFake::make()->withText('Sonnet 5 is away.')]);
+        $run = $this->liveRun();
+        $run->forceFill(['status' => 'running'])->save();
+        app(LaneActivity::class)->record($run->lanes()->firstOrFail(), 'lane.started', 'first');
+
+        app(CallTheRunJob::class, ['runId' => $run->id])->handle(app(BenchmarkCommentator::class));
+
         Queue::assertPushed(CallTheRunJob::class);
+    }
+
+    public function test_the_broadcast_stops_itself_when_the_run_settles(): void
+    {
+        // The chain ends by itself, so there is no loop to stop and nothing to
+        // clean up if the worker dies mid-run.
+        Queue::fake();
+        Prism::fake([TextResponseFake::make()->withText('That is full time.')]);
+        $run = $this->liveRun();
+        app(LaneActivity::class)->record($run->lanes()->firstOrFail(), 'lane.finished', 'done');
+        $run->forceFill(['status' => 'completed'])->save();
+
+        app(CallTheRunJob::class, ['runId' => $run->id])->handle(app(BenchmarkCommentator::class));
+
+        Queue::assertNotPushed(CallTheRunJob::class);
     }
 
     public function test_commentary_runs_on_its_own_queue_not_behind_the_lane(): void
@@ -64,8 +99,12 @@ class BenchmarkCommentaryTest extends TestCase
         $this->assertSame('commentary', (new CallTheRunJob('any'))->queue);
     }
 
-    public function test_the_dispatch_is_throttled_so_several_viewers_do_not_pay_several_times(): void
+    public function test_however_many_viewers_open_the_page_the_run_is_called_once(): void
     {
+        // There is exactly ONE chain per run, started at launch and kept going
+        // by the job itself. Viewers are irrelevant to it — which is the point,
+        // and also why nobody can make the Lab pay twice by opening a second
+        // tab.
         Queue::fake();
         $run = $this->liveRun();
         $run->forceFill(['status' => 'running'])->save();
@@ -74,7 +113,7 @@ class BenchmarkCommentaryTest extends TestCase
         app(BenchmarkController::class)->runRoom($run->refresh());
         app(BenchmarkController::class)->runRoom($run->refresh());
 
-        Queue::assertPushed(CallTheRunJob::class, 1);
+        Queue::assertNothingPushed();
     }
 
     public function test_a_settled_run_is_not_narrated_any_further(): void

@@ -43,6 +43,9 @@ final class CallTheRunJob implements ShouldQueue
         return [(new WithoutOverlapping($this->runId))->dontRelease()];
     }
 
+    /** How long to wait before calling the next batch of a live run. */
+    private const CADENCE_SECONDS = 15;
+
     public function handle(BenchmarkCommentator $commentator): void
     {
         $run = BenchmarkRun::query()->with(['spec', 'lanes'])->find($this->runId);
@@ -52,5 +55,20 @@ final class CallTheRunJob implements ShouldQueue
         }
 
         $commentator->call($run);
+
+        // The broadcast KEEPS ITSELF GOING while the run is live.
+        //
+        // This used to be driven by the Run Room's own poll, which meant the
+        // commentary only advanced while somebody happened to be looking at
+        // the page — close the tab and the run went unnarrated, and when the
+        // site returned 502 the ticker simply stopped mid-run with no way to
+        // tell that apart from a quiet stretch. A broadcast that only happens
+        // when observed is not a record of the run.
+        //
+        // The chain ends by itself: a terminal run schedules nothing, so there
+        // is no loop to stop and nothing to clean up if the worker dies.
+        if (in_array($run->refresh()->status, ['queued', 'ready', 'running'], true)) {
+            self::dispatch($this->runId)->delay(now()->addSeconds(self::CADENCE_SECONDS));
+        }
     }
 }

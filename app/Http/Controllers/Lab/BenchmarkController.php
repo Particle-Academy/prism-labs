@@ -24,7 +24,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -86,16 +85,15 @@ final class BenchmarkController extends Controller
             default => ['state' => 'settled', 'message' => 'No lane is waiting for the workflow worker.'],
         };
 
-        // Ask the overseer for the next line, but only DISPATCH here: the
-        // commentary is model-generated, and a model call inside a page request
-        // stalls the Lab's single FastCGI worker until Caddy gives up on it.
-        // Throttled, because this page polls every five seconds and several
-        // viewers may be watching the same run.
-        if (in_array($run->status, ['queued', 'ready', 'running'], true)
-            && Cache::add('commentary:'.$run->id, true, now()->addSeconds(12))) {
-            CallTheRunJob::dispatch($run->id);
-        }
-
+        // The page does NOT drive the commentary. `CallTheRunJob` keeps its own
+        // cadence from the moment the run is launched, so the broadcast is a
+        // record of the run rather than a record of somebody watching it.
+        //
+        // It used to be dispatched from here, and that was wrong twice over:
+        // close the tab and the run went unnarrated, and when the site returned
+        // 502 the ticker stopped mid-run with nothing to distinguish that from
+        // a quiet stretch. The page only reads what the overseer has already
+        // said.
         return Inertia::render('Lab/RunRoom', [
             'run' => $run,
             'worker' => $worker,
@@ -297,6 +295,11 @@ final class BenchmarkController extends Controller
 
         $run = $designer->launch($spec);
         $workflow->dispatch($run);
+
+        // Start the broadcast with the run, not with the first viewer. The job
+        // keeps its own cadence from here and stops itself when the run
+        // settles, so a run nobody watched is still narrated afterwards.
+        CallTheRunJob::dispatch($run->id)->delay(now()->addSeconds(5));
 
         return to_route('lab.benchmark-runs.show', $run);
     }
