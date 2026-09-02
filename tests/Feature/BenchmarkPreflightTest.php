@@ -96,6 +96,56 @@ class BenchmarkPreflightTest extends TestCase
         $this->assertStringContainsString('no agent in the roster', $failures[0]);
     }
 
+    public function test_a_provider_the_package_does_not_have_is_caught_before_the_lane_runs(): void
+    {
+        // The real spec said `google`. Prism has no such provider — it has
+        // `gemini` — so the lane would have reached the API and failed there,
+        // looking like a result rather than a typo.
+        $failures = app(BenchmarkPreflight::class)->failures($this->spec([
+            ['language' => 'php', 'provider' => 'google'],
+        ]));
+
+        $this->assertStringContainsString('is not a Prism provider', $failures[0]);
+        $this->assertStringContainsString('Prism calls it `gemini`', $failures[0]);
+    }
+
+    public function test_a_known_provider_with_no_credential_is_caught_before_the_lane_runs(): void
+    {
+        config(['prism.providers.gemini.api_key' => '']);
+
+        $failures = app(BenchmarkPreflight::class)->failures($this->spec([
+            ['language' => 'php', 'provider' => 'gemini'],
+        ]));
+
+        $this->assertStringContainsString('no credential is configured', $failures[0]);
+        $this->assertStringContainsString('GEMINI_API_KEY', $failures[0]);
+    }
+
+    public function test_the_credential_check_covers_php_lanes_too(): void
+    {
+        // PHP skips the capability probe because the Lab drives those lanes in
+        // process. It must NOT skip the credential check: an in-process lane
+        // with no API key fails exactly as hard as a remote one, and this is
+        // the only check standing between it and a wasted run.
+        config(['prism.providers.anthropic.api_key' => '']);
+
+        $failures = app(BenchmarkPreflight::class)->failures($this->spec([
+            ['language' => 'php', 'provider' => 'anthropic'],
+        ]));
+
+        $this->assertNotSame([], $failures);
+        $this->assertStringContainsString('anthropic', $failures[0]);
+    }
+
+    public function test_a_configured_provider_passes(): void
+    {
+        config(['prism.providers.anthropic.api_key' => 'sk-test']);
+
+        $this->assertSame([], app(BenchmarkPreflight::class)->failures($this->spec([
+            ['language' => 'php', 'provider' => 'anthropic'],
+        ])));
+    }
+
     /** @param list<array<string, mixed>> $lanes */
     private function spec(array $lanes): BenchmarkSpec
     {

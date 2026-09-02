@@ -28,8 +28,9 @@ final class BenchmarkRespecCommand extends Command
 {
     protected $signature = 'benchmark:respec
         {name : The spec name, matched exactly}
-        {--from= : Replace lanes carrying this model id (default: any id the checker flags)}
+        {--from= : Replace lanes carrying this model id (default: every lane)}
         {--to= : The model id to use instead}
+        {--lanes= : A whole replacement lane matrix as JSON, when more than the model id is wrong}
         {--approve : Approve the new revision immediately}';
 
     protected $description = 'Re-draft a benchmark spec as a new revision with corrected lane model ids';
@@ -44,22 +45,20 @@ final class BenchmarkRespecCommand extends Command
             return self::FAILURE;
         }
 
-        $from = $this->option('from');
-        $to = $this->option('to');
+        // Two shapes, because two different things go stale.
+        //
+        // `--to` is the narrow, common case: the lanes are right and one model
+        // id retired under them. `--lanes` is for when the matrix itself was
+        // wrong — a provider the package does not have, a driver that cannot
+        // run, a lane that has to go. Both land as a new revision; neither
+        // edits a frozen spec in place.
+        $lanes = $this->option('lanes') !== null
+            ? $this->parseLanes((string) $this->option('lanes'))
+            : $this->swapModel($spec->lane_matrix);
 
-        if (! is_string($to) || trim($to) === '') {
-            $this->error('--to is required: name the model id the lanes should use.');
-
+        if ($lanes === null) {
             return self::FAILURE;
         }
-
-        $lanes = array_map(function (array $lane) use ($from, $to): array {
-            if (! is_string($from) || $lane['model'] === $from) {
-                $lane['model'] = $to;
-            }
-
-            return $lane;
-        }, $spec->lane_matrix);
 
         if ($lanes === $spec->lane_matrix) {
             $this->info(sprintf('%s r%d already has the requested lanes. Nothing to do.', $spec->name, $spec->revision));
@@ -89,5 +88,59 @@ final class BenchmarkRespecCommand extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $matrix
+     * @return list<array<string, mixed>>|null
+     */
+    private function swapModel(array $matrix): ?array
+    {
+        $from = $this->option('from');
+        $to = $this->option('to');
+
+        if (! is_string($to) || trim($to) === '') {
+            $this->error('Pass either --to (a replacement model id) or --lanes (a whole lane matrix as JSON).');
+
+            return null;
+        }
+
+        return array_map(function (array $lane) use ($from, $to): array {
+            if (! is_string($from) || $lane['model'] === $from) {
+                $lane['model'] = $to;
+            }
+
+            return $lane;
+        }, $matrix);
+    }
+
+    /**
+     * Every lane is checked here rather than at launch, because a malformed
+     * matrix that reaches the designer becomes a FROZEN revision — and a spec
+     * cannot be edited once frozen, only superseded.
+     *
+     * @return list<array<string, mixed>>|null
+     */
+    private function parseLanes(string $json): ?array
+    {
+        $decoded = json_decode($json, true);
+
+        if (! is_array($decoded) || $decoded === [] || ! array_is_list($decoded)) {
+            $this->error('--lanes must be a non-empty JSON array of lane objects.');
+
+            return null;
+        }
+
+        foreach ($decoded as $index => $lane) {
+            foreach (['language', 'harness', 'provider', 'model'] as $key) {
+                if (! is_array($lane) || ! is_string($lane[$key] ?? null) || trim($lane[$key]) === '') {
+                    $this->error(sprintf('Lane %d is missing a non-empty string `%s`.', $index + 1, $key));
+
+                    return null;
+                }
+            }
+        }
+
+        return $decoded;
     }
 }

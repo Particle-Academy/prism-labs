@@ -152,14 +152,14 @@ class ProviderRegistry
         }
 
         if ($provider['env'] !== null) {
-            return "Set {$provider['env']} in repos/prism-sandbox/.env, then reload.";
+            return "Set {$provider['env']} in repos/prism-labs/.env, then reload.";
         }
 
         if ($key === 'ollama') {
-            return 'Start Ollama locally, or set OLLAMA_URL in repos/prism-sandbox/.env.';
+            return 'Start Ollama locally, or set OLLAMA_URL in repos/prism-labs/.env.';
         }
 
-        return "Configure prism.providers.{$key} in repos/prism-sandbox/.env, then reload.";
+        return "Configure prism.providers.{$key} in repos/prism-labs/.env, then reload.";
     }
 
     /**

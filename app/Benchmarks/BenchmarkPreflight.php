@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Benchmarks;
 
+use App\Lab\ProviderRegistry;
 use App\Models\BenchmarkSpec;
 use App\Team\AgentRoster;
 use App\Team\CapabilityProbe;
@@ -28,18 +29,44 @@ final readonly class BenchmarkPreflight
         'csharp' => 'C#',
     ];
 
+    /**
+     * Provider names people reach for, mapped to what the package calls them.
+     *
+     * Edit distance cannot bridge these: `google` and `gemini` share one
+     * letter, but one is the company and the other is the product, and a spec
+     * author naming the company is making the most reasonable mistake
+     * available. This spec did exactly that and the lane would have failed at
+     * the API with no hint of the cause.
+     */
+    private const ALIAS = [
+        'google' => 'gemini',
+        'googleai' => 'gemini',
+        'claude' => 'anthropic',
+        'gpt' => 'openai',
+        'grok' => 'xai',
+        'llama' => 'ollama',
+    ];
+
     /** The roster key each spec language maps to. */
     private const ROSTER_KEY = [
         'typescript' => 'ts',
         'python' => 'py',
     ];
 
-    public function __construct(private AgentRoster $roster) {}
+    public function __construct(private AgentRoster $roster, private ProviderRegistry $providers) {}
 
     /** @return list<string> */
     public function failures(BenchmarkSpec $spec): array
     {
-        $failures = [];
+        // Credentials FIRST, and before any network probe.
+        //
+        // A lane whose provider is unknown or unconfigured fails the moment it
+        // contacts the API, and it fails looking exactly like a result: the
+        // language "lost", when in truth the run never asked it anything. That
+        // is the same fault that retired model ids produce, and it is the one
+        // the preflight was silent about — it checked whether an AGENT could
+        // run the lane and never whether the PROVIDER could answer it.
+        $failures = $this->providerFailures($spec);
 
         // GROUPED BY LANGUAGE, not per lane.
         //
@@ -78,6 +105,67 @@ final readonly class BenchmarkPreflight
         }
 
         return $failures;
+    }
+
+    /**
+     * Every lane's provider must be one Prism knows AND one this Lab holds a
+     * credential for. Checked for php lanes too — unlike the capability probe,
+     * which php skips because the Lab drives those in process, a missing API
+     * key stops an in-process lane exactly as hard as a remote one.
+     *
+     * @return list<string>
+     */
+    private function providerFailures(BenchmarkSpec $spec): array
+    {
+        $failures = [];
+        $byProvider = [];
+
+        foreach ($spec->lane_matrix as $index => $lane) {
+            $provider = (string) ($lane['provider'] ?? '');
+            if ($provider !== '') {
+                $byProvider[$provider][] = $index + 1;
+            }
+        }
+
+        foreach ($byProvider as $provider => $lanes) {
+            $where = $this->describeLanes($lanes);
+
+            if ($this->providers->find($provider) === null) {
+                // Naming the near-miss matters more than listing all eighteen:
+                // this spec asked for `google`, which is not a Prism provider
+                // and never was — the package calls it `gemini`.
+                $failures[] = sprintf(
+                    '%s (%s): `%s` is not a Prism provider.%s',
+                    $provider, $where, $provider, $this->suggest($provider),
+                );
+
+                continue;
+            }
+
+            if (! $this->providers->isConfigured($provider)) {
+                $failures[] = sprintf(
+                    '%s (%s): no credential is configured. %s',
+                    $provider, $where, $this->providers->setupHint($provider),
+                );
+            }
+        }
+
+        return $failures;
+    }
+
+    /** The closest provider Prism actually has, when one is obvious. */
+    private function suggest(string $provider): string
+    {
+        if (isset(self::ALIAS[$provider]) && $this->providers->find(self::ALIAS[$provider]) !== null) {
+            return ' Prism calls it `'.self::ALIAS[$provider].'`.';
+        }
+
+        $known = array_keys($this->providers->all());
+        $close = array_values(array_filter($known, fn (string $key): bool => levenshtein($key, $provider) <= 3
+            || str_contains($key, $provider)
+            || str_contains($provider, $key)));
+
+        return $close === [] ? '' : ' Did you mean `'.implode('` or `', array_slice($close, 0, 2)).'`?';
     }
 
     /**
