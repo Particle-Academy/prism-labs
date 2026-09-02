@@ -3581,12 +3581,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/Particle-Academy/prism-human-plus.git",
-                "reference": "56e4ba36d8ef09059a747e8a9428a69a1379ce38"
+                "reference": "d6dedb636d1678518be6c5e53b82ba1df3d5ee67"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Particle-Academy/prism-human-plus/zipball/56e4ba36d8ef09059a747e8a9428a69a1379ce38",
-                "reference": "56e4ba36d8ef09059a747e8a9428a69a1379ce38",
+                "url": "https://api.github.com/repos/Particle-Academy/prism-human-plus/zipball/d6dedb636d1678518be6c5e53b82ba1df3d5ee67",
+                "reference": "d6dedb636d1678518be6c5e53b82ba1df3d5ee67",
                 "shasum": ""
             },
             "require": {
@@ -3644,7 +3644,7 @@
                 "source": "https://github.com/Particle-Academy/prism-human-plus/tree/main",
                 "issues": "https://github.com/Particle-Academy/prism-human-plus/issues"
             },
-            "time": "2026-09-02T04:27:41+00:00"
+            "time": "2026-09-02T05:08:58+00:00"
         },
         {
             "name": "particle-academy/prism-mcp",
