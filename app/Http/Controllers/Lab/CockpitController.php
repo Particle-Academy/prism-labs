@@ -22,7 +22,12 @@ final class CockpitController extends Controller
             'metrics' => [
                 'activeRuns' => BenchmarkRun::query()->whereIn('status', ['queued', 'ready', 'running'])->count()
                     + ConsensusRun::query()->whereIn('status', ['collecting', 'awaiting_review'])->count(),
-                'dailyTokens' => (int) (($daily['input_tokens'] ?? 0) + ($daily['output_tokens'] ?? 0) + ($daily['reasoning_tokens'] ?? 0)),
+                // input + output only. Reasoning tokens are a BREAKDOWN of the
+                // output count, not an addition -- see the note in
+                // Pages/Lab/Telemetry.tsx. Adding them counts the expensive
+                // half twice, which stayed invisible only while Anthropic's
+                // thoughtTokens was always null.
+                'dailyTokens' => (int) (($daily['input_tokens'] ?? 0) + ($daily['output_tokens'] ?? 0)),
                 'dailyCost' => (float) ($daily['priced_cost'] ?? 0),
                 'operations' => (int) ($daily['operations'] ?? 0),
             ],
