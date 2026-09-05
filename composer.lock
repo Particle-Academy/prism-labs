@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "86526ae415908bbef6a6966a2f538ef8",
+    "content-hash": "372fc34275019986e4c6f041f88f5ee1",
     "packages": [
         {
             "name": "brick/math",
@@ -3495,16 +3495,16 @@
         },
         {
             "name": "particle-academy/prism-harness",
-            "version": "dev-main",
+            "version": "v0.3.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/Particle-Academy/prism-harness.git",
-                "reference": "81cd46d60b0ebcbf56421efd235bd1b555d0ed4d"
+                "reference": "c0cf77562f11ef6ef8dffc11cda5023ddecfb229"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Particle-Academy/prism-harness/zipball/81cd46d60b0ebcbf56421efd235bd1b555d0ed4d",
-                "reference": "81cd46d60b0ebcbf56421efd235bd1b555d0ed4d",
+                "url": "https://api.github.com/repos/Particle-Academy/prism-harness/zipball/c0cf77562f11ef6ef8dffc11cda5023ddecfb229",
+                "reference": "c0cf77562f11ef6ef8dffc11cda5023ddecfb229",
                 "shasum": ""
             },
             "require": {
@@ -3521,7 +3521,6 @@
             "suggest": {
                 "particle-academy/fancy-flow-php": "Drives fancy-flow's llm_call, tool_use and agent nodes through Prism, with the agent's conversation carried on a durable harness thread. Optional: fancy-flow needs PHP 8.4 and this package supports 8.2, so it is never required. See src/Flow/."
             },
-            "default-branch": true,
             "type": "library",
             "extra": {
                 "laravel": {
@@ -3570,10 +3569,10 @@
                 "sessions"
             ],
             "support": {
-                "source": "https://github.com/Particle-Academy/prism-harness/tree/main",
+                "source": "https://github.com/Particle-Academy/prism-harness/tree/v0.3.0",
                 "issues": "https://github.com/Particle-Academy/prism-harness/issues"
             },
-            "time": "2026-09-02T16:53:19+00:00"
+            "time": "2026-09-04T22:53:45+00:00"
         },
         {
             "name": "particle-academy/prism-human-plus",
@@ -10182,7 +10181,6 @@
     "minimum-stability": "dev",
     "stability-flags": {
         "particle-academy/prism-browser": 20,
-        "particle-academy/prism-harness": 20,
         "particle-academy/prism-human-plus": 20,
         "particle-academy/prism-workspace": 20
     },
