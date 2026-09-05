@@ -9,6 +9,7 @@ use App\Http\Controllers\Lab\ConsensusController;
 use App\Http\Controllers\Lab\EvidenceController;
 use App\Http\Controllers\Lab\HumanPlusFixtureController;
 use App\Http\Controllers\Lab\ModelPolicyController;
+use App\Http\Controllers\Lab\TaskListController;
 use App\Http\Controllers\Lab\TeamController;
 use App\Http\Controllers\Lab\TelemetryController;
 use App\Http\Controllers\Lab\TestSuiteController;
@@ -70,6 +71,15 @@ if (app()->environment('local')) {
         Route::post('/lab/team/ask', [TeamController::class, 'ask'])
             ->middleware('throttle:20,1')
             ->name('lab.team.ask');
+
+        // Agent task lists, dogfooded. Two routes because they are two
+        // different costs: the property board is in-process and free, and the
+        // live agent lane calls a provider. Neither runs on page load — a
+        // probe that spends money while a page paints spends it on every
+        // refresh.
+        Route::get('/lab/tasks', [TaskListController::class, 'show'])->name('lab.tasks');
+        Route::post('/lab/tasks/probe', [TaskListController::class, 'probe'])->middleware('throttle:20,1')->name('lab.tasks.probe');
+        Route::post('/lab/tasks/agent', [TaskListController::class, 'agent'])->middleware('throttle:6,1')->name('lab.tasks.agent');
 
         Route::get('/lab/chat', [ChatController::class, 'show'])->name('lab.chat');
         Route::post('/lab/chat', [ChatController::class, 'run'])->middleware('throttle:10,1')->name('lab.chat.run');

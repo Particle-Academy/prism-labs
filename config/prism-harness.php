@@ -84,6 +84,29 @@ return [
                 'max_steps' => 1,
             ],
 
+            /*
+             * The worker on /lab/tasks, and the ONE tool it is offered is the
+             * one it must not be able to use.
+             *
+             * `complete_task` is registered nowhere in this application — see
+             * App\Tasks\TaskListProbe, which asserts that against the wildcard
+             * toolset this file's `chat` mode asks for. The task lane registers
+             * it for one session at call time, which is how a consumer opts in,
+             * and hands it the application's own authorizer: `authorize_tools`
+             * above is false, so the tool refuses.
+             *
+             * Naming it here rather than `['*']` is the point of the mode. A
+             * worker offered every Lab tool could research, file a 0L or write
+             * to a workspace on its way to a task it cannot close, and none of
+             * that is what this lane is asking about.
+             */
+            'tasks' => [
+                'system_prompt' => PromptFile::content('tasks'),
+                'tools' => ['complete_task'],
+                'skills' => [],
+                'max_steps' => 4,
+            ],
+
             'benchmark' => [
                 'system_prompt' => PromptFile::content('benchmark'),
                 'tools' => ['roster', 'search_web', 'research', 'fact_check', 'file_learning', 'workspace_list', 'workspace_read', 'workspace_write', 'workspace_delete', 'remotion_render'],

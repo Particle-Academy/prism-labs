@@ -113,6 +113,26 @@ return [
 
     /*
     |---------------------------------------------------------------------------
+    | The task-list agent lane
+    |---------------------------------------------------------------------------
+    |
+    | The live half of /lab/tasks: one real model, handed one task off a durable
+    | list, told to close it with `complete_task`, and refused.
+    |
+    | A CHEAP MODEL ON PURPOSE, and the coordinator's is the wrong default here.
+    | This lane is not asking the model to reason — it is asking it to make one
+    | tool call the package must refuse, and the refusal does not get better on
+    | a stronger model. What it does get is more expensive, on a button someone
+    | will press repeatedly while reading the board.
+    |
+    */
+    'tasks' => [
+        'provider' => env('PRISM_TASK_PROBE_PROVIDER', 'anthropic'),
+        'model' => env('PRISM_TASK_PROBE_MODEL', 'claude-sonnet-5'),
+    ],
+
+    /*
+    |---------------------------------------------------------------------------
     | Where 0L reports are written
     |---------------------------------------------------------------------------
     |

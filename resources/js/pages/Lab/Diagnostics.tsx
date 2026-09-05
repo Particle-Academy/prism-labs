@@ -5,6 +5,7 @@ const tools = [
     ['/lab/tests', 'Provider matrix', 'Raw provider capability and conformance probes.'],
     ['/lab/threads', 'Harness threads', 'Inspect persisted durable conversations and reconstructed messages.'],
     ['/lab/team', 'Parity team', 'Reachability, delegation, and direct team communications.'],
+    ['/lab/tasks', 'Agent task lists', 'Lease expiry, holder-only release, and whether a live agent can close its own task.'],
     ['/lab/human-plus-fixture', 'Human+ fixture', 'Controlled browser surface for bridge and staged-write verification.'],
 ] as const;
 

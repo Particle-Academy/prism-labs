@@ -28,6 +28,11 @@ export const LAB_SECTIONS: LabSection[] = [
         blurb: 'The agent team: Prism.php and one agent per language port. Watch what they are doing, read what they have learned, and talk to Prism directly.',
     },
     {
+        href: '/lab/tasks',
+        label: 'Task lists',
+        blurb: 'Durable agent task lists from prism-harness, exercised end to end against the real package — and asked the security questions rather than the happy path.',
+    },
+    {
         href: '/lab/chat',
         label: 'Chat console',
         blurb: 'Talk to any configured provider. Conversations persist through the harness, so the model remembers across requests and page reloads.',

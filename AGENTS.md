@@ -88,6 +88,29 @@ behaviour. Do not label it in the UI as though it were the second thing.
 The counter is in the shared guide: state the expected value before the run and
 review against that. The corpus is where that belongs, and it is not built yet.
 
+## Task lists are dogfooded adversarially, and the order matters
+
+`/lab/tasks` exercises `prism-harness` task lists as a consumer. Two things
+about it are easy to break by accident:
+
+- **The board asks security properties, not the happy path.** Seeding two tasks
+  and claiming them is green on every version of the package including the ones
+  with a hole in. If you add a lane, ask what can still be invoked after the
+  guard — a lapsed lease, a release from the wrong worker, a worker id one
+  codepoint off. `an-authorized-holder-can-close-its-own` is a POSITIVE CONTROL
+  and must stay: every other lane passes when the completion tool refuses, so
+  without it a tool broken shut scores a perfect board.
+- **The live lane must run AFTER the board, in the same request.** It registers
+  `complete_task` on `ToolRegistry`, which is a process-wide singleton with no
+  unregister and no per-session scoping — so from that point on,
+  `resolve(['*'])` answers differently for the rest of the request and the
+  registered-nowhere lane would report red for something this application never
+  did. `AgentTaskListTest` pins this by registering the tool and requiring that
+  lane to fail.
+
+`complete_task` is registered **nowhere else**, and that is the alignment
+decision rather than an oversight. Do not add it to a mode's `['*']` toolset.
+
 ## Gates
 
 ```sh
