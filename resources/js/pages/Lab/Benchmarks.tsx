@@ -4,7 +4,7 @@ import { LabShell } from '../../components/lab-shell';
 
 type Spec = { id: string; name: string; revision: number; status: string; digest: string; archetype: string; surface_mode: string; lane_matrix: unknown[] };
 type Run = { id: string; status: string; learning_ref?: string | null; spec: Spec };
-type ProbeRun = { id: number; verdict: string; reserved: boolean; steps: number; attempts: number; executions: number; tool_uses_cleared: number; failure: string | null };
+type ProbeRun = { id: number; probe: string; verdict: string; reserved: boolean; steps: number; attempts: number; executions: number; tool_uses_cleared: number; looked: boolean; correct: boolean; fact_left_window: boolean; answer: string | null; failure: string | null };
 
 export default function Benchmarks({ specs, runs, providerAggregateCount, compactionRuns }: { specs: Spec[]; runs: Run[]; providerAggregateCount: number; compactionRuns: ProbeRun[] }) {
     const clearRuns = (scope: 'queued' | 'settled') => {
@@ -54,23 +54,33 @@ function CompactionProbe({ runs }: { runs: ProbeRun[] }) {
             onFinish: () => setBusy(false),
         });
     };
+    const runRecall = () => {
+        setBusy(true);
+        router.post('/lab/benchmarks/compaction-recall', {}, {
+            preserveScroll: true,
+            onFinish: () => setBusy(false),
+        });
+    };
     return <section className="lab-panel" style={{ marginTop: '.85rem' }}>
         <div className="lab-panel-head">
             <span>Compaction vs reservation · does our guarantee hold while the window shrinks?</span>
             <div className="lab-run-actions">
-                <button type="button" className="k-btn k-btn--ghost k-btn--small" disabled={busy} onClick={() => launch(true)}>{busy ? 'Running…' : 'Run probe'}</button>
+                <button type="button" className="k-btn k-btn--ghost k-btn--small" disabled={busy} onClick={() => launch(true)}>{busy ? 'Running…' : 'Run reservation probe'}</button>
                 <button type="button" className="k-btn k-btn--ghost k-btn--small" disabled={busy} onClick={() => launch(false)}>Run control</button>
+                <button type="button" className="k-btn k-btn--ghost k-btn--small" disabled={busy} onClick={runRecall}>Run recall probe</button>
             </div>
         </div>
-        <p className="lab-lead" style={{ marginTop: 0 }}>A reserved tool (<code>terminal_confirm</code>) is offered across a long agent loop with <code>clear_tool_uses</code> on. Compaction makes the agent forget and ask again; every ask must be refused. Each run drives a live provider and spends tokens.</p>
+        <p className="lab-lead" style={{ marginTop: 0 }}>Two questions about a shrinking window. <b>Reservation:</b> a reserved tool (<code>terminal_confirm</code>) is offered across a long loop with <code>clear_tool_uses</code> on — compaction makes the agent forget and ask again, and every ask must be refused. <b>Recall:</b> a fact is planted in turn one, compacted out of the window, and asked for back — with a control that has no lookup and must fail. Each run drives a live provider and spends tokens.</p>
         {runs.length === 0
             ? <p className="lab-empty">The probe has not run here yet. Nothing is claimed about compaction until it has.</p>
             : runs.map(run => <div className="lab-run" key={run.id}>
                 <i />
                 <div>
-                    <b>{run.reserved ? 'reserved' : 'control (unreserved)'}</b>
+                    <b>{run.probe === 'recall' ? 'recall · evicted fact' : (run.reserved ? 'reserved' : 'control (unreserved)')}</b>
                     <small>
-                        {run.attempts} attempted · {run.executions} executed · {run.tool_uses_cleared} tool uses cleared · {run.steps} steps
+                        {run.probe === 'recall'
+                            ? `fact left window: ${run.fact_left_window ? 'yes' : 'NO — nothing proven'} · looked up: ${run.looked ? 'yes' : 'no'} · recovered: ${run.correct ? 'yes' : 'no'}${run.answer ? ` · "${run.answer.slice(0, 40)}"` : ''}`
+                            : `${run.attempts} attempted · ${run.executions} executed · ${run.tool_uses_cleared} tool uses cleared · ${run.steps} steps`}
                         {run.failure ? ` · ${run.failure}` : ''}
                     </small>
                 </div>

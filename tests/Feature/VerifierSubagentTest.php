@@ -61,8 +61,26 @@ class VerifierSubagentTest extends TestCase
         $context->ledger->recordSteps(6);
         $child = $context->forChild($subagent, 'run_parent', null);
 
-        // The verifier declares 5, but only 2 remain in the tree.
-        $this->assertSame(2, $child->budget->maxSteps);
+        // A TREE-ABSOLUTE CEILING, not a remainder, and the unit is the reason
+        // this assertion changed. The ledger is shared by the whole tree and
+        // counts cumulatively, so a budget expressed as "what is left" is in the
+        // wrong unit the moment the parent has spent anything.
+        //
+        // The verifier declares 5 and 6 are already spent, so its ceiling is
+        // min(8, 6 + 5) = 8 — meaning it may run until the TREE total reaches 8,
+        // which is 2 further steps. The intent of this test is unchanged: the
+        // verifier's allowance is still drawn from what the coordinator has left.
+        //
+        // Asserting 2 here encoded the old remainder arithmetic, which was a
+        // reported bug (prism-harness#10): a parent allowed 8 that had spent 7,
+        // spawning a child asking for 2, got min(2, 8 - 7) = 1 and was then
+        // refused outright because 7 >= 1. One step remained and the child got
+        // none, worsening with depth.
+        $this->assertSame(8, $child->budget->maxSteps);
+
+        // The part that must stay true whatever the unit: two steps of headroom,
+        // and the child is not refused before it starts.
+        $this->assertSame(2, $child->budget->maxSteps - $context->ledger->steps());
     }
 
     public function test_a_verdict_returns_as_data_the_coordinator_must_weigh(): void

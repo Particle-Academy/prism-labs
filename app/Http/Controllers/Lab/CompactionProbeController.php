@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Lab;
 
 use App\Benchmarks\CompactionReservationProbe;
 use App\Http\Controllers\Controller;
+use App\Jobs\RunCompactionRecallProbe;
 use App\Models\CompactionProbeRun;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,6 +26,36 @@ use Illuminate\Http\Request;
  */
 final class CompactionProbeController extends Controller
 {
+    /**
+     * The recall probe: is an evicted turn still reachable?
+     *
+     * Separate action from the reservation probe because they answer different
+     * questions and one failing says nothing about the other. Shared history,
+     * because they are two halves of "what happens when the window shrinks".
+     */
+    /**
+     * The recall probe: is an evicted turn still reachable?
+     *
+     * QUEUED, not run here. It drives two arms of a real multi-turn
+     * conversation and outlives an HTTP request — run synchronously it kept
+     * working long after the browser gave up, writing evicted rows for minutes
+     * while no verdict was ever recorded. See {@see RunCompactionRecallProbe}.
+     *
+     * Separate action from the reservation probe because they answer different
+     * questions and one failing says nothing about the other. Shared history,
+     * because they are two halves of "what happens when the window shrinks".
+     */
+    public function recall(): RedirectResponse
+    {
+        RunCompactionRecallProbe::dispatch();
+
+        return back()->with(
+            'status',
+            'Recall probe queued. It drives two full conversations against a live provider, '
+            .'so give it a couple of minutes and reload — the result appears below.',
+        );
+    }
+
     public function store(Request $request, CompactionReservationProbe $probe): RedirectResponse
     {
         $validated = $request->validate([

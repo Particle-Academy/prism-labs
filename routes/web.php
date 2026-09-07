@@ -134,5 +134,12 @@ if (app()->environment('local')) {
         Route::post('/lab/benchmarks/compaction-probe', [CompactionProbeController::class, 'store'])
             ->middleware('throttle:3,1')
             ->name('lab.benchmarks.compaction-probe');
+
+        // The other half: is an evicted turn still reachable? Throttled harder
+        // because it drives roughly twenty live turns per press -- two arms of
+        // ten -- and both arms are required for the result to mean anything.
+        Route::post('/lab/benchmarks/compaction-recall', [CompactionProbeController::class, 'recall'])
+            ->middleware('throttle:2,1')
+            ->name('lab.benchmarks.compaction-recall');
     });
 }
