@@ -19,20 +19,18 @@ use Illuminate\Http\Request;
  * is supposed to be dogfooded — the Lab, in a browser — showed nothing at all.
  * A guarantee nobody can see the state of is not being watched.
  *
- * The run is synchronous and slow (it drives a real multi-round agent loop
- * against a live provider, deliberately, because compaction only happens on a
- * real transcript). That is why it is a button rather than something on page
- * load: it spends money every time it is pressed.
+ * Both probes drive a real multi-round agent loop against a live provider,
+ * deliberately, because compaction only happens on a real transcript. That is
+ * why they are buttons rather than something on page load: each press spends
+ * money.
+ *
+ * THEY DIFFER IN WHERE THEY RUN, and the difference is not a preference. The
+ * reservation probe fits in a request. The recall probe drives TWO arms of a
+ * full conversation and does not — run inline it kept working long after the
+ * browser had given up, so it is queued. See {@see RunCompactionRecallProbe}.
  */
 final class CompactionProbeController extends Controller
 {
-    /**
-     * The recall probe: is an evicted turn still reachable?
-     *
-     * Separate action from the reservation probe because they answer different
-     * questions and one failing says nothing about the other. Shared history,
-     * because they are two halves of "what happens when the window shrinks".
-     */
     /**
      * The recall probe: is an evicted turn still reachable?
      *
