@@ -23,6 +23,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // authenticated by its HMAC signature instead.
         $middleware->validateCsrfTokens(except: [
             'webhooks/github',
+            // Driven by an external benchmark harness, which holds no session
+            // and therefore no token. Safe because the route is local-only
+            // behind EnsurePrismLabIsLocal, and because it mutates nothing —
+            // it asks the model a question and returns the answer.
+            'lab/benchmarks/policy-turn',
         ]);
 
         // Trust the deploy proxy so signed URLs / OAuth redirects use HTTPS.
