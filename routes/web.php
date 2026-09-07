@@ -5,10 +5,12 @@ use App\Http\Controllers\Lab\BenchmarkController;
 use App\Http\Controllers\Lab\CapabilityController;
 use App\Http\Controllers\Lab\ChatController;
 use App\Http\Controllers\Lab\CockpitController;
+use App\Http\Controllers\Lab\CompactionProbeController;
 use App\Http\Controllers\Lab\ConsensusController;
 use App\Http\Controllers\Lab\EvidenceController;
 use App\Http\Controllers\Lab\HumanPlusFixtureController;
 use App\Http\Controllers\Lab\ModelPolicyController;
+use App\Http\Controllers\Lab\PolicyBenchmarkController;
 use App\Http\Controllers\Lab\TaskListController;
 use App\Http\Controllers\Lab\TeamController;
 use App\Http\Controllers\Lab\TelemetryController;
@@ -81,6 +83,13 @@ if (app()->environment('local')) {
         Route::post('/lab/tasks/probe', [TaskListController::class, 'probe'])->middleware('throttle:20,1')->name('lab.tasks.probe');
         Route::post('/lab/tasks/agent', [TaskListController::class, 'agent'])->middleware('throttle:6,1')->name('lab.tasks.agent');
 
+        // One agent turn for an EXTERNAL policy-adherence benchmark to drive.
+        // The benchmark owns the conversation, the environment and the score;
+        // this owns only "what does Prism do next". No throttle: a benchmark
+        // run is hundreds of turns back to back, and rate-limiting it would
+        // measure our middleware rather than the agent.
+        Route::post('/lab/benchmarks/policy-turn', [PolicyBenchmarkController::class, 'turn'])->name('lab.benchmarks.policy-turn');
+
         Route::get('/lab/chat', [ChatController::class, 'show'])->name('lab.chat');
         Route::post('/lab/chat', [ChatController::class, 'run'])->middleware('throttle:10,1')->name('lab.chat.run');
         Route::get('/lab/agent', [AgentConversationController::class, 'show'])->name('lab.agent.show');
@@ -117,5 +126,13 @@ if (app()->environment('local')) {
             ->middleware('throttle:6,1')
             ->name('lab.benchmark-runs.clear');
         Route::get('/lab/benchmarks/export', [BenchmarkController::class, 'export'])->name('lab.benchmarks.export');
+
+        // The compaction probe: does a Prism guarantee survive the context
+        // window being compacted? Throttled hard because each press drives a
+        // real multi-round agent loop against a live provider -- which is the
+        // only way compaction actually happens.
+        Route::post('/lab/benchmarks/compaction-probe', [CompactionProbeController::class, 'store'])
+            ->middleware('throttle:3,1')
+            ->name('lab.benchmarks.compaction-probe');
     });
 }

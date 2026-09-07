@@ -21,6 +21,7 @@ use App\Models\BenchmarkLane;
 use App\Models\BenchmarkRun;
 use App\Models\BenchmarkScore;
 use App\Models\BenchmarkSpec;
+use App\Models\CompactionProbeRun;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -41,6 +42,11 @@ final class BenchmarkController extends Controller
             'specs' => BenchmarkSpec::query()->latest()->limit(20)->get(),
             'runs' => BenchmarkRun::query()->with('spec')->latest()->limit(20)->get(),
             'providerAggregateCount' => $benchmarks->all()->count(),
+            // The compaction probe's history. Shown on this page rather than
+            // its own, because "can the ecosystem be trusted while the window
+            // shrinks" is a benchmark question, and burying it somewhere else
+            // is how it stops being looked at.
+            'compactionRuns' => CompactionProbeRun::query()->latest()->limit(10)->get(),
         ]);
     }
 
