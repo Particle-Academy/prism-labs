@@ -45,7 +45,7 @@
         "particle-academy/fancy-flow-php": "0.49.1",
         "particle-academy/prism": "^0.117.2",
         "particle-academy/prism-browser": "dev-main",
-        "particle-academy/prism-harness": "^0.4",
+        "particle-academy/prism-harness": "^0.5",
         "particle-academy/prism-human-plus": "dev-main",
         "particle-academy/prism-mcp": ">=0.1.0-alpha <1.0",
         "particle-academy/prism-opentelemetry": ">=0.1.0-alpha <1.0",

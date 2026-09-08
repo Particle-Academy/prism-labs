@@ -20,7 +20,9 @@ final class CompactionRecallCommand extends Command
     protected $signature = 'compaction:recall
         {--model=claude-sonnet-5 : The model to drive}
         {--keep=6 : messages kept in the window}
-        {--padding=8 : filler turns used to push turn one out}';
+        {--padding=8 : filler turns used to push turn one out}
+        {--summarise-with= : swap KeepRecentTurns for SummarisingCompaction, using this model}
+        {--summary-words=200 : how many words the summary may use — tighten it to force real loss}';
 
     protected $description = 'Assert that a fact evicted by compaction can still be recalled';
 
@@ -30,11 +32,17 @@ final class CompactionRecallCommand extends Command
         $this->line('  COMPACTION vs RECALL — is an evicted turn still reachable?');
         $this->line('  '.str_repeat('-', 74));
 
+        $summariseWith = $this->option('summarise-with');
+
         $result = $probe->run(
             model: (string) $this->option('model'),
             keep: (int) $this->option('keep'),
             padding: (int) $this->option('padding'),
+            summariseWith: is_string($summariseWith) && $summariseWith !== '' ? $summariseWith : null,
+            summaryWords: (int) $this->option('summary-words'),
         );
+
+        $this->line(sprintf('  strategy: %s', $result['strategy']));
 
         $this->render('with recall', $result['with_recall']);
         $this->render('WITHOUT recall (control)', $result['without_recall']);
@@ -43,6 +51,17 @@ final class CompactionRecallCommand extends Command
 
         if ($result['verdict'] === 'recall works') {
             $this->info('  RECALL WORKS — the fact left the window, and only the arm that could look it up answered.');
+
+            return self::SUCCESS;
+        }
+
+        // Under a summariser this is a RESULT, not a failure: the summary kept
+        // the reference, so recall was never needed on this run. Reported as a
+        // success because nothing is broken — but named, so nobody reads it as
+        // evidence that the recall layer works.
+        if ($result['verdict'] === 'summary carried the fact — recall was not needed') {
+            $this->info('  SUMMARY CARRIED THE FACT — it survived compaction in the summary itself.');
+            $this->line('  Recall was not exercised. This says the summariser kept the detail, not that recall works.');
 
             return self::SUCCESS;
         }

@@ -9,6 +9,7 @@ use App\Context\TableEvictionSink;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Prism\Harness\Context\KeepRecentTurns;
+use Prism\Harness\Context\SummarisingCompaction;
 use Prism\Harness\Contracts\CompactionStrategy;
 use Prism\Harness\Contracts\ContextRecall;
 use Prism\Harness\Contracts\EvictionSink;
@@ -58,6 +59,27 @@ use Throwable;
  * inconclusive with the reason attached, because the failure this ecosystem is
  * worst at noticing is a probe that passes for a reason unrelated to the thing
  * it names. See `.ai/knowledge/benchmark-vacuity-guard.md`.
+ *
+ * ## Two strategies, and the control means different things under each
+ *
+ * `--summarise-with` swaps `KeepRecentTurns` for `SummarisingCompaction`, which
+ * is a different question rather than the same question run twice.
+ *
+ * Under `KeepRecentTurns` the older turns are simply gone, so a control that
+ * answers correctly got the fact from somewhere the experiment did not intend
+ * and the run proves nothing.
+ *
+ * Under a summariser those turns were replaced by prose a model wrote, and the
+ * control still has no lookup — so the only way it can answer is that **the
+ * summary carried the reference**. That is a finding about the summariser, not
+ * a broken experiment, and it is reported as its own verdict rather than folded
+ * into `inconclusive`.
+ *
+ * Both outcomes are worth having, and they answer different halves:
+ *
+ *  - summary KEPT it     → the summariser preserved the detail; recall unused.
+ *  - summary DROPPED it, recall recovered it → the sink earning its place. A
+ *    summary is a lossy view, and this is the run where the loss was survivable.
  */
 final class CompactionRecallProbe
 {
@@ -69,29 +91,51 @@ final class CompactionRecallProbe
     /**
      * @return array<string, mixed>
      */
-    public function run(string $model = 'claude-sonnet-5', int $keep = 6, int $padding = 8): array
-    {
-        $withRecall = $this->attempt($model, $keep, $padding, recall: true);
-        $withoutRecall = $this->attempt($model, $keep, $padding, recall: false);
+    public function run(
+        string $model = 'claude-sonnet-5',
+        int $keep = 6,
+        int $padding = 8,
+        ?string $summariseWith = null,
+        int $summaryWords = 200,
+    ): array {
+        $withRecall = $this->attempt($model, $keep, $padding, true, $summariseWith, $summaryWords);
+        $withoutRecall = $this->attempt($model, $keep, $padding, false, $summariseWith, $summaryWords);
 
         return [
+            'strategy' => $summariseWith === null ? 'keep_recent' : 'summarising',
             'with_recall' => $withRecall,
             'without_recall' => $withoutRecall,
-            'verdict' => $this->verdict($withRecall, $withoutRecall),
+            'verdict' => $this->verdict($withRecall, $withoutRecall, $summariseWith !== null),
         ];
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function attempt(string $model, int $keep, int $padding, bool $recall): array
-    {
+    private function attempt(
+        string $model,
+        int $keep,
+        int $padding,
+        bool $recall,
+        ?string $summariseWith = null,
+        int $summaryWords = 200,
+    ): array {
         // A fresh scope per attempt. Sharing one would let the first attempt's
         // evicted rows answer the second attempt's question, which would make
         // the control pass and the probe report failure for the wrong reason.
         $scope = 'recall-probe-'.($recall ? 'with' : 'without').'-'.bin2hex(random_bytes(4));
 
-        app()->instance(CompactionStrategy::class, new KeepRecentTurns($keep));
+        // The strategy under test. `KeepRecentTurns` drops the older turns
+        // outright; `SummarisingCompaction` replaces them with prose a model
+        // wrote, which is a DIFFERENT question — see the verdict for why the
+        // control means something else under each.
+        app()->instance(CompactionStrategy::class, $summariseWith === null
+            ? new KeepRecentTurns($keep)
+            : new SummarisingCompaction(
+                model: $summariseWith,
+                keep: $keep,
+                summaryWords: $summaryWords,
+            ));
         app()->instance(EvictionSink::class, new TableEvictionSink);
 
         if ($recall) {
@@ -145,6 +189,19 @@ final class CompactionRecallProbe
                 'One sentence on why runbooks go stale.',
             ];
 
+            // Padding, to push turn one out of the window. Each is
+            // deliberately unrelated so nothing repeats the reference by
+            // accident.
+            //
+            // COMPETING REFERENCES WERE TRIED HERE AND REMOVED. The idea was to
+            // stop a correct answer being a lucky guess, and to force a tight
+            // summary to choose. It did neither: the summariser kept the real
+            // reference anyway, and because the decoys live in the turns that
+            // STAY in the window, the model saw several plausible codes and
+            // concluded it already had the answer — "I don't need to look this
+            // up, I have the full conversation" — so the recall arm stopped
+            // using the tool at all. A distractor placed inside the kept window
+            // does not test recall, it suppresses it.
             foreach (array_slice($topics, 0, $padding) as $topic) {
                 $session->send($topic);
             }
@@ -218,7 +275,7 @@ final class CompactionRecallProbe
      * @param  array<string, mixed>  $with
      * @param  array<string, mixed>  $without
      */
-    private function verdict(array $with, array $without): string
+    private function verdict(array $with, array $without, bool $summarising): string
     {
         if ($with['failure'] !== null || $without['failure'] !== null) {
             return 'error';
@@ -239,11 +296,44 @@ final class CompactionRecallProbe
         }
 
         if ($without['correct']) {
-            // The control answered too, so something other than recall supplied
-            // the fact. The probe is not measuring what it claims.
-            return 'inconclusive-control-also-answered';
+            // THE CONTROL ANSWERING MEANS DIFFERENT THINGS UNDER THE TWO
+            // STRATEGIES, and collapsing them would throw away the finding.
+            //
+            // Under `KeepRecentTurns` the older turns are simply gone, so a
+            // control that answers got the fact from somewhere this probe did
+            // not intend — the experiment is not measuring recall and says so.
+            //
+            // Under a summariser the older turns were replaced by prose a model
+            // wrote, and the control has no lookup — so the ONLY way it can
+            // answer is that the summary carried the reference. That is a real
+            // result about the summariser rather than a broken experiment: it
+            // kept the detail, and recall was not needed on this run.
+            return $summarising
+                ? 'summary carried the fact — recall was not needed'
+                : 'inconclusive-control-also-answered';
         }
 
+        // ANSWERING CORRECTLY IS NOT THE SAME AS RECALL WORKING, and this probe
+        // reported them as the same thing until a run showed both signals
+        // disagreeing: the recall arm answered with the reference while
+        // `looked` was false, and the verdict called it "recall works".
+        //
+        // `looked` was only ever consulted on FAILURE, so a correct answer that
+        // never touched the tool passed as proof the tool worked. The control
+        // failing is meant to rule that out, but the two arms are separate
+        // conversations against a nondeterministic model — the control can fail
+        // for its own reasons, and then a coincidence reads as a result.
+        //
+        // If the agent did not look, whatever saved it was not the recall
+        // layer.
+        if (! $with['looked']) {
+            return 'inconclusive-answered-without-looking';
+        }
+
+        // Under a summariser this is the interesting one: the summary DROPPED
+        // the reference, the control could not answer, and the arm that could
+        // look it up did. That is the sink earning its place — a summary is a
+        // lossy view, and this is the run where the loss was survivable.
         return 'recall works';
     }
 
