@@ -119,6 +119,17 @@ use Throwable;
  * `SummarisingCompaction` rather than in the run, and belongs to whoever owns
  * that published package.
  *
+ * `prism-harness` v0.6.0 fixed it: the summary is counted and, when over, sent
+ * back once to be cut down. Measured again after that change, the same default
+ * 60-word budget produced a 61-word summary where it had produced 205. The
+ * check stays, because the retry is explicitly allowed to miss — the control
+ * arm of that same run finished at 118 — and a strategy that quietly stops
+ * compressing is exactly what nobody would notice.
+ *
+ * See {@see BUDGET_TOLERANCE} for why the check is not exact equality. The
+ * first version of it called a 61-word summary "not compressed hard enough to
+ * lose" anything, which was false.
+ *
  * @see .ai/knowledge/benchmark-vacuity-guard.md
  */
 final class SummaryLossProbe
@@ -159,6 +170,27 @@ final class SummaryLossProbe
         "don't know", 'do not know', 'nothing relevant', 'not found', "didn't find",
         'did not find', 'no information', 'dropped out', 'not available', 'nothing about',
     ];
+
+    /**
+     * How far over the stated budget still counts as honouring it.
+     *
+     * NOT ZERO, and the reason is a run that made the strictness look silly:
+     * with the budget enforced in `prism-harness` v0.6.0, a 60-word budget came
+     * back at 61 and this probe declared that "nothing was compressed hard
+     * enough to lose" — of a summary that had just compressed nine rounds of
+     * conversation into sixty-one words. The verdict was false, and a probe
+     * printing a false explanation is the exact defect this one exists to
+     * catch.
+     *
+     * The budget reaches the model as "in at most N words" in natural language,
+     * and a model asked for a round number lands NEAR it. The design
+     * requirement is bounded, not exact — so the question is whether the
+     * summariser aimed at the budget or ignored it, and 25% separates those
+     * cleanly: every real breach measured before the fix was 3.4x, 6.1x or
+     * 23.1x, nowhere near this line, and the 1.02x above is nowhere near it
+     * either.
+     */
+    private const BUDGET_TOLERANCE = 1.25;
 
     /**
      * @return array<string, mixed>
@@ -483,7 +515,7 @@ final class SummaryLossProbe
         // put to the strategy at all.
         $final = $this->finalLength($with['summary_lengths']);
 
-        if ($final > $budget) {
+        if ($final > $budget * self::BUDGET_TOLERANCE) {
             return sprintf(
                 'summary ignored its budget — %d words against a stated limit of %d (%.1fx), '
                 .'so nothing was compressed hard enough to lose',
