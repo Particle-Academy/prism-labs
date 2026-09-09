@@ -108,22 +108,27 @@ use Throwable;
  * stated budget of 15 words came back at 92 words in one arm and 346 in the
  * other.
  *
- * `summaryWords` reaches the model as "in at most N words" inside a prompt.
- * That is a request and not a bound, and nothing enforces it. **A summary that
- * did not compress cannot have lost anything**, so every verdict below it was
- * describing an experiment that had not run.
+ * `summaryWords` reaches the model as "in at most N words" inside a prompt,
+ * which is a request and not a bound — and at that point NOTHING IN THE HARNESS
+ * CHECKED THE ANSWER. **A summary that did not compress cannot have lost
+ * anything**, so every verdict below it was describing an experiment that had
+ * not run.
  *
  * The breach is therefore the reported result, ahead of anything about the
- * nuance. It is also requirement 2 of the short-term-memory design failing —
- * "the summary keeps compacting: bounded, not growing" — which is a defect in
- * `SummarisingCompaction` rather than in the run, and belongs to whoever owns
- * that published package.
+ * nuance. It was also requirement 2 of the short-term-memory design failing —
+ * "the summary keeps compacting: bounded, not growing" — a defect in
+ * `SummarisingCompaction` rather than in the run.
  *
- * `prism-harness` v0.6.0 fixed it: the summary is counted and, when over, sent
- * back once to be cut down. Measured again after that change, the same default
- * 60-word budget produced a 61-word summary where it had produced 205. The
- * check stays, because the retry is explicitly allowed to miss — the control
- * arm of that same run finished at 118 — and a strategy that quietly stops
+ * **That is fixed, and this check still earns its place.** `prism-harness`
+ * v0.6.0 counts the summary and asks once more when it is over; v0.7.0 made
+ * WHICH enforcement you get an application choice (`SummaryBudget` —
+ * `RetryOnce` by default, `AskOnly`, `TruncateTo`). Measured after the fix, the
+ * same default 60-word budget produced 61 words where it had produced 205.
+ *
+ * But `RetryOnce` is explicitly allowed to miss and does: later arms finished
+ * at 118, 102 and 114 against a budget of 60. So the check stays, and it is now
+ * measuring something subtly different — not "is anything enforcing this" but
+ * "did the enforcement bound here actually land". A strategy that quietly stops
  * compressing is exactly what nobody would notice.
  *
  * See {@see BUDGET_TOLERANCE} for why the check is not exact equality. The

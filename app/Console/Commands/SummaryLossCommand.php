@@ -77,7 +77,9 @@ final class SummaryLossCommand extends Command
         // a budget stated in a prompt is a request rather than a bound.
         if (str_starts_with($result['verdict'], 'summary ignored its budget')) {
             $this->error('  '.$result['verdict']);
-            $this->line('  --summary-words reaches the model as "in at most N words" and nothing enforces it.');
+            $this->line('  The budget IS enforced — by whichever SummaryBudget is bound, RetryOnce by default,');
+            $this->line('  which asks once more when over and is explicitly allowed to miss. This run is a miss.');
+            $this->line('  Bind TruncateTo to make the bound hard, at the cost of a summary that can be cut mid-thought.');
             $this->line('  Until it holds, this probe cannot ask its question: a summary that did not compress');
             $this->line('  cannot have lost anything, so "kept the nuance" would say nothing about the summariser.');
 
