@@ -4,7 +4,7 @@ import { LabShell } from '../../components/lab-shell';
 
 type Spec = { id: string; name: string; revision: number; status: string; digest: string; archetype: string; surface_mode: string; lane_matrix: unknown[] };
 type Run = { id: string; status: string; learning_ref?: string | null; spec: Spec };
-type ProbeRun = { id: number; probe: string; verdict: string; reserved: boolean; steps: number; attempts: number; executions: number; tool_uses_cleared: number; looked: boolean; correct: boolean; fact_left_window: boolean; answer: string | null; failure: string | null };
+type ProbeRun = { id: number; probe: string; verdict: string; reserved: boolean; steps: number; attempts: number; executions: number; tool_uses_cleared: number; looked: boolean; correct: boolean; fact_left_window: boolean; confabulated: boolean; answer: string | null; failure: string | null };
 
 export default function Benchmarks({ specs, runs, providerAggregateCount, compactionRuns }: { specs: Spec[]; runs: Run[]; providerAggregateCount: number; compactionRuns: ProbeRun[] }) {
     const clearRuns = (scope: 'queued' | 'settled') => {
@@ -61,6 +61,13 @@ function CompactionProbe({ runs }: { runs: ProbeRun[] }) {
             onFinish: () => setBusy(false),
         });
     };
+    const runSummaryLoss = () => {
+        setBusy(true);
+        router.post('/lab/benchmarks/summary-loss', {}, {
+            preserveScroll: true,
+            onFinish: () => setBusy(false),
+        });
+    };
     return <section className="lab-panel" style={{ marginTop: '.85rem' }}>
         <div className="lab-panel-head">
             <span>Compaction vs reservation · does our guarantee hold while the window shrinks?</span>
@@ -68,18 +75,19 @@ function CompactionProbe({ runs }: { runs: ProbeRun[] }) {
                 <button type="button" className="k-btn k-btn--ghost k-btn--small" disabled={busy} onClick={() => launch(true)}>{busy ? 'Running…' : 'Run reservation probe'}</button>
                 <button type="button" className="k-btn k-btn--ghost k-btn--small" disabled={busy} onClick={() => launch(false)}>Run control</button>
                 <button type="button" className="k-btn k-btn--ghost k-btn--small" disabled={busy} onClick={runRecall}>Run recall probe</button>
+                <button type="button" className="k-btn k-btn--ghost k-btn--small" disabled={busy} onClick={runSummaryLoss}>Run summary-loss probe</button>
             </div>
         </div>
-        <p className="lab-lead" style={{ marginTop: 0 }}>Two questions about a shrinking window. <b>Reservation:</b> a reserved tool (<code>terminal_confirm</code>) is offered across a long loop with <code>clear_tool_uses</code> on — compaction makes the agent forget and ask again, and every ask must be refused. <b>Recall:</b> a fact is planted in turn one, compacted out of the window, and asked for back — with a control that has no lookup and must fail. Each run drives a live provider and spends tokens.</p>
+        <p className="lab-lead" style={{ marginTop: 0 }}>Three questions about a shrinking window. <b>Reservation:</b> a reserved tool (<code>terminal_confirm</code>) is offered across a long loop with <code>clear_tool_uses</code> on — compaction makes the agent forget and ask again, and every ask must be refused. <b>Recall:</b> a fact is planted in turn one, compacted out of the window, and asked for back — with a control that has no lookup and must fail. <b>Summary loss:</b> the same shape against a summariser, but what is planted is a <i>reason</i> mentioned in passing rather than an identifier — because the summariser's prompt protects identifiers and kept one on every run. Each run drives a live provider and spends tokens.</p>
         {runs.length === 0
             ? <p className="lab-empty">The probe has not run here yet. Nothing is claimed about compaction until it has.</p>
             : runs.map(run => <div className="lab-run" key={run.id}>
                 <i />
                 <div>
-                    <b>{run.probe === 'recall' ? 'recall · evicted fact' : (run.reserved ? 'reserved' : 'control (unreserved)')}</b>
+                    <b>{probeLabel(run)}</b>
                     <small>
-                        {run.probe === 'recall'
-                            ? `fact left window: ${run.fact_left_window ? 'yes' : 'NO — nothing proven'} · looked up: ${run.looked ? 'yes' : 'no'} · recovered: ${run.correct ? 'yes' : 'no'}${run.answer ? ` · "${run.answer.slice(0, 40)}"` : ''}`
+                        {run.probe === 'recall' || run.probe === 'summary-loss'
+                            ? `${run.probe === 'summary-loss' ? 'summary dropped it' : 'fact left window'}: ${run.fact_left_window ? 'yes' : 'NO — nothing proven'} · looked up: ${run.looked ? 'yes' : 'no'} · recovered: ${run.correct ? 'yes' : 'no'}${run.probe === 'summary-loss' && run.confabulated ? ' · control INVENTED a reason' : ''}${run.answer ? ` · "${run.answer.slice(0, 40)}"` : ''}`
                             : `${run.attempts} attempted · ${run.executions} executed · ${run.tool_uses_cleared} tool uses cleared · ${run.steps} steps`}
                         {run.failure ? ` · ${run.failure}` : ''}
                     </small>
@@ -87,6 +95,20 @@ function CompactionProbe({ runs }: { runs: ProbeRun[] }) {
                 <span className="lab-status">{run.verdict}</span>
             </div>)}
     </section>;
+}
+
+/**
+ * What a row is, named by what it planted rather than by which class wrote it.
+ *
+ * `recall` and `summary-loss` run the same experiment and mean different
+ * things, and the difference is the point: one plants an identifier, which the
+ * summariser's prompt is written to keep, and the other plants a reason nobody
+ * asked to be remembered.
+ */
+function probeLabel(run: ProbeRun) {
+    if (run.probe === 'recall') return 'recall · evicted fact';
+    if (run.probe === 'summary-loss') return 'summary loss · dropped nuance';
+    return run.reserved ? 'reserved' : 'control (unreserved)';
 }
 
 function Gate({ title, text }: { title: string; text: string }) { return <div className="lab-gate"><b>{title}</b><small>{text}</small></div>; }

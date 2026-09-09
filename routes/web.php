@@ -141,5 +141,12 @@ if (app()->environment('local')) {
         Route::post('/lab/benchmarks/compaction-recall', [CompactionProbeController::class, 'recall'])
             ->middleware('throttle:2,1')
             ->name('lab.benchmarks.compaction-recall');
+
+        // And the harder half of that half: what does a SUMMARY lose? Same
+        // twenty turns, plus a summarising model call on every compacting turn
+        // in both arms, so it is the most expensive press on the page.
+        Route::post('/lab/benchmarks/summary-loss', [CompactionProbeController::class, 'summaryLoss'])
+            ->middleware('throttle:2,1')
+            ->name('lab.benchmarks.summary-loss');
     });
 }

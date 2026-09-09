@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Lab;
 use App\Benchmarks\CompactionReservationProbe;
 use App\Http\Controllers\Controller;
 use App\Jobs\RunCompactionRecallProbe;
+use App\Jobs\RunSummaryLossProbe;
 use App\Models\CompactionProbeRun;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -51,6 +52,30 @@ final class CompactionProbeController extends Controller
             'status',
             'Recall probe queued. It drives two full conversations against a live provider, '
             .'so give it a couple of minutes and reload — the result appears below.',
+        );
+    }
+
+    /**
+     * The summary-loss probe: what does a summariser drop, and is it reachable?
+     *
+     * A separate button from the recall probe because it is a separate
+     * question. Recall plants an IDENTIFIER, which the summariser's prompt is
+     * written to protect and duly kept on every run — so that probe reports
+     * "summary carried the fact" and never reaches the recall branch under
+     * summarisation. This one plants a REASON mentioned in passing, which
+     * nothing in that prompt protects.
+     *
+     * Queued for the same reason, more so: both arms pay a summarising model
+     * call on every compacting turn on top of the conversation itself.
+     */
+    public function summaryLoss(): RedirectResponse
+    {
+        RunSummaryLossProbe::dispatch();
+
+        return back()->with(
+            'status',
+            'Summary-loss probe queued. Two full conversations, each summarised by a second '
+            .'model on every compacting turn — give it a few minutes and reload.',
         );
     }
 
