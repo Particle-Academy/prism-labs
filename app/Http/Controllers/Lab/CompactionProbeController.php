@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Lab;
 
-use App\Benchmarks\CompactionReservationProbe;
 use App\Http\Controllers\Controller;
 use App\Jobs\RunCompactionRecallProbe;
+use App\Jobs\RunCompactionReservationProbe;
 use App\Jobs\RunSummaryLossProbe;
-use App\Models\CompactionProbeRun;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -20,15 +19,22 @@ use Illuminate\Http\Request;
  * is supposed to be dogfooded — the Lab, in a browser — showed nothing at all.
  * A guarantee nobody can see the state of is not being watched.
  *
- * Both probes drive a real multi-round agent loop against a live provider,
+ * All three probes drive a real multi-round agent loop against a live provider,
  * deliberately, because compaction only happens on a real transcript. That is
  * why they are buttons rather than something on page load: each press spends
  * money.
  *
- * THEY DIFFER IN WHERE THEY RUN, and the difference is not a preference. The
- * reservation probe fits in a request. The recall probe drives TWO arms of a
- * full conversation and does not — run inline it kept working long after the
- * browser had given up, so it is queued. See {@see RunCompactionRecallProbe}.
+ * ALL THREE ARE QUEUED, and the one that was not is why this paragraph is
+ * rewritten. This comment used to say "the reservation probe fits in a request"
+ * — it does not. Fourteen rounds of a live agent loop is minutes, and this app
+ * is served SINGLE-THREADED: measured on the running site, one request takes
+ * 0.6s and four concurrent take 2.6s, so they serialise.
+ *
+ * An inline probe therefore did not merely make its own button slow. It froze
+ * the entire Lab for as long as it ran, and that surfaced as four unrelated-
+ * looking bugs at once: a progress bar that vanished, a button stuck on
+ * "Running…", no result appearing, and a chat panel that would not open. One
+ * blocked thread.
  */
 final class CompactionProbeController extends Controller
 {
@@ -79,7 +85,17 @@ final class CompactionProbeController extends Controller
         );
     }
 
-    public function store(Request $request, CompactionReservationProbe $probe): RedirectResponse
+    /**
+     * The reservation probe. QUEUED, like the other two.
+     *
+     * It ran inline here, and the comment above this class said it "fits in a
+     * request". It does not: fourteen rounds of a live agent loop is minutes,
+     * and this app is served single-threaded — measured, one request 0.6s and
+     * four concurrent 2.6s. So an inline run did not just block its own button,
+     * it froze the entire Lab until it finished, which is what a stuck
+     * "Running…" and an unopenable chat panel actually were.
+     */
+    public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'reserved' => ['nullable', 'boolean'],
@@ -89,38 +105,17 @@ final class CompactionProbeController extends Controller
 
         $reserved = (bool) ($validated['reserved'] ?? true);
 
-        $result = $probe->run(
+        RunCompactionReservationProbe::dispatch(
+            reserved: $reserved,
             trigger: (int) ($validated['trigger'] ?? 5000),
             keep: (int) ($validated['keep'] ?? 3),
-            reserve: $reserved,
         );
 
-        CompactionProbeRun::query()->create([
-            'verdict' => $result['verdict'],
-            'reserved' => $result['reserved'],
-            'model' => $result['model'],
-            'steps' => $result['steps'],
-            'ledger_reads' => $result['ledger_reads'],
-            'attempts' => $result['attempts'],
-            'executions' => $result['executions'],
-            'tool_uses_cleared' => $result['tool_uses_cleared'],
-            'denials' => $result['denials'],
-            'duration_ms' => $result['duration_ms'],
-            'failure' => $result['failure'],
-        ]);
-
-        // A BREACH is stated as a breach, not as "completed". The one outcome
-        // this whole surface exists to catch must not read like a normal run.
-        $message = match (true) {
-            $result['verdict'] === 'BREACH' => 'BREACH — a reserved tool EXECUTED while the window was compacted.',
-            $result['verdict'] === 'held' => sprintf(
-                'Held — %d attempts refused across %d cleared tool uses.',
-                $result['attempts'],
-                $result['tool_uses_cleared'],
-            ),
-            default => 'Recorded: '.$result['verdict'],
-        };
-
-        return back()->with($result['verdict'] === 'BREACH' ? 'error' : 'status', $message);
+        return back()->with(
+            'status',
+            $reserved
+                ? 'Reservation probe queued. It drives a long agent loop against a live provider — give it a couple of minutes and reload.'
+                : 'Control (unreserved) queued. Give it a couple of minutes and reload.',
+        );
     }
 }
