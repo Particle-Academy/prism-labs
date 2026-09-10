@@ -95,6 +95,9 @@ if (app()->environment('local')) {
         Route::get('/lab/agent', [AgentConversationController::class, 'show'])->name('lab.agent.show');
         Route::post('/lab/agent', [AgentConversationController::class, 'send'])->middleware('throttle:20,1')->name('lab.agent.send');
         Route::post('/lab/agent/clear', [AgentConversationController::class, 'clear'])->middleware('throttle:20,1')->name('lab.agent.clear');
+        // A spoken turn. Throttled harder than a typed one because it costs
+        // three provider calls rather than one — transcribe, answer, speak.
+        Route::post('/lab/agent/voice', [AgentConversationController::class, 'voice'])->middleware('throttle:10,1')->name('lab.agent.voice');
         Route::get('/lab/capabilities', [CapabilityController::class, 'status'])->name('lab.capabilities');
         Route::get('/lab/human-plus-fixture', [HumanPlusFixtureController::class, 'show'])->name('lab.human-plus-fixture');
         Route::post('/lab/capabilities/browser', [CapabilityController::class, 'openBrowser'])->middleware('throttle:10,1')->name('lab.capabilities.browser.open');

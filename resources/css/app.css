@@ -53,6 +53,20 @@
 .plab-drafts a { display: grid; flex: 0 0 auto; min-width: 13rem; border: 1px solid var(--k-hairline); border-radius: .7rem; padding: .55rem .7rem; background: var(--k-bg-1); }
 .plab-drafts a:hover { border-color: var(--k-cyan); }.plab-drafts a small { color: var(--k-ink-3); font-size: .65rem; }
 .plab-composer { border-top: 1px solid var(--k-hairline); padding: 1rem; background: var(--k-bg-0); }
+/* The mic sits beside the composer rather than inside PromptInput: the input is
+   a Fancy component and reaching into it to add a control would couple this
+   surface to its internals for a button that is not part of typing. */
+.overseer-mic { display: inline-flex; align-items: center; gap: .45rem; margin-bottom: .6rem; border: 1px solid var(--k-hairline); border-radius: 999px; padding: .4rem .85rem; font-size: .82rem; color: var(--k-ink-2); background: var(--k-bg-1); }
+.overseer-mic span { width: .55rem; height: .55rem; border-radius: 999px; background: var(--k-ink-3); }
+.overseer-mic:disabled { opacity: .5; }
+.overseer-mic.is-recording { color: var(--k-ink); border-color: currentColor; }
+.overseer-mic.is-recording span { background: #ef4444; animation: overseer-pulse 1.1s ease-in-out infinite; }
+.overseer-recording { display: flex; align-items: center; gap: .5rem; padding: .5rem .75rem; color: var(--k-ink-2); font-size: .85rem; }
+.overseer-recording span { width: .5rem; height: .5rem; border-radius: 999px; background: #ef4444; animation: overseer-pulse 1.1s ease-in-out infinite; }
+@keyframes overseer-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+/* A pulsing dot is the only cue that a microphone is live, so it must not be
+   the thing that is removed for motion sensitivity — the colour stays. */
+@media (prefers-reduced-motion: reduce) { .overseer-mic.is-recording span, .overseer-recording span { animation: none; } }
 .plab-composer [class*="bg-white"] { background: var(--k-bg-1) !important; }
 .plab-benchmark-conversation { overflow: hidden; padding: 0; }
 .plab-benchmark-conversation > header { display: flex; align-items: center; gap: .8rem; border-bottom: 1px solid var(--k-hairline); padding: 1rem 1.2rem; }

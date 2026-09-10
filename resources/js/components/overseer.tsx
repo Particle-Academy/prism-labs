@@ -21,13 +21,21 @@ export function OverseerChat({ compact = false }: { compact?: boolean }) {
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [recording, setRecording] = useState(false);
     const transcript = useRef<HTMLDivElement>(null);
+    const recorder = useRef<MediaRecorder | null>(null);
+    const chunks = useRef<Blob[]>([]);
 
     useEffect(() => { void load(); }, []);
     useEffect(() => {
         const node = transcript.current;
         if (node) node.scrollTo({ top: node.scrollHeight, behavior: 'smooth' });
     }, [messages, sending]);
+
+    // A recorder left running when the drawer closes is a HOT MICROPHONE with
+    // no UI attached to it: the browser keeps showing its recording indicator
+    // and the operator has nothing left to press to stop it.
+    useEffect(() => () => releaseMicrophone(), []);
 
     async function load() {
         try {
@@ -50,6 +58,126 @@ export function OverseerChat({ compact = false }: { compact?: boolean }) {
             setMessages([]); setDrafts(body.drafts ?? []);
         } catch (reason) { setError(reason instanceof Error ? reason.message : 'The conversation could not be cleared.'); }
         finally { setSending(false); }
+    }
+
+    function releaseMicrophone() {
+        recorder.current?.stream.getTracks().forEach(track => track.stop());
+        recorder.current = null;
+    }
+
+    /**
+     * PRESS-TO-TALK, as a toggle rather than a held button.
+     *
+     * Click to start, click to stop — still one discrete utterance with an
+     * explicit end, which is the property that separates this from an open
+     * microphone. Hold-to-talk was the other option and was rejected twice
+     * over: a held pointer released outside the window never fires its
+     * `pointerup`, leaving the recorder running while the button looks idle;
+     * and a button you must hold cannot be operated from a keyboard at all.
+     */
+    async function startRecording() {
+        if (sending || recording) return;
+        setError(null);
+
+        // Absent, not denied. `mediaDevices` is undefined on an insecure
+        // origin, which is a different problem with a different fix, and
+        // "permission denied" would send someone to the wrong settings page.
+        if (!navigator.mediaDevices?.getUserMedia) {
+            setError('This browser will not expose a microphone here. Voice needs a secure origin (https).');
+            return;
+        }
+
+        let stream: MediaStream;
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (reason) {
+            const name = reason instanceof DOMException ? reason.name : '';
+            setError(name === 'NotAllowedError'
+                ? 'The microphone is blocked. Allow it for this site, then press Speak again.'
+                : name === 'NotFoundError' ? 'No microphone was found.' : 'The microphone could not be opened.');
+            return;
+        }
+
+        // The first type the browser actually supports, constrained to what the
+        // endpoint accepts. Left to the default, Chrome hands back
+        // `audio/webm;codecs=opus` and Safari `audio/mp4`; a container the
+        // transcriber cannot read fails deep inside the provider rather than here.
+        const type = ['audio/webm', 'audio/ogg', 'audio/mp4'].find(candidate => MediaRecorder.isTypeSupported(candidate));
+        const instance = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
+
+        chunks.current = [];
+        instance.ondataavailable = event => { if (event.data.size > 0) chunks.current.push(event.data); };
+        instance.onstop = () => {
+            const blob = new Blob(chunks.current, { type: instance.mimeType });
+            releaseMicrophone();
+            void sendUtterance(blob);
+        };
+
+        recorder.current = instance;
+        instance.start();
+        setRecording(true);
+    }
+
+    function stopRecording() {
+        if (!recording) return;
+        setRecording(false);
+        recorder.current?.stop();
+    }
+
+    async function sendUtterance(blob: Blob) {
+        if (blob.size === 0) { setError('Nothing was recorded.'); return; }
+
+        setSending(true);
+        const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
+        try {
+            // `readAsDataURL` yields `data:audio/webm;codecs=opus;base64,…`; the
+            // payload is what follows the comma. The type is sent WITHOUT its
+            // codec parameter — the endpoint allowlists bare types, and the
+            // transcriber wants the container rather than the codec.
+            const encoded = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '');
+                reader.onerror = () => reject(new Error('The recording could not be read.'));
+                reader.readAsDataURL(blob);
+            });
+
+            const response = await fetch('/lab/agent/voice', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': csrf },
+                body: JSON.stringify({ audio: encoded, mime: (blob.type || 'audio/webm').split(';')[0] }),
+            });
+            const body = await response.json();
+            if (!response.ok) throw new Error(body.message ?? 'The Overseer could not answer.');
+
+            // NOTHING WAS HEARD. The harness deliberately does not spend a turn
+            // on silence, so there is no turn to render — a bubble here would
+            // put a message in the transcript that is not in the thread.
+            if (body.empty) { setError('I did not catch that.'); return; }
+
+            // What was HEARD goes in the transcript, always. A right answer to
+            // a wrong transcription is a microphone problem, and showing only
+            // the answer hides which of the two just happened.
+            const spoken: Message[] = [{ id: `heard-${Date.now()}`, role: 'user', content: body.heard }];
+            if (body.text) spoken.push({ id: `voice-${Date.now()}`, role: 'assistant', content: body.text });
+            setMessages(current => [...current, ...spoken]);
+            setDrafts(body.drafts ?? []);
+            router.reload({ only: ['specs'] });
+
+            // Null on a turn that only called tools, which is legitimate rather
+            // than an error — the answer is already on screen as text.
+            if (body.audio) await play(body.audio, body.audio_type);
+        } catch (reason) { setError(reason instanceof Error ? reason.message : 'The Overseer could not answer.'); }
+        finally { setSending(false); }
+    }
+
+    async function play(base64: string, type: string | null) {
+        try {
+            await new window.Audio(`data:${type ?? 'audio/mpeg'};base64,${base64}`).play();
+        } catch {
+            // The only part of a turn that can fail AFTER the answer is already
+            // visible, so it is reported quietly rather than as a failed turn.
+            setError('The reply is above; it could not be played aloud.');
+        }
     }
 
     async function submit(text: string, attachments: PromptAttachment[]) {
@@ -75,7 +203,7 @@ export function OverseerChat({ compact = false }: { compact?: boolean }) {
         finally { setSending(false); }
     }
 
-    return <section className={`plab-chat ${compact ? 'is-compact' : ''}`}><div className="plab-transcript" ref={transcript}>{loading && <AgentThinking label="Loading your conversation…" />}{!loading && messages.length === 0 && <Welcome />}{messages.map(message => <article key={message.id} className={`plab-message is-${message.role}`}>{message.role === 'assistant' && <span className="plab-message-avatar">P</span>}<div><small>{message.role === 'assistant' ? 'Overseer' : 'You'}</small>{message.role === 'assistant' ? <ContentRenderer value={message.content} format="markdown" /> : <p>{message.content}</p>}</div></article>)}{sending && <AgentThinking label="PLab is thinking through the test…" />}{error && <div className="overseer-error" role="alert">{error}</div>}</div>{drafts.length > 0 && <div className="plab-drafts"><span>Proposed specifications</span>{drafts.slice(0, 3).map(draft => <Link key={draft.id} href={`/lab/benchmarks/specs/${draft.id}`}><b>{draft.name}</b><small>Revision {draft.revision} · {draft.status} · Review spec →</small></Link>)}</div>}<div className="plab-composer"><PromptInput budgetTokens={12_000} commands={[{ name: '/clear', hint: 'Start a new conversation — the old one is kept, not deleted' }, { name: '/benchmark', hint: 'Design a benchmark together' }, { name: '/compare', hint: 'Plan a parity comparison' }, { name: '/research', hint: 'Research before writing the test' }]} mentions={[{ id: 'php', name: 'PHP lane', kind: 'agent' }, { id: 'typescript', name: 'TypeScript lane', kind: 'agent' }, { id: 'python', name: 'Python lane', kind: 'agent' }]} onSubmit={(text, attachments) => void submit(text, attachments)} placeholder="Tell PLab what you want to learn or test…" maxHeight={160} /></div></section>;
+    return <section className={`plab-chat ${compact ? 'is-compact' : ''}`}><div className="plab-transcript" ref={transcript}>{loading && <AgentThinking label="Loading your conversation…" />}{!loading && messages.length === 0 && <Welcome />}{messages.map(message => <article key={message.id} className={`plab-message is-${message.role}`}>{message.role === 'assistant' && <span className="plab-message-avatar">P</span>}<div><small>{message.role === 'assistant' ? 'Overseer' : 'You'}</small>{message.role === 'assistant' ? <ContentRenderer value={message.content} format="markdown" /> : <p>{message.content}</p>}</div></article>)}{sending && <AgentThinking label="PLab is thinking through the test…" />}{recording && <div className="overseer-recording" role="status"><span />Listening — press Stop and send when you are done.</div>}{error && <div className="overseer-error" role="alert">{error}</div>}</div>{drafts.length > 0 && <div className="plab-drafts"><span>Proposed specifications</span>{drafts.slice(0, 3).map(draft => <Link key={draft.id} href={`/lab/benchmarks/specs/${draft.id}`}><b>{draft.name}</b><small>Revision {draft.revision} · {draft.status} · Review spec →</small></Link>)}</div>}<div className="plab-composer"><button type="button" className={`overseer-mic ${recording ? 'is-recording' : ''}`} disabled={sending} aria-pressed={recording} aria-label={recording ? 'Stop recording and send' : 'Record a spoken message'} onClick={() => (recording ? stopRecording() : void startRecording())}><span />{recording ? 'Stop and send' : 'Speak'}</button><PromptInput budgetTokens={12_000} commands={[{ name: '/clear', hint: 'Start a new conversation — the old one is kept, not deleted' }, { name: '/benchmark', hint: 'Design a benchmark together' }, { name: '/compare', hint: 'Plan a parity comparison' }, { name: '/research', hint: 'Research before writing the test' }]} mentions={[{ id: 'php', name: 'PHP lane', kind: 'agent' }, { id: 'typescript', name: 'TypeScript lane', kind: 'agent' }, { id: 'python', name: 'Python lane', kind: 'agent' }]} onSubmit={(text, attachments) => void submit(text, attachments)} placeholder="Tell PLab what you want to learn or test…" maxHeight={160} /></div></section>;
 }
 
 function AgentIdentity() { return <div className="overseer-identity"><span className="overseer-mark">P</span><div><b>Overseer</b><small>Coordinator · overseer · durable memory</small></div><i /></div>; }
