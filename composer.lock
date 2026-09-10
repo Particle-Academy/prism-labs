@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "c906bf0b5fba30ae010bf9e1b4a990f7",
+    "content-hash": "c36a4b739811f8d4fae2cb4919dc78c9",
     "packages": [
         {
             "name": "brick/math",
@@ -3500,16 +3500,16 @@
         },
         {
             "name": "particle-academy/prism-harness",
-            "version": "v0.7.1",
+            "version": "v0.8.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/Particle-Academy/prism-harness.git",
-                "reference": "9ff2655f90f869439ab5964c6903f9ff3f01ca8e"
+                "reference": "c940fb9dc312229113317eb507e5a6d477d91149"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Particle-Academy/prism-harness/zipball/9ff2655f90f869439ab5964c6903f9ff3f01ca8e",
-                "reference": "9ff2655f90f869439ab5964c6903f9ff3f01ca8e",
+                "url": "https://api.github.com/repos/Particle-Academy/prism-harness/zipball/c940fb9dc312229113317eb507e5a6d477d91149",
+                "reference": "c940fb9dc312229113317eb507e5a6d477d91149",
                 "shasum": ""
             },
             "require": {
@@ -3574,10 +3574,10 @@
                 "sessions"
             ],
             "support": {
-                "source": "https://github.com/Particle-Academy/prism-harness/tree/v0.7.1",
+                "source": "https://github.com/Particle-Academy/prism-harness/tree/v0.8.0",
                 "issues": "https://github.com/Particle-Academy/prism-harness/issues"
             },
-            "time": "2026-09-09T16:13:41+00:00"
+            "time": "2026-09-10T02:37:49+00:00"
         },
         {
             "name": "particle-academy/prism-human-plus",

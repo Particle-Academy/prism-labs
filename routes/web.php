@@ -94,6 +94,7 @@ if (app()->environment('local')) {
         Route::post('/lab/chat', [ChatController::class, 'run'])->middleware('throttle:10,1')->name('lab.chat.run');
         Route::get('/lab/agent', [AgentConversationController::class, 'show'])->name('lab.agent.show');
         Route::post('/lab/agent', [AgentConversationController::class, 'send'])->middleware('throttle:20,1')->name('lab.agent.send');
+        Route::post('/lab/agent/clear', [AgentConversationController::class, 'clear'])->middleware('throttle:20,1')->name('lab.agent.clear');
         Route::get('/lab/capabilities', [CapabilityController::class, 'status'])->name('lab.capabilities');
         Route::get('/lab/human-plus-fixture', [HumanPlusFixtureController::class, 'show'])->name('lab.human-plus-fixture');
         Route::post('/lab/capabilities/browser', [CapabilityController::class, 'openBrowser'])->middleware('throttle:10,1')->name('lab.capabilities.browser.open');

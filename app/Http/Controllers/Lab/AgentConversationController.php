@@ -26,6 +26,36 @@ final class AgentConversationController extends Controller
         ]);
     }
 
+    /**
+     * `/clear` — start a new conversation with the Overseer.
+     *
+     * RETIRES the thread rather than deleting it, which is the whole reason
+     * this calls `newConversation()` instead of emptying a table. The operator
+     * asked to clear their context, not to erase the record: every message of
+     * the old conversation stays readable at `/lab/threads`, and only one of
+     * those two things is recoverable if they meant the other.
+     *
+     * The session's mode, provider and model are untouched. Clearing a chat
+     * should not quietly move the agent to a different model than the one the
+     * operator chose on the Models screen.
+     */
+    public function clear(Request $request, LabSession $sessions): JsonResponse
+    {
+        $retired = $sessions->resolve($request)->thread();
+        $fresh = $sessions->resolve($request)->newConversation();
+
+        return response()->json([
+            'messages' => [],
+            'run' => null,
+            'drafts' => $this->drafts(),
+            'cleared' => [
+                'retired_thread' => $retired->getKey(),
+                'messages_kept' => $retired->storedMessages()->count(),
+                'new_thread' => $fresh->getKey(),
+            ],
+        ]);
+    }
+
     public function send(Request $request, LabSession $sessions): JsonResponse
     {
         $input = $request->validate(['message' => ['required', 'string', 'max:30000']]);
