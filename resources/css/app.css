@@ -17,16 +17,16 @@
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
 
-/* PLab Agent — one durable consumer chat, available inline and as a global flyout. */
-.plab-agent-launcher { position: fixed; right: 1.5rem; bottom: 1.5rem; z-index: 40; display: flex; align-items: center; gap: .75rem; min-width: 15rem; border: 1px solid color-mix(in srgb, var(--k-violet) 45%, var(--k-hairline)); border-radius: 1rem; padding: .7rem .9rem; color: var(--k-ink); background: color-mix(in srgb, var(--k-bg-1) 94%, transparent); box-shadow: 0 16px 55px rgba(0,0,0,.38); backdrop-filter: blur(18px); text-align: left; }
-.plab-agent-launcher:hover { border-color: var(--k-cyan); transform: translateY(-1px); }
-.plab-agent-launcher > span:nth-child(2) { display: grid; gap: .12rem; }
-.plab-agent-launcher small, .plab-agent-identity small { color: var(--k-ink-3); font-size: .68rem; }
-.plab-agent-launcher > i, .plab-agent-identity > i, .plab-agent-presence i { width: .48rem; height: .48rem; margin-left: auto; border-radius: 99px; background: #36e28b; box-shadow: 0 0 12px #36e28b; }
-.plab-agent-mark { display: grid; place-items: center; flex: 0 0 auto; width: 2.2rem; height: 2.2rem; border-radius: .75rem; color: white; background: linear-gradient(135deg, var(--k-mag), var(--k-violet)); font-weight: 900; box-shadow: 0 8px 25px rgba(168,85,247,.26); }
-.plab-agent-drawer { width: min(42rem, 96vw) !important; background: var(--k-bg-0) !important; border-color: var(--k-hairline) !important; }
-.plab-agent-identity { display: flex; align-items: center; gap: .7rem; width: 100%; }
-.plab-agent-identity > div { display: grid; }
+/* Overseer — one durable consumer chat, available inline and as a global flyout. */
+.overseer-launcher { position: fixed; right: 1.5rem; bottom: 1.5rem; z-index: 40; display: flex; align-items: center; gap: .75rem; min-width: 15rem; border: 1px solid color-mix(in srgb, var(--k-violet) 45%, var(--k-hairline)); border-radius: 1rem; padding: .7rem .9rem; color: var(--k-ink); background: color-mix(in srgb, var(--k-bg-1) 94%, transparent); box-shadow: 0 16px 55px rgba(0,0,0,.38); backdrop-filter: blur(18px); text-align: left; }
+.overseer-launcher:hover { border-color: var(--k-cyan); transform: translateY(-1px); }
+.overseer-launcher > span:nth-child(2) { display: grid; gap: .12rem; }
+.overseer-launcher small, .overseer-identity small { color: var(--k-ink-3); font-size: .68rem; }
+.overseer-launcher > i, .overseer-identity > i, .overseer-presence i { width: .48rem; height: .48rem; margin-left: auto; border-radius: 99px; background: #36e28b; box-shadow: 0 0 12px #36e28b; }
+.overseer-mark { display: grid; place-items: center; flex: 0 0 auto; width: 2.2rem; height: 2.2rem; border-radius: .75rem; color: white; background: linear-gradient(135deg, var(--k-mag), var(--k-violet)); font-weight: 900; box-shadow: 0 8px 25px rgba(168,85,247,.26); }
+.overseer-drawer { width: min(42rem, 96vw) !important; background: var(--k-bg-0) !important; border-color: var(--k-hairline) !important; }
+.overseer-identity { display: flex; align-items: center; gap: .7rem; width: 100%; }
+.overseer-identity > div { display: grid; }
 .plab-chat { display: grid; grid-template-rows: minmax(24rem, 1fr) auto auto; min-height: 42rem; height: min(68vh, 52rem); }
 .plab-chat.is-compact { height: calc(100vh - 4.25rem); min-height: 32rem; }
 .plab-transcript { min-height: 0; overflow: auto; padding: 1.4rem; scroll-behavior: smooth; }
@@ -38,7 +38,7 @@
 .plab-message p { white-space: pre-wrap; }
 .plab-message-avatar { display: grid; place-items: center; flex: 0 0 auto; width: 1.8rem; height: 1.8rem; border-radius: .6rem; color: white; background: linear-gradient(135deg, var(--k-mag), var(--k-violet)); font-size: .75rem; font-weight: 900; }
 .plab-welcome { max-width: 40rem; margin: 3rem auto; text-align: center; }
-.plab-welcome .plab-agent-mark { margin: 0 auto 1.2rem; width: 3rem; height: 3rem; }
+.plab-welcome .overseer-mark { margin: 0 auto 1.2rem; width: 3rem; height: 3rem; }
 .plab-welcome h2 { font-size: clamp(1.65rem, 3vw, 2.5rem); font-weight: 850; }
 .plab-welcome p { margin: .8rem auto 0; color: var(--k-ink-2); line-height: 1.7; }
 .plab-welcome > div { display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem; margin-top: 1.25rem; }
@@ -47,7 +47,7 @@
 .plab-thinking > span { width: .38rem; height: .38rem; border-radius: 50%; background: var(--k-cyan); animation: plab-pulse 1.2s infinite ease-in-out; }
 .plab-thinking > span:nth-child(2) { animation-delay: .15s; }.plab-thinking > span:nth-child(3) { animation-delay: .3s; }.plab-thinking small { margin-left: .4rem; }
 @keyframes plab-pulse { 0%, 70%, 100% { opacity: .3; transform: translateY(0); } 35% { opacity: 1; transform: translateY(-3px); } }
-.plab-agent-error { margin: 1rem 0; border-left: 3px solid var(--k-mag); padding: .8rem 1rem; color: var(--k-ink-2); background: rgba(255,46,136,.08); }
+.overseer-error { margin: 1rem 0; border-left: 3px solid var(--k-mag); padding: .8rem 1rem; color: var(--k-ink-2); background: rgba(255,46,136,.08); }
 .plab-drafts { display: flex; gap: .6rem; overflow-x: auto; border-top: 1px solid var(--k-hairline); padding: .75rem 1rem; }
 .plab-drafts > span { flex: 0 0 auto; align-self: center; color: var(--k-ink-3); font: 600 .6rem/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; }
 .plab-drafts a { display: grid; flex: 0 0 auto; min-width: 13rem; border: 1px solid var(--k-hairline); border-radius: .7rem; padding: .55rem .7rem; background: var(--k-bg-1); }
@@ -57,9 +57,9 @@
 .plab-benchmark-conversation { overflow: hidden; padding: 0; }
 .plab-benchmark-conversation > header { display: flex; align-items: center; gap: .8rem; border-bottom: 1px solid var(--k-hairline); padding: 1rem 1.2rem; }
 .plab-benchmark-conversation > header > div:nth-child(2) { display: grid; gap: .2rem; }.plab-benchmark-conversation > header small { color: var(--k-ink-3); }
-.plab-agent-presence { display: flex; align-items: center; gap: .5rem; border: 1px solid var(--k-hairline); border-radius: 999px; padding: .5rem .75rem; color: var(--k-ink-2); }
-.plab-agent-presence i { margin: 0; }
-@media (max-width: 700px) { .plab-agent-launcher { right: .8rem; bottom: .8rem; min-width: auto; }.plab-agent-launcher > span:nth-child(2) { display: none; }.plab-chat { height: 70vh; }.plab-message { width: 96%; } }
+.overseer-presence { display: flex; align-items: center; gap: .5rem; border: 1px solid var(--k-hairline); border-radius: 999px; padding: .5rem .75rem; color: var(--k-ink-2); }
+.overseer-presence i { margin: 0; }
+@media (max-width: 700px) { .overseer-launcher { right: .8rem; bottom: .8rem; min-width: auto; }.overseer-launcher > span:nth-child(2) { display: none; }.plab-chat { height: 70vh; }.plab-message { width: 96%; } }
 
 /* ── Kinetic (Fancy gallery style 13) ─────────────────────────────────────
    Near-black surfaces lit by the velocity gradient. Motion as language:

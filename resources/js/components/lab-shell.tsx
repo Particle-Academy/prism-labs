@@ -1,6 +1,6 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import type { ReactNode } from 'react';
-import { PLabAgentLauncher } from './plab-agent';
+import { OverseerLauncher } from './overseer';
 
 const primary = [
     ['/lab', 'Cockpit'],
@@ -39,7 +39,7 @@ export function LabShell({ title, current, eyebrow, children }: { title: string;
                 {flash?.error && <div className="lab-flash is-error" role="alert">{flash.error}</div>}
                 {children}
             </main>
-            <PLabAgentLauncher />
+            <OverseerLauncher />
         </div>
     );
 }

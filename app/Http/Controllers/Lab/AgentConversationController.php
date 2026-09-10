@@ -46,7 +46,7 @@ final class AgentConversationController extends Controller
             report($failure);
 
             return response()->json([
-                'message' => 'The PLab Agent could not complete that turn. Your conversation is preserved; try again when the provider is available.',
+                'message' => 'The Overseer could not complete that turn. Your conversation is preserved; try again when the provider is available.',
             ], 503);
         }
     }

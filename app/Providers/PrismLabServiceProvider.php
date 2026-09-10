@@ -6,6 +6,8 @@ namespace App\Providers;
 
 use App\Benchmarks\BenchmarkLaneExecutor;
 use App\Benchmarks\WorkspaceToolset;
+use App\Docs\DocsLibrary;
+use App\Docs\DocsToolset;
 use App\Lab\CapabilityManager;
 use App\Lab\LabSession;
 use App\Telemetry\PrismTelemetrySubscriber;
@@ -44,6 +46,7 @@ final class PrismLabServiceProvider extends ServiceProvider
         }
 
         $this->app['config']->set('prism.telemetry.enabled', true);
+
         $this->app['config']->set('prism.telemetry.capture_content', false);
         $this->app['config']->set('prism-opentelemetry.enabled', true);
 
@@ -90,6 +93,18 @@ final class PrismLabServiceProvider extends ServiceProvider
         $this->app->instance(TracerProvider::class, $tracerProvider);
         $this->app->terminating(static fn (): bool => $tracerProvider->shutdown());
         $this->app->register(PrismOpenTelemetryServiceProvider::class);
+
+        $this->bindDocs();
+    }
+
+    private function bindDocs(): void
+    {
+        $this->app->singleton(DocsLibrary::class, fn ($app): DocsLibrary => new DocsLibrary(
+            array_filter(array_map(
+                fn (mixed $path): string => (string) $path,
+                (array) $app['config']->get('docs.shelves', []),
+            )),
+        ));
     }
 
     public function boot(): void
@@ -104,6 +119,17 @@ final class PrismLabServiceProvider extends ServiceProvider
         );
         $this->app->make(ToolRegistry::class)->registerProvider(
             fn ($session): array => $this->app->make(WorkspaceToolset::class)->forSession($session),
+        );
+
+        // Documentation, offered to EVERY session rather than only to a lane.
+        //
+        // The Overseer designs experiments against the Prism ecosystem, and
+        // without this it did so from whatever it happened to remember — which
+        // produces a benchmark for the API the model imagined rather than the
+        // one that shipped. That is the exact failure this Lab keeps finding in
+        // other people's agents.
+        $this->app->make(ToolRegistry::class)->registerProvider(
+            fn ($session): array => $this->app->make(DocsToolset::class)->forSession($session),
         );
 
         $this->app->make(NodeKindRegistry::class)->register(NodeKind::fromArray([
