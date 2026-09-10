@@ -116,6 +116,17 @@ final class AgentConversationController extends Controller
                 'drafts' => $this->drafts(),
             ]);
         } catch (Throwable $failure) {
+            // THIS REPORT CAN CARRY THE RECORDING, and the Lab is the right
+            // place to say so out loud rather than the wrong place to pretend
+            // otherwise. Under `zend.exception_ignore_args=0` the trace holds
+            // VoiceExchange's frames, whose argument is the Audio — see the
+            // Voice section of prism-harness's README, which measures exactly
+            // which frames those are and why the package cannot close it.
+            //
+            // The Lab is never deployed and its `.env` is not production, so
+            // the exposure here is a developer's own voice on a developer's own
+            // machine. An application that IS deployed sets the ini to 1 or
+            // scrubs the Audio class in its reporter. Both are the operator's.
             report($failure);
 
             return response()->json([
