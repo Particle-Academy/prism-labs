@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "c36a4b739811f8d4fae2cb4919dc78c9",
+    "content-hash": "57d39b198bbdd32cc1a923a87d7698d3",
     "packages": [
         {
             "name": "brick/math",
@@ -3339,17 +3339,11 @@
         },
         {
             "name": "particle-academy/prism",
-            "version": "v0.117.2",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/Particle-Academy/prism.git",
-                "reference": "f36182fc9cdebfd9b8c40a162ba26a781e42be9a"
-            },
+            "version": "dev-main",
             "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/Particle-Academy/prism/zipball/f36182fc9cdebfd9b8c40a162ba26a781e42be9a",
-                "reference": "f36182fc9cdebfd9b8c40a162ba26a781e42be9a",
-                "shasum": ""
+                "type": "path",
+                "url": "../prism",
+                "reference": "ebbab76adb1349b27e55dc01166fd2cd405f5247"
             },
             "require": {
                 "ext-fileinfo": "*",
@@ -3389,23 +3383,67 @@
             "type": "library",
             "extra": {
                 "laravel": {
-                    "aliases": {
-                        "PrismServer": "Prism\\Prism\\Facades\\PrismServer"
-                    },
                     "providers": [
                         "Prism\\Prism\\PrismServiceProvider"
-                    ]
+                    ],
+                    "aliases": {
+                        "PrismServer": "Prism\\Prism\\Facades\\PrismServer"
+                    }
                 }
             },
             "autoload": {
-                "files": [
-                    "src/helpers.php"
-                ],
                 "psr-4": {
                     "Prism\\Prism\\": "src/"
+                },
+                "files": [
+                    "src/helpers.php"
+                ]
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Prism\\Dev\\": "dev/",
+                    "Tests\\": "tests/",
+                    "Workbench\\App\\": "workbench/app/",
+                    "Workbench\\Database\\Factories\\": "workbench/database/factories/",
+                    "Workbench\\Database\\Seeders\\": "workbench/database/seeders/"
                 }
             },
-            "notification-url": "https://packagist.org/downloads/",
+            "scripts": {
+                "post-install-cmd": [
+                    "whisky update"
+                ],
+                "post-update-cmd": [
+                    "whisky update"
+                ],
+                "post-autoload-dump": [
+                    "@clear",
+                    "@prepare"
+                ],
+                "format": [
+                    "@php vendor/bin/pint --ansi --parallel",
+                    "@php vendor/bin/rector process --no-diffs"
+                ],
+                "test": [
+                    "@php vendor/bin/pest --parallel"
+                ],
+                "clear": [
+                    "@php vendor/bin/testbench package:purge-skeleton --ansi"
+                ],
+                "prepare": [
+                    "@php vendor/bin/testbench package:discover --ansi"
+                ],
+                "build": [
+                    "@php vendor/bin/testbench workbench:build --ansi"
+                ],
+                "serve": [
+                    "Composer\\Config::disableProcessTimeout",
+                    "@build",
+                    "@php vendor/bin/testbench serve --ansi"
+                ],
+                "types": [
+                    "@php vendor/bin/phpstan analyse --verbose --no-ansi"
+                ]
+            },
             "license": [
                 "MIT"
             ],
@@ -3416,31 +3454,18 @@
                 }
             ],
             "description": "A powerful Laravel package for integrating Large Language Models (LLMs) into your applications. Actively maintained fork of prism-php/prism.",
-            "support": {
-                "issues": "https://github.com/Particle-Academy/prism/issues",
-                "source": "https://github.com/Particle-Academy/prism/tree/v0.117.2"
-            },
-            "funding": [
-                {
-                    "url": "https://github.com/sixlive",
-                    "type": "github"
-                }
-            ],
-            "time": "2026-09-07T03:22:08+00:00"
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
         },
         {
             "name": "particle-academy/prism-browser",
             "version": "dev-main",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/Particle-Academy/prism-browser.git",
-                "reference": "216fbeef4be99e28536ec4ff32c06e8704b7f0d3"
-            },
             "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/Particle-Academy/prism-browser/zipball/216fbeef4be99e28536ec4ff32c06e8704b7f0d3",
-                "reference": "216fbeef4be99e28536ec4ff32c06e8704b7f0d3",
-                "shasum": ""
+                "type": "path",
+                "url": "../prism-browser",
+                "reference": "9d0737b5e4d6649412f7328aae3fe12c77071195"
             },
             "require": {
                 "ext-json": "*",
@@ -3458,7 +3483,6 @@
             "suggest": {
                 "particle-academy/prism-harness": "Binds browser attachments to durable Harness sessions."
             },
-            "default-branch": true,
             "type": "library",
             "extra": {
                 "laravel": {
@@ -3492,25 +3516,18 @@
                 "MIT"
             ],
             "description": "Guarded browser automation for Prism agents — bounded observations, policy-first navigation, and durable sessions.",
-            "support": {
-                "source": "https://github.com/Particle-Academy/prism-browser/tree/main",
-                "issues": "https://github.com/Particle-Academy/prism-browser/issues"
-            },
-            "time": "2026-09-02T03:03:12+00:00"
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
         },
         {
             "name": "particle-academy/prism-harness",
-            "version": "v0.8.0",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/Particle-Academy/prism-harness.git",
-                "reference": "c940fb9dc312229113317eb507e5a6d477d91149"
-            },
+            "version": "dev-main",
             "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/Particle-Academy/prism-harness/zipball/c940fb9dc312229113317eb507e5a6d477d91149",
-                "reference": "c940fb9dc312229113317eb507e5a6d477d91149",
-                "shasum": ""
+                "type": "path",
+                "url": "../prism-harness",
+                "reference": "d84cc13605fc287311436f8218edd67d6645ff94"
             },
             "require": {
                 "laravel/framework": "^12.61.1|^13.12.0",
@@ -3573,25 +3590,18 @@
                 "prism",
                 "sessions"
             ],
-            "support": {
-                "source": "https://github.com/Particle-Academy/prism-harness/tree/v0.8.0",
-                "issues": "https://github.com/Particle-Academy/prism-harness/issues"
-            },
-            "time": "2026-09-10T02:37:49+00:00"
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
         },
         {
             "name": "particle-academy/prism-human-plus",
             "version": "dev-main",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/Particle-Academy/prism-human-plus.git",
-                "reference": "479a9b1faa3ee5385637fae19ffe7a5323bc66f3"
-            },
             "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/Particle-Academy/prism-human-plus/zipball/479a9b1faa3ee5385637fae19ffe7a5323bc66f3",
-                "reference": "479a9b1faa3ee5385637fae19ffe7a5323bc66f3",
-                "shasum": ""
+                "type": "path",
+                "url": "../prism-human-plus",
+                "reference": "eb2d83e2655d497d603caaf5406183b3e8d447e4"
             },
             "require": {
                 "ext-json": "*",
@@ -3610,7 +3620,6 @@
             "suggest": {
                 "particle-academy/prism-harness": "Binds Human+ participant attachments to durable Harness sessions."
             },
-            "default-branch": true,
             "type": "library",
             "extra": {
                 "laravel": {
@@ -3644,32 +3653,26 @@
                 "MIT"
             ],
             "description": "Human+ participant presence for Prism Harness — join live Fancy surfaces through trusted MCP relay attachments.",
-            "support": {
-                "source": "https://github.com/Particle-Academy/prism-human-plus/tree/main",
-                "issues": "https://github.com/Particle-Academy/prism-human-plus/issues"
-            },
-            "time": "2026-09-02T07:25:33+00:00"
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
         },
         {
             "name": "particle-academy/prism-mcp",
-            "version": "v0.1.0",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/Particle-Academy/prism-mcp.git",
-                "reference": "88679a3e630f0c9f6ad995031d1e3f3da757910b"
-            },
+            "version": "dev-main",
             "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/Particle-Academy/prism-mcp/zipball/88679a3e630f0c9f6ad995031d1e3f3da757910b",
-                "reference": "88679a3e630f0c9f6ad995031d1e3f3da757910b",
-                "shasum": ""
+                "type": "path",
+                "url": "../prism-mcp",
+                "reference": "a0c75b0a66042b8b9fa2d2993926e60393fd4394"
             },
             "require": {
                 "ext-json": "*",
                 "ext-mbstring": "*",
                 "laravel/framework": "^12.61.1|^13.12.0",
                 "particle-academy/prism": ">=0.114 <1.0",
-                "php": "^8.2"
+                "php": "^8.2",
+                "symfony/console": "^7.2|^8.0"
             },
             "replace": {
                 "prism-php/relay": "*"
@@ -3687,12 +3690,12 @@
             "type": "library",
             "extra": {
                 "laravel": {
-                    "aliases": {
-                        "PrismMcp": "Prism\\Mcp\\Facades\\PrismMcp"
-                    },
                     "providers": [
                         "Prism\\Mcp\\PrismMcpServiceProvider"
-                    ]
+                    ],
+                    "aliases": {
+                        "PrismMcp": "Prism\\Mcp\\Facades\\PrismMcp"
+                    }
                 }
             },
             "autoload": {
@@ -3700,7 +3703,22 @@
                     "Prism\\Mcp\\": "src/"
                 }
             },
-            "notification-url": "https://packagist.org/downloads/",
+            "autoload-dev": {
+                "psr-4": {
+                    "Tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "@php vendor/bin/pest"
+                ],
+                "types": [
+                    "@php vendor/bin/phpstan analyse"
+                ],
+                "format": [
+                    "@php vendor/bin/pint"
+                ]
+            },
             "license": [
                 "MIT"
             ],
@@ -3720,32 +3738,27 @@
                 "model-context-protocol",
                 "prism"
             ],
-            "support": {
-                "issues": "https://github.com/Particle-Academy/prism-mcp/issues",
-                "source": "https://github.com/Particle-Academy/prism-mcp/tree/v0.1.0"
-            },
-            "time": "2026-08-25T23:28:13+00:00"
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
         },
         {
             "name": "particle-academy/prism-opentelemetry",
-            "version": "v0.1.1",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/Particle-Academy/prism-opentelemetry.git",
-                "reference": "12c51c194631fdc5dad78f3a65e3c3c051581a6b"
-            },
+            "version": "dev-main",
             "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/Particle-Academy/prism-opentelemetry/zipball/12c51c194631fdc5dad78f3a65e3c3c051581a6b",
-                "reference": "12c51c194631fdc5dad78f3a65e3c3c051581a6b",
-                "shasum": ""
+                "type": "path",
+                "url": "../prism-opentelemetry",
+                "reference": "a80cb088ef1de75f8cd151f8161071d74582e534"
             },
             "require": {
                 "ext-json": "*",
+                "ext-mbstring": "*",
                 "illuminate/contracts": "^12.0|^13.0",
                 "illuminate/support": "^12.0|^13.0",
                 "open-telemetry/api": "^1.0",
-                "particle-academy/prism": ">=0.111 <1.0",
+                "open-telemetry/context": "^1.0",
+                "particle-academy/prism": ">=0.116 <1.0",
                 "php": "^8.2"
             },
             "require-dev": {
@@ -3768,7 +3781,22 @@
                     "Prism\\OpenTelemetry\\": "src/"
                 }
             },
-            "notification-url": "https://packagist.org/downloads/",
+            "autoload-dev": {
+                "psr-4": {
+                    "Prism\\OpenTelemetry\\Tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "@php vendor/bin/pest"
+                ],
+                "types": [
+                    "@php vendor/bin/phpstan analyse"
+                ],
+                "format": [
+                    "@php vendor/bin/pint"
+                ]
+            },
             "license": [
                 "MIT"
             ],
@@ -3780,7 +3808,6 @@
             "description": "OpenTelemetry bridge for Prism: turns Prism telemetry events into GenAI-convention spans for Arize Phoenix and any OTLP backend.",
             "homepage": "https://github.com/Particle-Academy/prism-opentelemetry",
             "keywords": [
-                "Phoenix",
                 "gen-ai",
                 "laravel",
                 "llm",
@@ -3788,28 +3815,22 @@
                 "opentelemetry",
                 "otel",
                 "otlp",
+                "phoenix",
                 "prism",
                 "tracing"
             ],
-            "support": {
-                "issues": "https://github.com/Particle-Academy/prism-opentelemetry/issues",
-                "source": "https://github.com/Particle-Academy/prism-opentelemetry/tree/v0.1.1"
-            },
-            "time": "2026-08-17T05:47:13+00:00"
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
         },
         {
             "name": "particle-academy/prism-perplexity",
-            "version": "v0.2.0",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/Particle-Academy/prism-perplexity.git",
-                "reference": "88b2567ee3b1c8c931cb73c9074ee970324bb454"
-            },
+            "version": "dev-main",
             "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/Particle-Academy/prism-perplexity/zipball/88b2567ee3b1c8c931cb73c9074ee970324bb454",
-                "reference": "88b2567ee3b1c8c931cb73c9074ee970324bb454",
-                "shasum": ""
+                "type": "path",
+                "url": "../prism-perplexity",
+                "reference": "09a6a67136aeb99c544d22590dee5558961afe67"
             },
             "require": {
                 "laravel/framework": "^12.61.1|^13.12.0",
@@ -3835,7 +3856,22 @@
                     "Prism\\Perplexity\\": "src/"
                 }
             },
-            "notification-url": "https://packagist.org/downloads/",
+            "autoload-dev": {
+                "psr-4": {
+                    "Tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "@php vendor/bin/pest"
+                ],
+                "types": [
+                    "@php vendor/bin/phpstan analyse"
+                ],
+                "format": [
+                    "@php vendor/bin/pint"
+                ]
+            },
             "license": [
                 "MIT"
             ],
@@ -3855,25 +3891,18 @@
                 "prism",
                 "search"
             ],
-            "support": {
-                "issues": "https://github.com/Particle-Academy/prism-perplexity/issues",
-                "source": "https://github.com/Particle-Academy/prism-perplexity/tree/v0.2.0"
-            },
-            "time": "2026-08-30T06:22:57+00:00"
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
         },
         {
             "name": "particle-academy/prism-workspace",
             "version": "dev-main",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/Particle-Academy/prism-workspace.git",
-                "reference": "70a979c59ff441377ea761398bcf6b0ae69c0583"
-            },
             "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/Particle-Academy/prism-workspace/zipball/70a979c59ff441377ea761398bcf6b0ae69c0583",
-                "reference": "70a979c59ff441377ea761398bcf6b0ae69c0583",
-                "shasum": ""
+                "type": "path",
+                "url": "../prism-workspace",
+                "reference": "8907a67a04a74fb22e448330ff1abb3939b84d16"
             },
             "require": {
                 "ext-mbstring": "*",
@@ -3891,7 +3920,6 @@
             "suggest": {
                 "particle-academy/prism-harness": "Durable agent sessions. A harness Session is the intended address for a workspace, but this package does not require one."
             },
-            "default-branch": true,
             "type": "library",
             "extra": {
                 "laravel": {
@@ -3944,11 +3972,10 @@
                 "sandbox",
                 "workspace"
             ],
-            "support": {
-                "source": "https://github.com/Particle-Academy/prism-workspace/tree/main",
-                "issues": "https://github.com/Particle-Academy/prism-workspace/issues"
-            },
-            "time": "2026-08-27T00:08:28+00:00"
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
         },
         {
             "name": "php-http/discovery",
@@ -10182,11 +10209,65 @@
             "time": "2025-12-08T11:19:18+00:00"
         }
     ],
-    "aliases": [],
+    "aliases": [
+        {
+            "package": "particle-academy/prism",
+            "version": "dev-main",
+            "alias": "0.117.2",
+            "alias_normalized": "0.117.2.0"
+        },
+        {
+            "package": "particle-academy/prism-browser",
+            "version": "dev-main",
+            "alias": "0.1.0",
+            "alias_normalized": "0.1.0.0"
+        },
+        {
+            "package": "particle-academy/prism-harness",
+            "version": "dev-main",
+            "alias": "0.8.0",
+            "alias_normalized": "0.8.0.0"
+        },
+        {
+            "package": "particle-academy/prism-human-plus",
+            "version": "dev-main",
+            "alias": "0.1.0",
+            "alias_normalized": "0.1.0.0"
+        },
+        {
+            "package": "particle-academy/prism-mcp",
+            "version": "dev-main",
+            "alias": "0.2.0",
+            "alias_normalized": "0.2.0.0"
+        },
+        {
+            "package": "particle-academy/prism-opentelemetry",
+            "version": "dev-main",
+            "alias": "0.2.0",
+            "alias_normalized": "0.2.0.0"
+        },
+        {
+            "package": "particle-academy/prism-perplexity",
+            "version": "dev-main",
+            "alias": "0.2.0",
+            "alias_normalized": "0.2.0.0"
+        },
+        {
+            "package": "particle-academy/prism-workspace",
+            "version": "dev-main",
+            "alias": "0.2.0",
+            "alias_normalized": "0.2.0.0"
+        }
+    ],
     "minimum-stability": "dev",
     "stability-flags": {
+        "particle-academy/prism": 20,
         "particle-academy/prism-browser": 20,
+        "particle-academy/prism-harness": 20,
         "particle-academy/prism-human-plus": 20,
+        "particle-academy/prism-mcp": 20,
+        "particle-academy/prism-opentelemetry": 20,
+        "particle-academy/prism-perplexity": 20,
         "particle-academy/prism-workspace": 20
     },
     "prefer-stable": true,

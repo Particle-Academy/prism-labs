@@ -14,24 +14,60 @@
     "license": "MIT",
     "repositories": [
         {
-            "type": "vcs",
-            "url": "https://github.com/Particle-Academy/prism-browser",
-            "canonical": false
+            "type": "path",
+            "url": "../prism",
+            "options": {
+                "symlink": true
+            }
         },
         {
-            "type": "vcs",
-            "url": "https://github.com/Particle-Academy/prism-harness",
-            "canonical": false
+            "type": "path",
+            "url": "../prism-harness",
+            "options": {
+                "symlink": true
+            }
         },
         {
-            "type": "vcs",
-            "url": "https://github.com/Particle-Academy/prism-human-plus",
-            "canonical": false
+            "type": "path",
+            "url": "../prism-browser",
+            "options": {
+                "symlink": true
+            }
         },
         {
-            "type": "vcs",
-            "url": "https://github.com/Particle-Academy/prism-workspace",
-            "canonical": false
+            "type": "path",
+            "url": "../prism-human-plus",
+            "options": {
+                "symlink": true
+            }
+        },
+        {
+            "type": "path",
+            "url": "../prism-workspace",
+            "options": {
+                "symlink": true
+            }
+        },
+        {
+            "type": "path",
+            "url": "../prism-mcp",
+            "options": {
+                "symlink": true
+            }
+        },
+        {
+            "type": "path",
+            "url": "../prism-opentelemetry",
+            "options": {
+                "symlink": true
+            }
+        },
+        {
+            "type": "path",
+            "url": "../prism-perplexity",
+            "options": {
+                "symlink": true
+            }
         }
     ],
     "require": {
@@ -43,14 +79,14 @@
         "open-telemetry/exporter-otlp": "^1.0",
         "open-telemetry/sdk": "^1.0",
         "particle-academy/fancy-flow-php": "0.49.1",
-        "particle-academy/prism": "^0.117.2",
-        "particle-academy/prism-browser": "dev-main",
-        "particle-academy/prism-harness": "^0.8",
-        "particle-academy/prism-human-plus": "dev-main",
-        "particle-academy/prism-mcp": ">=0.1.0-alpha <1.0",
-        "particle-academy/prism-opentelemetry": ">=0.1.0-alpha <1.0",
-        "particle-academy/prism-perplexity": ">=0.1.0-alpha <1.0",
-        "particle-academy/prism-workspace": "dev-main",
+        "particle-academy/prism": "dev-main as 0.117.2",
+        "particle-academy/prism-browser": "dev-main as 0.1.0",
+        "particle-academy/prism-harness": "dev-main as 0.8.0",
+        "particle-academy/prism-human-plus": "dev-main as 0.1.0",
+        "particle-academy/prism-mcp": "dev-main as 0.2.0",
+        "particle-academy/prism-opentelemetry": "dev-main as 0.2.0",
+        "particle-academy/prism-perplexity": "dev-main as 0.2.0",
+        "particle-academy/prism-workspace": "dev-main as 0.2.0",
         "symfony/process": "^8.1"
     },
     "require-dev": {
