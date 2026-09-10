@@ -29,6 +29,7 @@ use OpenTelemetry\SDK\Trace\SpanProcessor\BatchSpanProcessor;
 use OpenTelemetry\SDK\Trace\TracerProvider;
 use Prism\Harness\Flow\HarnessAgentExecutor;
 use Prism\Harness\Tools\ToolRegistry;
+use Prism\Harness\Voice\VoiceExchange;
 use Prism\HumanPlus\Contracts\RelayTransport;
 use Prism\HumanPlus\HumanPlusManager;
 use Prism\HumanPlus\Security\ResultGuard;
@@ -36,6 +37,7 @@ use Prism\HumanPlus\Security\TrustPolicy;
 use Prism\HumanPlus\Stores\LaravelAttachmentStore;
 use Prism\HumanPlus\Transport\SsePostRelayTransport;
 use Prism\OpenTelemetry\PrismOpenTelemetryServiceProvider;
+use Prism\Prism\Enums\Provider;
 
 final class PrismLabServiceProvider extends ServiceProvider
 {
@@ -95,6 +97,21 @@ final class PrismLabServiceProvider extends ServiceProvider
         $this->app->register(PrismOpenTelemetryServiceProvider::class);
 
         $this->bindDocs();
+
+        // Built from config rather than autowired, so the Lab's voice models
+        // are a setting rather than two constructor defaults in a package.
+        $this->app->singleton(VoiceExchange::class, function ($app): VoiceExchange {
+            $voice = (array) $app['config']->get('team.voice', []);
+            $provider = Provider::from((string) ($voice['provider'] ?? 'openai'));
+
+            return new VoiceExchange(
+                transcribeModel: (string) ($voice['transcribe_model'] ?? 'whisper-1'),
+                speakModel: (string) ($voice['speak_model'] ?? 'tts-1'),
+                voice: (string) ($voice['voice'] ?? 'alloy'),
+                transcribeProvider: $provider,
+                speakProvider: $provider,
+            );
+        });
     }
 
     private function bindDocs(): void

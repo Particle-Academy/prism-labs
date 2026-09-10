@@ -47,6 +47,33 @@ return [
 
     /*
     |---------------------------------------------------------------------------
+    | The Overseer's voice
+    |---------------------------------------------------------------------------
+    |
+    | Press-to-talk transcription and speech, used by POST /lab/agent/voice.
+    |
+    | CONFIGURED HERE RATHER THAN LEFT TO THE DEFAULTS. `VoiceExchange` defaults
+    | to whisper-1 / tts-1 / alloy in its constructor, and the Lab was
+    | autowiring it — so the one application with a screen for choosing models
+    | had two of them hardcoded in a package. A model name pinned in a
+    | constructor is a model name nobody remembers to revisit when the provider
+    | retires it.
+    |
+    | Speech is a SEPARATE provider choice from the coordinator's. The model
+    | that reasons about the ecosystem has no bearing on the one that hears an
+    | utterance, and coupling them would mean switching to a provider without
+    | audio silently breaking the microphone.
+    |
+    */
+    'voice' => [
+        'provider' => env('PRISM_VOICE_PROVIDER', 'openai'),
+        'transcribe_model' => env('PRISM_VOICE_TRANSCRIBE_MODEL', 'whisper-1'),
+        'speak_model' => env('PRISM_VOICE_SPEAK_MODEL', 'tts-1'),
+        'voice' => env('PRISM_VOICE_NAME', 'alloy'),
+    ],
+
+    /*
+    |---------------------------------------------------------------------------
     | Research
     |---------------------------------------------------------------------------
     |

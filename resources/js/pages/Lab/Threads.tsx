@@ -18,6 +18,7 @@ type Thread = {
     scope: string;
     participant: string | null;
     message_count: number;
+    retired_at: string | null;
     updated_at: string | null;
     messages: Message[];
 };
@@ -80,6 +81,10 @@ export default function Threads({ version, threads }: { version: string; threads
                                     <span className="k-mono ml-auto text-sm tabular-nums" style={{ color: 'var(--k-ink-2)' }}>
                                         {thread.message_count} message{thread.message_count === 1 ? '' : 's'}
                                         {thread.updated_at ? ` · ${thread.updated_at}` : ''}
+                                        {/* A scope can hold several conversations now — /clear retires
+                                            one and starts another. Saying which are closed is the
+                                            difference between kept history and a confusing duplicate. */}
+                                        {thread.retired_at ? ` · closed ${thread.retired_at}` : ''}
                                     </span>
                                 </button>
 

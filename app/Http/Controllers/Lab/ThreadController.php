@@ -56,6 +56,14 @@ final class ThreadController extends Controller
                 ? null
                 : class_basename((string) $thread->participant_type).' #'.$thread->participant_id,
             'message_count' => $thread->stored_messages_count,
+            // RETIRED THREADS ARE LISTED, and must be labelled as such.
+            // `/clear` retires a conversation rather than deleting it, so a
+            // scope now holds several threads over its lifetime and this screen
+            // is where they all show up. Without a marker, two `lab:agent` rows
+            // sit here with nothing saying which one the agent is actually
+            // talking in — the history staying visible is the point, and
+            // indistinguishable history is worse than none.
+            'retired_at' => $thread->retired_at?->diffForHumans(),
             'updated_at' => $thread->updated_at?->diffForHumans(),
             'messages' => $this->messages($thread),
         ];
