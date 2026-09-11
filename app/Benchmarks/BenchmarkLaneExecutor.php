@@ -176,10 +176,30 @@ final readonly class BenchmarkLaneExecutor implements NodeExecutor
             }
         }
 
+        // MEASURE THE ARTIFACT, do not take the path on trust. Every other field
+        // in this file is the agent's own account of its work; this is the one
+        // that can be checked against the disk, so it is. A lane that names an
+        // artifact it did not produce fails here rather than being scored on the
+        // strength of a filename.
+        $measured = $this->workspaces->measure($lane, is_string($proof['working_artifact'] ?? null) ? $proof['working_artifact'] : '');
+
+        if (! $measured['exists']) {
+            throw new \InvalidArgumentException(sprintf(
+                'PROOF_OF_WORKING.json names working_artifact [%s], and no such file exists in the lane workspace.',
+                is_string($proof['working_artifact'] ?? null) ? $proof['working_artifact'] : '(missing)',
+            ));
+        }
+
+        // Prepended so it is the first thing a judge reads, and recorded as its
+        // own receipt kind so the measured facts are stored separately from the
+        // agent's claims rather than mixed in with them.
+        array_unshift($receipts, ['kind' => 'lab-measured-artifact', 'payload' => $measured]);
+
         $this->proofs->complete($lane, $proof, $receipts);
         $this->activity->record($lane, 'proof.accepted', 'Digest-bound Proof-of-Working submitted for independent scoring.', [
             'spec_digest' => $spec->digest,
             'receipts' => count($receipts),
+            'artifact_bytes' => $measured['size'],
         ]);
 
         // "Submitted for independent scoring" was, until now, a sentence with

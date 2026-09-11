@@ -86,4 +86,69 @@ final readonly class LaneWorkspace
     {
         return $this->workspaces->for($this->sessions->resolveScope('benchmark:'.$lane->benchmark_run_id.':'.$lane->id));
     }
+
+    /**
+     * Measure the artifact a lane says it produced, from the FILE.
+     *
+     * ## Why this exists
+     *
+     * `PROOF_OF_WORKING.json` is written by the agent under test, and until this
+     * existed every field in it was taken on trust — including
+     * `working_artifact`, which the scorer passed to the judge as
+     * `SUBMITTED ARTIFACT: <path>`. A NAME. Nothing opened the file, nothing
+     * checked it existed, and an agent that wrote a rich proof document beside a
+     * thin or absent artifact scored exactly as well as one that did the work.
+     *
+     * The `flabs` team found this in their own lab first and named the failure
+     * precisely: they shipped two document writers that accepted a rich schema
+     * and emitted a plain document, and a reviewer reading the REQUEST would
+     * have passed both. Their rule — judge from evidence read out of the
+     * artifact, never from what the agent submitted — is the right one, and this
+     * is it applied here.
+     *
+     * What comes back is measured, not asserted: existence, byte size, and a
+     * sha256 of the actual content. A lane whose artifact is missing fails
+     * closed, because "I built it" with nothing on disk is the one claim a
+     * benchmark must never accept.
+     *
+     * Path traversal is the workspace package's job, not this method's — the
+     * path is agent-controlled, and `Workspace` guards it (the
+     * `workspace-path-guard` corpus in prism-parity is that guard's suite).
+     * Leaning on it rather than re-checking here keeps one implementation.
+     *
+     * @return array{path:string,exists:bool,size:int|null,sha256:string|null}
+     */
+    public function measure(BenchmarkLane $lane, string $path): array
+    {
+        $relative = trim(str_replace('\\', '/', $path), '/');
+
+        if ($relative === '') {
+            return ['path' => $path, 'exists' => false, 'size' => null, 'sha256' => null];
+        }
+
+        $workspace = $this->workspace($lane);
+
+        if (! $workspace->exists($relative)) {
+            return ['path' => $relative, 'exists' => false, 'size' => null, 'sha256' => null];
+        }
+
+        $size = $workspace->size($relative);
+
+        // Digested from a STREAM. A document benchmark's artifact is a binary
+        // that can be large, and reading it whole to hash it would trade a
+        // trustworthy check for a memory spike on exactly the lanes that
+        // produced the most work.
+        $stream = $workspace->readStream($relative);
+        $hash = hash_init('sha256');
+        while (! feof($stream)) {
+            $chunk = fread($stream, 262144);
+            if ($chunk === false) {
+                break;
+            }
+            hash_update($hash, $chunk);
+        }
+        fclose($stream);
+
+        return ['path' => $relative, 'exists' => true, 'size' => $size, 'sha256' => hash_final($hash)];
+    }
 }

@@ -110,7 +110,14 @@ final readonly class BenchmarkScorer
         return implode("\n\n", array_filter([
             'BENCHMARK: '.json_encode($spec->specification, JSON_UNESCAPED_SLASHES),
             "RUBRIC DIMENSIONS:\n".$dimensions,
-            'SUBMITTED ARTIFACT: '.($lane->proof['working_artifact'] ?? 'none named'),
+            // The agent's CLAIM, labelled as one. The measured facts about that
+            // file arrive as the `lab-measured-artifact` receipt below, and the
+            // prompt says which is which — a judge shown one number cannot tell
+            // whether anybody checked it.
+            'ARTIFACT CLAIMED BY THE AGENT: '.($lane->proof['working_artifact'] ?? 'none named'),
+            'The receipts below include a `lab-measured-artifact` entry written by the Lab, not by the agent: '
+            .'it is the existence, byte size and sha256 of that file as read off disk. Judge the work from the '
+            .'artifact and the receipts, never from the agent\'s account of what it submitted.',
             "THE BUILDER'S OWN CLAIMED CHECKS (its account, not evidence):\n".$checks,
             $receipts === '' ? 'RECEIPTS: none were submitted.' : "RECEIPTS (the evidence):\n".$receipts,
             'Score every dimension. Return the JSON object and nothing else.',
