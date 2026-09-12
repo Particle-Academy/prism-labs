@@ -194,13 +194,53 @@ export function OverseerChat({ compact = false }: { compact?: boolean }) {
         setMessages(current => [...current, optimistic]);
         const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
         try {
+            // POST returns a TICKET, not an answer. The turn runs on a queue
+            // because it can call other agents and run whole suites, and this
+            // site serves one request at a time — holding the worker for that
+            // is what used to wedge the Lab until someone restarted it.
             const response = await fetch('/lab/agent', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': csrf }, body: JSON.stringify({ message: content }) });
-            const body = await response.json();
-            if (!response.ok) throw new Error(body.message ?? 'The Overseer could not answer.');
-            setMessages(current => [...current, body.message]); setDrafts(body.drafts ?? []);
+            const accepted = await response.json();
+            if (!response.ok) throw new Error(accepted.message ?? 'The Overseer could not answer.');
+            if (accepted.drafts) setDrafts(accepted.drafts);
+
+            const answered = await awaitTurn(accepted.turn_id);
+            if (answered.error) throw new Error(answered.error);
+            if (answered.message) setMessages(current => [...current, answered.message]);
+            if (answered.drafts) setDrafts(answered.drafts);
             router.reload({ only: ['specs'] });
         } catch (reason) { setError(reason instanceof Error ? reason.message : 'The Overseer could not answer.'); }
         finally { setSending(false); }
+    }
+
+    /**
+     * Poll one turn until it is done.
+     *
+     * Backs off from 1s to 5s. A fixed fast interval would be the original
+     * problem wearing a different hat: on a single-threaded server every poll
+     * competes with the queue worker's own database access, and a turn that
+     * legitimately takes four minutes does not need 240 checks to notice.
+     *
+     * The ceiling is generous and is NOT the turn's timeout — the job owns
+     * that, and marks the row failed when it runs out. This gives up on
+     * WATCHING, and says so honestly: the answer may still land in the thread,
+     * which a reload will show.
+     */
+    async function awaitTurn(turnId: string) {
+        const deadline = Date.now() + 20 * 60 * 1000;
+        let wait = 1000;
+
+        while (Date.now() < deadline) {
+            await new Promise(resolve => setTimeout(resolve, wait));
+            wait = Math.min(wait * 1.5, 5000);
+
+            const response = await fetch(`/lab/agent/turn/${turnId}`, { headers: { Accept: 'application/json' } });
+            if (!response.ok) continue;
+
+            const body = await response.json();
+            if (!body.pending) return body;
+        }
+
+        throw new Error('The Overseer is still working and this page stopped watching. Reload to see the answer when it lands.');
     }
 
     return <section className={`plab-chat ${compact ? 'is-compact' : ''}`}><div className="plab-transcript" ref={transcript}>{loading && <AgentThinking label="Loading your conversation…" />}{!loading && messages.length === 0 && <Welcome />}{messages.map(message => <article key={message.id} className={`plab-message is-${message.role}`}>{message.role === 'assistant' && <span className="plab-message-avatar">P</span>}<div><small>{message.role === 'assistant' ? 'Overseer' : 'You'}</small>{message.role === 'assistant' ? <ContentRenderer value={message.content} format="markdown" /> : <p>{message.content}</p>}</div></article>)}{sending && <AgentThinking label="PLab is thinking through the test…" />}{recording && <div className="overseer-recording" role="status"><span />Listening — press Stop and send when you are done.</div>}{error && <div className="overseer-error" role="alert">{error}</div>}</div>{drafts.length > 0 && <div className="plab-drafts"><span>Proposed specifications</span>{drafts.slice(0, 3).map(draft => <Link key={draft.id} href={`/lab/benchmarks/specs/${draft.id}`}><b>{draft.name}</b><small>Revision {draft.revision} · {draft.status} · Review spec →</small></Link>)}</div>}<div className="plab-composer"><button type="button" className={`overseer-mic ${recording ? 'is-recording' : ''}`} disabled={sending} aria-pressed={recording} aria-label={recording ? 'Stop recording and send' : 'Record a spoken message'} onClick={() => (recording ? stopRecording() : void startRecording())}><span />{recording ? 'Stop and send' : 'Speak'}</button><PromptInput budgetTokens={12_000} commands={[{ name: '/clear', hint: 'Start a new conversation — the old one is kept, not deleted' }, { name: '/benchmark', hint: 'Design a benchmark together' }, { name: '/compare', hint: 'Plan a parity comparison' }, { name: '/research', hint: 'Research before writing the test' }]} mentions={[{ id: 'php', name: 'PHP lane', kind: 'agent' }, { id: 'typescript', name: 'TypeScript lane', kind: 'agent' }, { id: 'python', name: 'Python lane', kind: 'agent' }]} onSubmit={(text, attachments) => void submit(text, attachments)} placeholder="Tell PLab what you want to learn or test…" maxHeight={160} /></div></section>;

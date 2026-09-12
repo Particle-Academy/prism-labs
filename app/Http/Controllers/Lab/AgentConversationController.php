@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Lab;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\RunOverseerTurnJob;
 use App\Lab\LabSession;
 use App\Models\BenchmarkSpec;
+use App\Models\OverseerTurn;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Prism\Harness\Voice\VoiceExchange;
@@ -135,29 +137,59 @@ final class AgentConversationController extends Controller
         }
     }
 
-    public function send(Request $request, LabSession $sessions): JsonResponse
+    /**
+     * Accept the question and hand back a ticket. The TURN runs elsewhere.
+     *
+     * This used to run the turn inline, and that took the whole site down.
+     * plabs is served by `php artisan serve` — single-threaded on Windows,
+     * measured at 629ms for one request against 1726ms for three concurrent —
+     * and an Overseer turn can fan out to `conformance_<lang>`, which runs a
+     * whole suite, or `ask_<lang>`, which calls another agent's model, up to
+     * `max_steps` times. One broad question held the only worker for minutes:
+     * every other request got nothing, the browser reported "Unexpected end of
+     * JSON input" because the body was empty, and the site stayed wedged until
+     * it was restarted.
+     *
+     * So the request now does three cheap things — validate, write a row,
+     * dispatch — and returns. {@see self::turn()} is where the answer is
+     * collected. An agent that calls other agents does not belong in a request,
+     * which `ScoreLaneJob` already argued for the judge and the chat did not
+     * inherit until it cost an outage.
+     */
+    public function send(Request $request): JsonResponse
     {
         $input = $request->validate(['message' => ['required', 'string', 'max:30000']]);
-        $session = $sessions->resolve($request)
-            ->usingProvider((string) config('team.coordinator.provider'))
-            ->usingModel((string) config('team.coordinator.model'))
-            ->usingMode('chat');
 
-        try {
-            $result = $session->send($input['message']);
+        $turn = OverseerTurn::query()->create([
+            'status' => OverseerTurn::QUEUED,
+            'prompt' => $input['message'],
+        ]);
 
-            return response()->json([
-                'message' => ['id' => $result->runId, 'role' => 'assistant', 'content' => $result->text()],
-                'run' => $session->run(),
-                'drafts' => $this->drafts(),
-            ]);
-        } catch (Throwable $failure) {
-            report($failure);
+        RunOverseerTurnJob::dispatch($turn->id);
 
-            return response()->json([
-                'message' => 'The Overseer could not complete that turn. Your conversation is preserved; try again when the provider is available.',
-            ], 503);
-        }
+        return response()->json([
+            ...$turn->toStatusPayload(),
+            'drafts' => $this->drafts(),
+        ], 202);
+    }
+
+    /**
+     * Has that turn finished yet?
+     *
+     * Deliberately the cheapest endpoint in the Lab: one primary-key read and
+     * no session resolution. The panel polls it, and on a single-threaded
+     * server a poll that did real work would be a slower version of the problem
+     * this replaced.
+     *
+     * The drafts ride along only once the turn is done, because that is the
+     * only moment they can have changed.
+     */
+    public function turn(OverseerTurn $turn): JsonResponse
+    {
+        return response()->json([
+            ...$turn->toStatusPayload(),
+            ...($turn->isPending() ? [] : ['drafts' => $this->drafts()]),
+        ]);
     }
 
     /** @param iterable<object> $messages

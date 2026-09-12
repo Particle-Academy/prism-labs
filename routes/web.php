@@ -94,6 +94,10 @@ if (app()->environment('local')) {
         Route::post('/lab/chat', [ChatController::class, 'run'])->middleware('throttle:10,1')->name('lab.chat.run');
         Route::get('/lab/agent', [AgentConversationController::class, 'show'])->name('lab.agent.show');
         Route::post('/lab/agent', [AgentConversationController::class, 'send'])->middleware('throttle:20,1')->name('lab.agent.send');
+        // Polled while a turn runs, so its throttle is far higher than the
+        // others and its handler is one primary-key read. The turn itself is on
+        // a queue; this is only how the answer is collected.
+        Route::get('/lab/agent/turn/{turn}', [AgentConversationController::class, 'turn'])->middleware('throttle:240,1')->name('lab.agent.turn');
         Route::post('/lab/agent/clear', [AgentConversationController::class, 'clear'])->middleware('throttle:20,1')->name('lab.agent.clear');
         // A spoken turn. Throttled harder than a typed one because it costs
         // three provider calls rather than one — transcribe, answer, speak.
