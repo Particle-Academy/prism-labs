@@ -15,11 +15,13 @@ use App\Benchmarks\ProofRecorder;
 use App\Consensus\ConsensusCoordinator;
 use App\Http\Controllers\Lab\AgentConversationController;
 use App\Http\Controllers\Lab\BenchmarkController;
+use App\Jobs\RunOverseerTurnJob;
 use App\Lab\LabSession;
 use App\Learnings\Learning;
 use App\Models\BenchmarkLane;
 use App\Models\ConsensusRun;
 use App\Models\LabOperation;
+use App\Models\OverseerTurn;
 use App\Telemetry\OperationLedger;
 use FancyFlow\Laravel\Jobs\AdvanceWorkflowJob;
 use FancyFlow\Laravel\Models\WorkflowRun;
@@ -46,6 +48,22 @@ final class LabExperimentFoundationsTest extends TestCase
 {
     use RefreshDatabase;
 
+    /**
+     * The turn is ACCEPTED by the request and RUN by a worker, and the
+     * conversation it writes is the same durable one either way.
+     *
+     * This asserted a 200 with the answer in the body, because the turn used to
+     * run inside the request. It cannot any more: this site is served
+     * single-threaded, and a turn that fans out to a suite-running tool held the
+     * only worker for minutes — an empty body in the browser and a wedged site
+     * until someone restarted it.
+     *
+     * So the request now returns 202 and a ticket, and the job does the work.
+     * The property worth keeping is the one this test was always about: after
+     * the turn, ONE durable conversation holds the user message and the
+     * assistant's reply. That is asserted through the job rather than the
+     * controller, because the job is where the turn now happens.
+     */
     public function test_plab_agent_keeps_one_durable_consumer_conversation(): void
     {
         Prism::fake([TextResponseFake::make()
@@ -56,11 +74,25 @@ final class LabExperimentFoundationsTest extends TestCase
             ]))]);
         $request = Request::create('/lab/agent', 'POST', ['message' => 'Help me design a benchmark.']);
 
-        $response = app(AgentConversationController::class)->send($request, app(LabSession::class));
+        $accepted = app(AgentConversationController::class)->send($request);
+
+        // ACCEPTED, not answered. A 200 here would mean the turn ran in the
+        // request again.
+        $this->assertSame(202, $accepted->getStatusCode());
+        $this->assertTrue($accepted->getData(true)['pending']);
+        $this->assertNull($accepted->getData(true)['message']);
+
+        $turnId = $accepted->getData(true)['turn_id'];
+
+        // The worker's half, run inline here because a test has no queue
+        // process. This is the only place the model is called.
+        app(RunOverseerTurnJob::class, ['turnId' => $turnId])->handle(app(LabSession::class));
+
+        $settled = app(AgentConversationController::class)->turn(OverseerTurn::query()->findOrFail($turnId));
         $history = app(AgentConversationController::class)->show(Request::create('/lab/agent'), app(LabSession::class));
 
-        $this->assertSame(200, $response->getStatusCode());
-        $this->assertSame('assistant', $response->getData(true)['message']['role']);
+        $this->assertSame('answered', $settled->getData(true)['status']);
+        $this->assertSame('assistant', $settled->getData(true)['message']['role']);
         $this->assertSame(['user', 'assistant'], array_column($history->getData(true)['messages'], 'role'));
     }
 

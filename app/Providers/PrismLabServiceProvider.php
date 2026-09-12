@@ -47,7 +47,17 @@ final class PrismLabServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        if (! $this->app->environment('local')) {
+        // `testing` as well as `local`, so the toolset a turn is actually
+        // offered exists in a test. It did not, and that made this Lab's tool
+        // wiring untestable BY CONSTRUCTION: most tools arrive through the
+        // providers registered in boot(), and boot() returned before
+        // registering any of them outside `local`.
+        //
+        // Found by writing an absence test for the Overseer's propose-only
+        // property and mutating it. The test resolved a fraction of the real
+        // list, its own vacuity guard passed, and registering a forbidden tool
+        // did not turn it red.
+        if (! $this->app->environment(['local', 'testing'])) {
             return;
         }
 
@@ -156,7 +166,7 @@ final class PrismLabServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        if (! $this->app->environment('local')) {
+        if (! $this->app->environment(['local', 'testing'])) {
             return;
         }
 
