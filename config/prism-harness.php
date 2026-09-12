@@ -5,6 +5,47 @@ declare(strict_types=1);
 use App\Prompts\PromptFile;
 
 return [
+    /*
+    |--------------------------------------------------------------------------
+    | Context window
+    |--------------------------------------------------------------------------
+    |
+    | THE LAB WAS RUNNING UNBOUNDED, which is the one configuration it has no
+    | business being in. `keep_recent` defaults to null and a null keep binds
+    | `NoCompaction`, so the Overseer's durable thread — one permanent scope,
+    | `lab:agent`, shared by the flyout, the full chat and the Studio — replayed
+    | its entire history on every turn. The display list is capped at 100
+    | messages; what goes to the MODEL never was. The only bound was a human
+    | remembering to type `/clear`.
+    |
+    | That is a dogfooding failure rather than a tuning oversight. This package's
+    | context window is the feature the Lab exists to exercise, this Lab probes
+    | it in `CompactionRecallProbe` and `SummaryLossProbe`, and the live agent
+    | beside those probes was not using it.
+    |
+    | Found because the flabs team asked how ours is bounded, having just hit the
+    | same thing from the other side: they scoped a harness session by SCENARIO
+    | rather than by run, replayed every previous run into each new one, reached
+    | 3,580 messages on one thread, and watched verdicts drift. Our benchmark
+    | lanes already scope per lane (`benchmark:<run>:<lane>`), so that half was
+    | right here; the chat was not.
+    |
+    | KEEP_RECENT RATHER THAN SUMMARISING, deliberately. This package's own
+    | config argues summarisation is the strategy most likely to lose something
+    | that matters, and the Lab's own SummaryLossProbe found it keeping detail it
+    | was asked to drop. A bounded window with recovery is the honest default;
+    | naming a model in HARNESS_SUMMARISE_WITH is how someone opts into the
+    | other thing after reading why not to.
+    |
+    | The sink and the recall are bound in PrismLabServiceProvider, because
+    | dropping turns with no way back is the configuration this package calls
+    | the worst available — cheap window, agent blind to its own work.
+    |
+    */
+    'context' => [
+        'keep_recent' => (int) env('HARNESS_KEEP_RECENT', 24),
+    ],
+
     'agent' => [
         'provider' => env('PRISM_COORDINATOR_PROVIDER', 'anthropic'),
         'model' => env('PRISM_COORDINATOR_MODEL', 'claude-opus-5'),

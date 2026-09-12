@@ -6,6 +6,8 @@ namespace App\Providers;
 
 use App\Benchmarks\BenchmarkLaneExecutor;
 use App\Benchmarks\WorkspaceToolset;
+use App\Context\TableContextRecall;
+use App\Context\TableEvictionSink;
 use App\Docs\DocsLibrary;
 use App\Docs\DocsToolset;
 use App\Lab\CapabilityManager;
@@ -27,6 +29,8 @@ use OpenTelemetry\SDK\Resource\ResourceInfo;
 use OpenTelemetry\SDK\Resource\ResourceInfoFactory;
 use OpenTelemetry\SDK\Trace\SpanProcessor\BatchSpanProcessor;
 use OpenTelemetry\SDK\Trace\TracerProvider;
+use Prism\Harness\Contracts\ContextRecall;
+use Prism\Harness\Contracts\EvictionSink;
 use Prism\Harness\Flow\HarnessAgentExecutor;
 use Prism\Harness\Tools\ToolRegistry;
 use Prism\Harness\Voice\VoiceExchange;
@@ -97,6 +101,7 @@ final class PrismLabServiceProvider extends ServiceProvider
         $this->app->register(PrismOpenTelemetryServiceProvider::class);
 
         $this->bindDocs();
+        $this->bindContextRecovery();
 
         // Built from config rather than autowired, so the Lab's voice models
         // are a setting rather than two constructor defaults in a package.
@@ -112,6 +117,31 @@ final class PrismLabServiceProvider extends ServiceProvider
                 speakProvider: $provider,
             );
         });
+    }
+
+    /**
+     * Where an evicted turn goes, and how the agent gets it back.
+     *
+     * The window is bounded in `config/prism-harness.php`, and a bounded window
+     * with nowhere to put what leaves it is the configuration the harness's own
+     * config calls the worst available: cheap window, agent blind to its own
+     * work. So the two halves are bound together here — turning one on without
+     * the other is the mistake worth making impossible in one file.
+     *
+     * These classes already existed and were only ever bound INSIDE probes,
+     * which is the whole shape of the miss: the Lab proved evict → store →
+     * recall → answer works and then ran its own Overseer without it.
+     *
+     * Deliberately unglamorous — a table and a `LIKE`, not embeddings. That is
+     * what makes the probe built on it mean something: if a compacted agent can
+     * answer from an evicted turn on nothing but a substring match, the
+     * mechanism is sound. Starting with semantic search would have confounded
+     * "does the plumbing work" with "does retrieval work".
+     */
+    private function bindContextRecovery(): void
+    {
+        $this->app->singleton(EvictionSink::class, fn (): EvictionSink => new TableEvictionSink);
+        $this->app->singleton(ContextRecall::class, fn (): ContextRecall => new TableContextRecall);
     }
 
     private function bindDocs(): void
