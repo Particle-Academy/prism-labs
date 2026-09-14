@@ -16,13 +16,41 @@ jobs:
     name: Formatting
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: prism-labs
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: prism-labs
+
+      # Composer installs the sibling packages from path repositories, so they
+      # have to be beside the Lab even though Pint never reads them. Same layout,
+      # and the same reason, as tests.yml.
+      - uses: actions/checkout@v4
+        with: { repository: Particle-Academy/prism, path: prism, persist-credentials: false }
+      - uses: actions/checkout@v4
+        with: { repository: Particle-Academy/prism-harness, path: prism-harness, persist-credentials: false }
+      - uses: actions/checkout@v4
+        with: { repository: Particle-Academy/prism-browser, path: prism-browser, persist-credentials: false }
+      - uses: actions/checkout@v4
+        with: { repository: Particle-Academy/prism-human-plus, path: prism-human-plus, persist-credentials: false }
+      - uses: actions/checkout@v4
+        with: { repository: Particle-Academy/prism-workspace, path: prism-workspace, persist-credentials: false }
+      - uses: actions/checkout@v4
+        with: { repository: Particle-Academy/prism-mcp, path: prism-mcp, persist-credentials: false }
+      - uses: actions/checkout@v4
+        with: { repository: Particle-Academy/prism-opentelemetry, path: prism-opentelemetry, persist-credentials: false }
+      - uses: actions/checkout@v4
+        with: { repository: Particle-Academy/prism-perplexity, path: prism-perplexity, persist-credentials: false }
+
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ env.phpv }}
           coverage: none
       - uses: ramsey/composer-install@v3
+        with:
+          working-directory: prism-labs
       - name: Run Pint
         run: |
           vendor/bin/pint
