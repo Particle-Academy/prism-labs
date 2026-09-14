@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "57d39b198bbdd32cc1a923a87d7698d3",
+    "content-hash": "392c51085a8f7f583c50c985c04b7a29",
     "packages": [
         {
             "name": "brick/math",
@@ -3343,7 +3343,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism",
-                "reference": "ebbab76adb1349b27e55dc01166fd2cd405f5247"
+                "reference": "d69120bbe8bd2e4060cc726c7e91016cee042c6f"
             },
             "require": {
                 "ext-fileinfo": "*",
@@ -3369,13 +3369,9 @@
                 "pestphp/pest-plugin-arch": "^3.0|^4.0",
                 "pestphp/pest-plugin-laravel": "^3.0|^4.0",
                 "phpstan/extension-installer": "^1.3",
-                "phpstan/phpdoc-parser": "^2.0",
                 "phpstan/phpstan": "2.1.34",
                 "phpstan/phpstan-deprecation-rules": "^2.0",
-                "projektgopher/whisky": "^0.7.0",
-                "rector/rector": "2.3.3",
-                "spatie/laravel-ray": "^1.39",
-                "symplify/rule-doc-generator-contracts": "^11.2"
+                "rector/rector": "2.3.3"
             },
             "suggest": {
                 "laravel/mcp": "Required to expose Prism tools through a Laravel MCP server (LaravelMcpTool)."
@@ -3409,12 +3405,6 @@
                 }
             },
             "scripts": {
-                "post-install-cmd": [
-                    "whisky update"
-                ],
-                "post-update-cmd": [
-                    "whisky update"
-                ],
                 "post-autoload-dump": [
                     "@clear",
                     "@prepare"
@@ -3664,7 +3654,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-mcp",
-                "reference": "a0c75b0a66042b8b9fa2d2993926e60393fd4394"
+                "reference": "5200507703f596d327e78ed2b831982e7a614da9"
             },
             "require": {
                 "ext-json": "*",
@@ -3749,7 +3739,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-opentelemetry",
-                "reference": "a80cb088ef1de75f8cd151f8161071d74582e534"
+                "reference": "e2a87b9c3c16e7bbd87f90233a1ca69e67d3813c"
             },
             "require": {
                 "ext-json": "*",
@@ -3830,7 +3820,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-perplexity",
-                "reference": "09a6a67136aeb99c544d22590dee5558961afe67"
+                "reference": "c689adbb79e3e0210e13988b45d55c20ee5c4363"
             },
             "require": {
                 "laravel/framework": "^12.61.1|^13.12.0",
@@ -3902,7 +3892,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-workspace",
-                "reference": "8907a67a04a74fb22e448330ff1abb3939b84d16"
+                "reference": "34875fa38f6b9623296db41164d128f726058658"
             },
             "require": {
                 "ext-mbstring": "*",
@@ -7683,69 +7673,6 @@
         }
     ],
     "packages-dev": [
-        {
-            "name": "fakerphp/faker",
-            "version": "v1.24.1",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/FakerPHP/Faker.git",
-                "reference": "e0ee18eb1e6dc3cda3ce9fd97e5a0689a88a64b5"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/FakerPHP/Faker/zipball/e0ee18eb1e6dc3cda3ce9fd97e5a0689a88a64b5",
-                "reference": "e0ee18eb1e6dc3cda3ce9fd97e5a0689a88a64b5",
-                "shasum": ""
-            },
-            "require": {
-                "php": "^7.4 || ^8.0",
-                "psr/container": "^1.0 || ^2.0",
-                "symfony/deprecation-contracts": "^2.2 || ^3.0"
-            },
-            "conflict": {
-                "fzaninotto/faker": "*"
-            },
-            "require-dev": {
-                "bamarni/composer-bin-plugin": "^1.4.1",
-                "doctrine/persistence": "^1.3 || ^2.0",
-                "ext-intl": "*",
-                "phpunit/phpunit": "^9.5.26",
-                "symfony/phpunit-bridge": "^5.4.16"
-            },
-            "suggest": {
-                "doctrine/orm": "Required to use Faker\\ORM\\Doctrine",
-                "ext-curl": "Required by Faker\\Provider\\Image to download images.",
-                "ext-dom": "Required by Faker\\Provider\\HtmlLorem for generating random HTML.",
-                "ext-iconv": "Required by Faker\\Provider\\ru_RU\\Text::realText() for generating real Russian text.",
-                "ext-mbstring": "Required for multibyte Unicode string functionality."
-            },
-            "type": "library",
-            "autoload": {
-                "psr-4": {
-                    "Faker\\": "src/Faker/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "François Zaninotto"
-                }
-            ],
-            "description": "Faker is a PHP library that generates fake data for you.",
-            "keywords": [
-                "data",
-                "faker",
-                "fixtures"
-            ],
-            "support": {
-                "issues": "https://github.com/FakerPHP/Faker/issues",
-                "source": "https://github.com/FakerPHP/Faker/tree/v1.24.1"
-            },
-            "time": "2024-11-21T13:46:39+00:00"
-        },
         {
             "name": "filp/whoops",
             "version": "2.18.4",

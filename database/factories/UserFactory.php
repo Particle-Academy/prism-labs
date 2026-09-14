@@ -18,15 +18,23 @@ class UserFactory extends Factory
     protected static ?string $password;
 
     /**
+     * Numbers each user this factory makes, so names and emails stay unique
+     * without a random-data library. Deterministic within a run.
+     */
+    protected static int $sequence = 0;
+
+    /**
      * Define the model's default state.
      *
      * @return array<string, mixed>
      */
     public function definition(): array
     {
+        $n = ++static::$sequence;
+
         return [
-            'name' => fake()->name(),
-            'email' => fake()->unique()->safeEmail(),
+            'name' => "Test User {$n}",
+            'email' => "user{$n}@example.test",
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
