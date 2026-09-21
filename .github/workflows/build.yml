@@ -22,6 +22,23 @@ jobs:
           node-version: 22
           cache: npm
 
+      # BEFORE the install, not beside it. `npm ci` runs lifecycle scripts, so
+      # an unapproved or unmaintained dependency executes code on this runner
+      # the moment it is fetched — checking afterwards would be reporting on
+      # something that already happened. The list is fetched, never vendored,
+      # so there is no copy here to drift.
+      - name: Fetch the third-party allowlist
+        uses: actions/checkout@v4
+        with:
+          repository: Particle-Academy/.github
+          path: .third-party-allowlist
+          persist-credentials: false
+
+      - name: Third-party dependency allowlist
+        run: |
+          node .third-party-allowlist/third-party/check.mjs --repo .
+          node -e "require('node:fs').rmSync('.third-party-allowlist',{recursive:true,force:true})"
+
       - name: Install dependencies
         run: npm ci
 
