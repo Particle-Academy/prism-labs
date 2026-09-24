@@ -35,6 +35,8 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*'),
+            // Lab forms use fetch with Accept: application/json. Redirecting
+            // validation failures gave them HTML instead of actionable errors.
+            fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
     })->create();

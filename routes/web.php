@@ -11,6 +11,7 @@ use App\Http\Controllers\Lab\EvidenceController;
 use App\Http\Controllers\Lab\HumanPlusFixtureController;
 use App\Http\Controllers\Lab\ModelPolicyController;
 use App\Http\Controllers\Lab\PolicyBenchmarkController;
+use App\Http\Controllers\Lab\ProviderProbeController;
 use App\Http\Controllers\Lab\TaskListController;
 use App\Http\Controllers\Lab\TeamController;
 use App\Http\Controllers\Lab\TelemetryController;
@@ -32,6 +33,10 @@ Route::redirect('/', '/lab');
 if (app()->environment('local')) {
     Route::middleware(EnsurePrismLabIsLocal::class)->group(function (): void {
         Route::get('/lab', CockpitController::class)->name('lab.cockpit');
+        Route::get('/lab/provider-probes', [ProviderProbeController::class, 'show'])->name('lab.provider-probes');
+        Route::post('/lab/provider-probes/research', [ProviderProbeController::class, 'research'])->middleware('throttle:6,1')->name('lab.provider-probes.research');
+        Route::post('/lab/provider-probes/fetch', [ProviderProbeController::class, 'fetch'])->middleware('throttle:6,1')->name('lab.provider-probes.fetch');
+        Route::post('/lab/provider-probes/cache', [ProviderProbeController::class, 'cache'])->middleware('throttle:3,1')->name('lab.provider-probes.cache');
         Route::inertia('/lab/diagnostics', 'Lab/Diagnostics')->name('lab.diagnostics');
         Route::get('/lab/consensus', [ConsensusController::class, 'show'])->name('lab.consensus');
         Route::post('/lab/consensus', [ConsensusController::class, 'store'])->middleware('throttle:6,1')->name('lab.consensus.store');

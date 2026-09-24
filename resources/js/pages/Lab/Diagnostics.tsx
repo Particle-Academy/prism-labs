@@ -1,6 +1,7 @@
 import { LabShell } from '../../components/lab-shell';
 
 const tools = [
+    ['/lab/provider-probes', 'Provider probes', 'Run diagnostics, guarded fetch refusals, and cache read/write token evidence.'],
     ['/lab/telemetry', 'Telemetry ledger', 'Daily and monthly token burn, cost provenance, and operation traces.'],
     ['/lab/tests', 'Provider matrix', 'Raw provider capability and conformance probes.'],
     ['/lab/threads', 'Harness threads', 'Inspect persisted durable conversations and reconstructed messages.'],

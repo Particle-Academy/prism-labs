@@ -18,6 +18,11 @@ export type LabSection = {
 
 export const LAB_SECTIONS: LabSection[] = [
     {
+        href: '/lab/provider-probes',
+        label: 'Provider probes',
+        blurb: 'Inspect unsuccessful research runs, guarded URL refusals, and cache token evidence.',
+    },
+    {
         href: '/lab',
         label: 'Cockpit',
         blurb: 'The workflow-first operations view: active work, review gates, evidence, and cost.',

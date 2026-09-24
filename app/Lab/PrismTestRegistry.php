@@ -12,6 +12,8 @@ final class PrismTestRegistry
     public function all(): Collection
     {
         return collect([
+            new PrismTestCase('perplexity.text', 'perplexity', 'sonar', 'text', 'Perplexity text'),
+            new PrismTestCase('perplexity.streaming', 'perplexity', 'sonar', 'streaming', 'Perplexity streaming'),
             new PrismTestCase('openai.text', 'openai', 'gpt-4.1-mini', 'text', 'OpenAI text'),
             new PrismTestCase('openai.streaming', 'openai', 'gpt-4.1-mini', 'streaming', 'OpenAI streaming'),
             new PrismTestCase('openai.tools', 'openai', 'gpt-4.1-mini', 'tools', 'OpenAI multi-step tools'),

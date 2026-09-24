@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Research;
 
+use App\Lab\RunDiagnostics;
 use Prism\Perplexity\Perplexity as PerplexityProvider;
 use Prism\Prism\Enums\Provider;
+use Prism\Prism\Exceptions\PrismRunException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\PrismManager;
 use Throwable;
@@ -81,6 +83,9 @@ final class Researcher
                 ->withMaxTokens((int) config('team.research.max_tokens'))
                 ->withPrompt($question)
                 ->asText();
+        } catch (PrismRunException $e) {
+            // This local caller deliberately inspects partial output. Never log it.
+            return ['ok' => false, 'question' => $question, 'reason' => $e->getMessage(), 'diagnostics' => RunDiagnostics::from($e)];
         } catch (Throwable $e) {
             return ['ok' => false, 'question' => $question, 'reason' => $e->getMessage()];
         }

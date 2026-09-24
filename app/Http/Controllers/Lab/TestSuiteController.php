@@ -23,6 +23,7 @@ final class TestSuiteController extends Controller
             'packages' => InstalledVersions::all(),
             'cases' => $registry->all()->map->toArray()->values(),
             'availability' => [
+                'perplexity' => filled(config('prism.providers.perplexity.api_key')),
                 'openai' => filled(config('prism.providers.openai.api_key')),
                 'anthropic' => filled(config('prism.providers.anthropic.api_key')),
             ],
@@ -47,6 +48,6 @@ final class TestSuiteController extends Controller
         // Feed the benchmark history so /lab/benchmarks can compare over time.
         $benchmarks->record($results->all());
 
-        return response()->json(['results' => $results]);
+        return response()->json(['results' => $results])->header('Cache-Control', 'no-store');
     }
 }

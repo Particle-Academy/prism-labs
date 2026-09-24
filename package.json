@@ -3,6 +3,7 @@
     "private": true,
     "type": "module",
     "scripts": {
+        "test:ui": "node scripts/test-provider-ui.mjs",
         "build": "vite build && vite build --ssr",
         "build:client": "vite build",
         "build:ssr": "vite build --ssr",

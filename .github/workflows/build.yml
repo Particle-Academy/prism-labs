@@ -49,6 +49,9 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
+      - name: Provider probe UI assertions
+        run: npm run test:ui
+
       # Client and SSR both, because the SSR bundle is built separately and
       # can fail on its own — an import that resolves in the browser build
       # and not on the server would ship unnoticed otherwise.

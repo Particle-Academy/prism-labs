@@ -11,7 +11,8 @@ class PrismTestRegistryTest extends TestCase
     {
         $cases = (new PrismTestRegistry)->all();
 
-        $this->assertCount(10, $cases);
+        $this->assertCount(12, $cases);
+        $this->assertSame(['text', 'streaming'], $cases->where('provider', 'perplexity')->pluck('feature')->all());
         $this->assertSame(
             ['embeddings', 'images', 'streaming', 'structured', 'text', 'tools'],
             $cases->pluck('feature')->unique()->sort()->values()->all(),

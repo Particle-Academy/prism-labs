@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Lab;
 
+use Prism\Prism\Exceptions\PrismRunException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
@@ -30,6 +31,9 @@ final class PrismTestRunner
             };
 
             return $this->result($case, true, $started, $metrics);
+        } catch (PrismRunException $exception) {
+            // Diagnostics go only to the local response, never report()/logs.
+            return $this->result($case, false, $started, [], $exception->getMessage(), RunDiagnostics::from($exception));
         } catch (Throwable $exception) {
             report($exception);
 
@@ -140,12 +144,13 @@ final class PrismTestRunner
     /** @param array<string, mixed> $metrics
      * @return array<string, mixed>
      */
-    private function result(PrismTestCase $case, bool $passed, int $started, array $metrics, ?string $error = null): array
+    private function result(PrismTestCase $case, bool $passed, int $started, array $metrics, ?string $error = null, ?array $diagnostics = null): array
     {
         return [
             'id' => $case->id, 'provider' => $case->provider, 'model' => $case->model, 'feature' => $case->feature,
             'passed' => $passed, 'latency_ms' => round((hrtime(true) - $started) / 1_000_000, 1),
             'metrics' => $metrics, 'error' => $error,
+            'diagnostics' => $diagnostics,
             'phoenix_url' => rtrim((string) env('PHOENIX_UI_URL', 'http://localhost:6006'), '/'),
         ];
     }
