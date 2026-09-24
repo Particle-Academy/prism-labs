@@ -59,6 +59,8 @@ jobs:
           repository: Particle-Academy/.github
           # Checkout paths start at the workspace root; run steps below start
           # inside prism-labs. Keep the checker where those steps look for it.
+          # A root-level checkout made node fail with MODULE_NOT_FOUND before
+          # the allowlist could check dependencies or Composer could install them.
           path: prism-labs/.third-party-allowlist
           persist-credentials: false
 
