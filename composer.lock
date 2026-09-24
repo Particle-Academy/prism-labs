@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "994970c615886bb5e52a9e9ca2031a89",
+    "content-hash": "4b8150cd439cba59f6fbdb00dc92572a",
     "packages": [
         {
             "name": "brick/math",
@@ -3343,10 +3343,11 @@
             "dist": {
                 "type": "path",
                 "url": "../prism",
-                "reference": "d69120bbe8bd2e4060cc726c7e91016cee042c6f"
+                "reference": "30ede0189889d4c4de3c2b6cd4f8c7ad87a38b54"
             },
             "require": {
                 "ext-fileinfo": "*",
+                "ext-filter": "*",
                 "ext-mbstring": "*",
                 "ext-openssl": "*",
                 "laravel/framework": "^12.61.1|^13.12.0",
@@ -3361,7 +3362,7 @@
             },
             "require-dev": {
                 "brianium/paratest": "^7.8.4",
-                "laravel/mcp": "^0.6.0",
+                "laravel/mcp": "^0.6.0|^1.0",
                 "laravel/pint": "1.30.4",
                 "mockery/mockery": "^1.6",
                 "orchestra/testbench": "^10|^11",
@@ -3517,11 +3518,11 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-harness",
-                "reference": "601e373da0c02f48eba46c81721172dc2350aec7"
+                "reference": "cfde6a6f1332642812e773dfbe6cad4e7ac27ee1"
             },
             "require": {
                 "laravel/framework": "^12.61.1|^13.12.0",
-                "particle-academy/prism": ">=0.120 <1.0",
+                "particle-academy/prism": ">=0.123 <1.0",
                 "php": "^8.2"
             },
             "require-dev": {
@@ -3654,7 +3655,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-mcp",
-                "reference": "5200507703f596d327e78ed2b831982e7a614da9"
+                "reference": "a4f9709c36ee5889ef06037b4db029822dcd8ac6"
             },
             "require": {
                 "ext-json": "*",
@@ -3739,7 +3740,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-opentelemetry",
-                "reference": "e2a87b9c3c16e7bbd87f90233a1ca69e67d3813c"
+                "reference": "ba47147956cac88b3a1767b71c17e4bdd8fac52f"
             },
             "require": {
                 "ext-json": "*",
@@ -3748,7 +3749,7 @@
                 "illuminate/support": "^12.0|^13.0",
                 "open-telemetry/api": "^1.0",
                 "open-telemetry/context": "^1.0",
-                "particle-academy/prism": ">=0.116 <1.0",
+                "particle-academy/prism": ">=0.124.1 <1.0",
                 "php": "^8.2"
             },
             "require-dev": {
@@ -3820,7 +3821,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-perplexity",
-                "reference": "c689adbb79e3e0210e13988b45d55c20ee5c4363"
+                "reference": "5860f576ccb9d8c8ee1603b2807c9b4e57e31262"
             },
             "require": {
                 "laravel/framework": "^12.61.1|^13.12.0",
@@ -3892,7 +3893,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-workspace",
-                "reference": "34875fa38f6b9623296db41164d128f726058658"
+                "reference": "a1b07ba84722200354a3e719c09fd9578aa14663"
             },
             "require": {
                 "ext-mbstring": "*",
@@ -10140,8 +10141,8 @@
         {
             "package": "particle-academy/prism",
             "version": "dev-main",
-            "alias": "0.120.0",
-            "alias_normalized": "0.120.0.0"
+            "alias": "0.130.0",
+            "alias_normalized": "0.130.0.0"
         },
         {
             "package": "particle-academy/prism-browser",
@@ -10152,14 +10153,14 @@
         {
             "package": "particle-academy/prism-harness",
             "version": "dev-main",
-            "alias": "0.9.0",
-            "alias_normalized": "0.9.0.0"
+            "alias": "0.12.0",
+            "alias_normalized": "0.12.0.0"
         },
         {
             "package": "particle-academy/prism-human-plus",
             "version": "dev-main",
-            "alias": "0.1.0",
-            "alias_normalized": "0.1.0.0"
+            "alias": "0.4.0",
+            "alias_normalized": "0.4.0.0"
         },
         {
             "package": "particle-academy/prism-mcp",
@@ -10170,14 +10171,14 @@
         {
             "package": "particle-academy/prism-opentelemetry",
             "version": "dev-main",
-            "alias": "0.2.0",
-            "alias_normalized": "0.2.0.0"
+            "alias": "0.5.2",
+            "alias_normalized": "0.5.2.0"
         },
         {
             "package": "particle-academy/prism-perplexity",
             "version": "dev-main",
-            "alias": "0.2.0",
-            "alias_normalized": "0.2.0.0"
+            "alias": "0.3.0",
+            "alias_normalized": "0.3.0.0"
         },
         {
             "package": "particle-academy/prism-workspace",
