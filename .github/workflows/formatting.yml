@@ -57,7 +57,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: Particle-Academy/.github
-          path: .third-party-allowlist
+          # Checkout paths start at the workspace root; run steps below start
+          # inside prism-labs. Keep the checker where those steps look for it.
+          path: prism-labs/.third-party-allowlist
           persist-credentials: false
 
       - name: Third-party dependency allowlist
