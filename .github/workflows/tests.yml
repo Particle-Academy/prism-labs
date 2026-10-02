@@ -69,6 +69,18 @@ jobs:
         with:
           working-directory: prism-labs
 
+      # NOTHING IN THIS ESTATE HAD EVER AUDITED A PHP DEPENDENCY. Dependabot
+      # reported zero open alerts here while `composer audit` found two real
+      # league/commonmark advisories, because the alert feed and the resolved tree
+      # are not the same view. This repo DOES commit composer.lock, so the audit
+      # has something stable to check and a finding is directly fixable.
+      #
+      # Placed after the install so it audits what CI actually resolved, and before
+      # the tests so a vulnerable tree fails the run rather than passing it quietly.
+      - name: Audit dependencies for known advisories
+        working-directory: prism-labs
+        run: composer audit --no-interaction
+
       - name: Prepare the environment
         run: |
           cp .env.example .env
