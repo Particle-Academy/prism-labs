@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "4b8150cd439cba59f6fbdb00dc92572a",
+    "content-hash": "b0446eb55ee96fc9bbfc3ea161e2b462",
     "packages": [
         {
             "name": "brick/math",
@@ -3264,16 +3264,16 @@
         },
         {
             "name": "particle-academy/fancy-flow-php",
-            "version": "v0.49.1",
+            "version": "v0.63.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/Particle-Academy/fancy-flow-php.git",
-                "reference": "20cab92d4a7682c12c961e847f5f330c56987162"
+                "reference": "e99e2fe3bd1df9114476bf629da4f3ed154a5ca6"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Particle-Academy/fancy-flow-php/zipball/20cab92d4a7682c12c961e847f5f330c56987162",
-                "reference": "20cab92d4a7682c12c961e847f5f330c56987162",
+                "url": "https://api.github.com/repos/Particle-Academy/fancy-flow-php/zipball/e99e2fe3bd1df9114476bf629da4f3ed154a5ca6",
+                "reference": "e99e2fe3bd1df9114476bf629da4f3ed154a5ca6",
                 "shasum": ""
             },
             "require": {
@@ -3282,7 +3282,7 @@
             "require-dev": {
                 "laravel/ai": "^0.9",
                 "orchestra/testbench": "^8.0|^9.0|^10.0|^11.0",
-                "particle-academy/fancy-conformance": "^0.20.0",
+                "particle-academy/fancy-conformance": "0.32",
                 "particle-academy/prism": ">=0.114 <1.0",
                 "pestphp/pest": "^2.0|^3.0|^4.0",
                 "phpunit/phpunit": "^10.0|^11.0|^12.0"
@@ -3335,7 +3335,7 @@
                 "issues": "https://github.com/Particle-Academy/fancy-flow-php/issues",
                 "source": "https://github.com/Particle-Academy/fancy-flow-php"
             },
-            "time": "2026-08-28T03:17:42+00:00"
+            "time": "2026-09-29T02:44:29+00:00"
         },
         {
             "name": "particle-academy/prism",
@@ -3456,12 +3456,12 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-browser",
-                "reference": "9d0737b5e4d6649412f7328aae3fe12c77071195"
+                "reference": "0fdb022e56844f3754766a6f4a49aa055b1b582e"
             },
             "require": {
                 "ext-json": "*",
                 "ext-mbstring": "*",
-                "laravel/framework": "^12.61.1|^13.12.0",
+                "laravel/framework": "^12.69.0|^13.30.0",
                 "particle-academy/prism": ">=0.114 <1.0",
                 "php": "^8.2"
             },
@@ -3518,10 +3518,10 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-harness",
-                "reference": "cfde6a6f1332642812e773dfbe6cad4e7ac27ee1"
+                "reference": "15f51887160d0f806c87c91c6991c66f91dd23fc"
             },
             "require": {
-                "laravel/framework": "^12.61.1|^13.12.0",
+                "laravel/framework": "^12.69.0|^13.30.0",
                 "particle-academy/prism": ">=0.123 <1.0",
                 "php": "^8.2"
             },
@@ -3592,13 +3592,13 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-human-plus",
-                "reference": "eb2d83e2655d497d603caaf5406183b3e8d447e4"
+                "reference": "c60e7d2760f44bdd2c342f50c9bb361b1ac39c6a"
             },
             "require": {
                 "ext-json": "*",
                 "ext-mbstring": "*",
                 "guzzlehttp/guzzle": "^7.9|^8.0",
-                "laravel/framework": "^12.61.1|^13.12.0",
+                "laravel/framework": "^12.69.0|^13.30.0",
                 "particle-academy/prism": ">=0.114 <1.0",
                 "php": "^8.2"
             },
@@ -3655,12 +3655,12 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-mcp",
-                "reference": "a4f9709c36ee5889ef06037b4db029822dcd8ac6"
+                "reference": "4befc212c15b3a0d7a687c66322ea4022cb1ec00"
             },
             "require": {
                 "ext-json": "*",
                 "ext-mbstring": "*",
-                "laravel/framework": "^12.61.1|^13.12.0",
+                "laravel/framework": "^12.69.0|^13.30.0",
                 "particle-academy/prism": ">=0.114 <1.0",
                 "php": "^8.2",
                 "symfony/console": "^7.2|^8.0"
@@ -3740,13 +3740,13 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-opentelemetry",
-                "reference": "ba47147956cac88b3a1767b71c17e4bdd8fac52f"
+                "reference": "0a4e3bee31b97e0c59bb5395e42f4c4f7ed13a4c"
             },
             "require": {
                 "ext-json": "*",
                 "ext-mbstring": "*",
-                "illuminate/contracts": "^12.0|^13.0",
-                "illuminate/support": "^12.0|^13.0",
+                "illuminate/contracts": "^12.69.0|^13.30.0",
+                "illuminate/support": "^12.69.0|^13.30.0",
                 "open-telemetry/api": "^1.0",
                 "open-telemetry/context": "^1.0",
                 "particle-academy/prism": ">=0.124.1 <1.0",
@@ -3821,10 +3821,10 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-perplexity",
-                "reference": "5860f576ccb9d8c8ee1603b2807c9b4e57e31262"
+                "reference": "e0ff3a7a55f4f5c3686fc01648652fa67774059d"
             },
             "require": {
-                "laravel/framework": "^12.61.1|^13.12.0",
+                "laravel/framework": "^12.69.0|^13.30.0",
                 "particle-academy/prism": ">=0.113 <1.0",
                 "php": "^8.2"
             },
@@ -3893,11 +3893,11 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-workspace",
-                "reference": "a1b07ba84722200354a3e719c09fd9578aa14663"
+                "reference": "e7daa5b426cd95d9fe4d1630bff42e24d2078c1b"
             },
             "require": {
                 "ext-mbstring": "*",
-                "laravel/framework": "^12.61.1|^13.12.0",
+                "laravel/framework": "^12.69.0|^13.30.0",
                 "league/flysystem": "^3.25",
                 "league/flysystem-path-prefixing": "^3.25",
                 "php": "^8.2"
