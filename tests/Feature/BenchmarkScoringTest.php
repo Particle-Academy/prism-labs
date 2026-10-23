@@ -13,6 +13,7 @@ use App\Models\BenchmarkLane;
 use App\Models\BenchmarkScore;
 use App\Models\BenchmarkSpec;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Group;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Testing\TextResponseFake;
 use Tests\TestCase;
@@ -23,6 +24,7 @@ use Tests\TestCase;
  * The judge is blind and narrowed, and both properties are load-bearing rather
  * than decorative — see the individual tests for why each was bought.
  */
+#[Group('dogfood')]
 class BenchmarkScoringTest extends TestCase
 {
     use RefreshDatabase;

@@ -9,6 +9,7 @@ use App\Learnings\Severity;
 use App\Models\ConsensusResponse;
 use App\Models\ConsensusRun;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Throwable;
 
 /**
@@ -59,23 +60,29 @@ final readonly class ConsensusLearningRecorder
         }
 
         try {
-            $responses = ConsensusResponse::query()
-                ->where('consensus_run_id', $run->id)
-                ->orderBy('agent')
-                ->get();
+            DB::transaction(function () use ($run): void {
+                $run = ConsensusRun::query()->lockForUpdate()->findOrFail($run->id);
+                if (is_string($run->learning_ref) && $run->learning_ref !== '') {
+                    return;
+                }
+                $responses = ConsensusResponse::query()
+                    ->where('consensus_run_id', $run->id)
+                    ->orderBy('agent')
+                    ->get();
 
-            $learning = $this->learnings->file(
-                title: $this->title($run, $responses),
-                filedBy: 'prism-lab/consensus',
-                languages: $responses->pluck('language')->unique()->values()->all(),
-                whatWasLearned: $this->whatWasLearned($run, $responses),
-                evidence: $this->evidence($run, $responses),
-                whyItMatters: $this->whyItMatters($run, $responses),
-                whatShouldChange: $this->whatShouldChange($run, $responses),
-                severity: $this->severity($run, $responses),
-            );
+                $learning = $this->learnings->file(
+                    title: $this->title($run, $responses),
+                    filedBy: 'prism-lab/consensus',
+                    languages: $responses->pluck('language')->unique()->values()->all(),
+                    whatWasLearned: $this->whatWasLearned($run, $responses),
+                    evidence: $this->evidence($run, $responses),
+                    whyItMatters: $this->whyItMatters($run, $responses),
+                    whatShouldChange: $this->whatShouldChange($run, $responses),
+                    severity: $this->severity($run, $responses),
+                );
 
-            $run->forceFill(['learning_ref' => $learning->ref])->save();
+                $run->forceFill(['learning_ref' => $learning->ref])->save();
+            });
         } catch (Throwable $failure) {
             report($failure);
         }
@@ -174,7 +181,7 @@ final readonly class ConsensusLearningRecorder
                 $response->language,
                 $response->status,
                 $response->confidence === null ? ' — no confidence stated' : sprintf(' — confidence %s', $response->confidence),
-                $answer === '' ? ' — returned no text' : ' — '.mb_substr($answer, 0, 600),
+                $answer === '' ? ' — '.($response->failure_reason ?? 'returned no text') : ' — '.mb_substr($answer, 0, 600),
                 $dissent === '' ? '' : "\n    dissent: ".mb_substr($dissent, 0, 400),
             );
         })->implode("\n");

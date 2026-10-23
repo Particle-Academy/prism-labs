@@ -29,31 +29,78 @@ final class ConsensusCoordinator
     /** @param array<string, mixed> $evidence */
     public function collect(string $question, array $evidence = []): ConsensusRun
     {
-        $run = ConsensusRun::query()->create([
+        return $this->collectPending($this->begin($question, $evidence), $evidence);
+    }
+
+    /** @param array<string, mixed> $evidence */
+    public function begin(string $question, array $evidence = []): ConsensusRun
+    {
+        return ConsensusRun::query()->create([
             'question' => $question,
             'evidence_digest' => hash('sha256', CanonicalJson::encode($evidence)),
             'status' => 'collecting',
         ]);
+    }
 
-        foreach ($this->roster->addressable() as $agent) {
-            $result = (new LanguageAgent($agent))->call('consensus', [
-                'question' => $question,
-                'evidence' => $evidence,
-            ]);
-            $data = is_array($result['data'] ?? null) ? $result['data'] : [];
-            ConsensusResponse::query()->create([
-                'consensus_run_id' => $run->id,
-                'agent' => $agent->name,
-                'language' => $agent->language,
-                'status' => ($result['ok'] ?? false) ? 'responded' : 'unavailable',
-                'answer' => is_string($data['answer'] ?? null) ? $data['answer'] : ($result['text'] ?? null),
-                'evidence' => is_array($data['evidence'] ?? null) ? $data['evidence'] : [],
-                'confidence' => is_numeric($data['confidence'] ?? null) ? $data['confidence'] : null,
-                'dissent' => is_string($data['dissent'] ?? null) ? $data['dissent'] : null,
-            ]);
+    /** @param array<string, mixed> $evidence */
+    public function collectPending(ConsensusRun $run, array $evidence = []): ConsensusRun
+    {
+        if ($run->refresh()->status !== 'collecting') {
+            return $run;
+        }
+        if (! hash_equals($run->evidence_digest, hash('sha256', CanonicalJson::encode($evidence)))) {
+            throw new \LogicException('Collection evidence differs from the frozen brief.');
         }
 
-        $run->forceFill(['status' => 'awaiting_review'])->save();
+        foreach ($this->roster->addressable() as $agent) {
+            if ($run->refresh()->status !== 'collecting') {
+                return $run;
+            }
+            if ($run->responses()->where('agent', $agent->name)->exists()) {
+                continue;
+            }
+            $result = (new LanguageAgent($agent))->call('consensus', [
+                'question' => $run->question,
+                'evidence' => $evidence,
+            ]);
+            // A person may abandon collection while a model call is pending.
+            if ($run->refresh()->status !== 'collecting') {
+                return $run;
+            }
+            $data = is_array($result['data'] ?? null) ? $result['data'] : [];
+            $answer = is_array($result['data'] ?? null) ? ($data['answer'] ?? null) : ($result['text'] ?? null);
+            $responded = ($result['ok'] ?? false) === true && is_string($answer) && trim($answer) !== '';
+            $reason = ($result['ok'] ?? false) === true
+                ? 'The agent returned no usable answer.'
+                : ($result['reason'] ?? $data['reason'] ?? $result['text'] ?? 'The agent returned no usable answer.');
+            $confidence = is_numeric($data['confidence'] ?? null) ? (float) $data['confidence'] : null;
+            $stored = DB::transaction(function () use ($run, $agent, $responded, $answer, $reason, $data, $confidence): bool {
+                $current = ConsensusRun::query()->lockForUpdate()->findOrFail($run->id);
+                if ($current->status !== 'collecting') {
+                    return false;
+                }
+                ConsensusResponse::query()->create([
+                    'consensus_run_id' => $run->id,
+                    'agent' => $agent->name,
+                    'language' => $agent->language,
+                    'status' => $responded ? 'responded' : 'unavailable',
+                    'answer' => $responded ? $answer : null,
+                    'failure_reason' => $responded ? null : mb_substr(is_string($reason) && trim($reason) !== '' ? $reason : 'The agent returned no usable answer.', 0, 2000),
+                    'evidence' => is_array($data['evidence'] ?? null) ? $data['evidence'] : [],
+                    'confidence' => $confidence !== null && is_finite($confidence) && $confidence >= 0 && $confidence <= 1 ? $confidence : null,
+                    'dissent' => is_string($data['dissent'] ?? null) ? $data['dissent'] : null,
+                ]);
+
+                return true;
+            });
+            if (! $stored) {
+                return $run->refresh();
+            }
+        }
+
+        if (ConsensusRun::query()->whereKey($run->id)->where('status', 'collecting')->update(['status' => 'awaiting_review']) !== 1) {
+            return $run->refresh();
+        }
         $run = $run->refresh();
 
         // A collection that heard NOTHING is terminal on arrival: there is no
@@ -76,12 +123,12 @@ final class ConsensusCoordinator
 
     public function review(ConsensusRun $run, string $synthesis): ConsensusRun
     {
-        if ($run->status !== 'awaiting_review') {
-            throw new \LogicException('Consensus must finish collection before human review.');
-        }
-
         DB::transaction(function () use ($run, $synthesis): void {
-            $run->forceFill([
+            $current = ConsensusRun::query()->lockForUpdate()->findOrFail($run->id);
+            if ($current->status !== 'awaiting_review') {
+                throw new \LogicException('Consensus must finish collection before human review.');
+            }
+            $current->forceFill([
                 'status' => 'reviewed',
                 'synthesis' => $synthesis,
                 'reviewed_at' => now(),
@@ -109,12 +156,12 @@ final class ConsensusCoordinator
      */
     public function abandon(ConsensusRun $run, string $reason = ''): ConsensusRun
     {
-        if (! in_array($run->status, ['collecting', 'awaiting_review'], true)) {
-            throw new \LogicException('Only a run still waiting on collection or review can be abandoned.');
-        }
-
         DB::transaction(function () use ($run, $reason): void {
-            $run->forceFill([
+            $current = ConsensusRun::query()->lockForUpdate()->findOrFail($run->id);
+            if (! in_array($current->status, ['collecting', 'awaiting_review'], true)) {
+                throw new \LogicException('Only a run still waiting on collection or review can be abandoned.');
+            }
+            $current->forceFill([
                 'status' => 'abandoned',
                 'abandoned_at' => now(),
                 'abandon_reason' => trim($reason) === '' ? null : trim($reason),

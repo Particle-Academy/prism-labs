@@ -12,6 +12,7 @@ use App\Models\BenchmarkLane;
 use App\Models\BenchmarkRun;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
+use PHPUnit\Framework\Attributes\Group;
 use Tests\TestCase;
 
 /**
@@ -23,6 +24,7 @@ use Tests\TestCase;
  * scores only evidence-backed receipts" was a claim the Lab made about itself
  * on a page that never showed a receipt.
  */
+#[Group('dogfood')]
 class BenchmarkResultsTest extends TestCase
 {
     use RefreshDatabase;

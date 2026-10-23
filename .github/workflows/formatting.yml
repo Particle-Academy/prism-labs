@@ -23,26 +23,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: prism-labs
+          persist-credentials: false
 
-      # Composer installs the sibling packages from path repositories, so they
-      # have to be beside the Lab even though Pint never reads them. Same layout,
-      # and the same reason, as tests.yml.
-      - uses: actions/checkout@v4
-        with: { repository: Particle-Academy/prism, path: prism, persist-credentials: false }
-      - uses: actions/checkout@v4
-        with: { repository: Particle-Academy/prism-harness, path: prism-harness, persist-credentials: false }
-      - uses: actions/checkout@v4
-        with: { repository: Particle-Academy/prism-browser, path: prism-browser, persist-credentials: false }
-      - uses: actions/checkout@v4
-        with: { repository: Particle-Academy/prism-human-plus, path: prism-human-plus, persist-credentials: false }
-      - uses: actions/checkout@v4
-        with: { repository: Particle-Academy/prism-workspace, path: prism-workspace, persist-credentials: false }
-      - uses: actions/checkout@v4
-        with: { repository: Particle-Academy/prism-mcp, path: prism-mcp, persist-credentials: false }
-      - uses: actions/checkout@v4
-        with: { repository: Particle-Academy/prism-opentelemetry, path: prism-opentelemetry, persist-credentials: false }
-      - uses: actions/checkout@v4
-        with: { repository: Particle-Academy/prism-perplexity, path: prism-perplexity, persist-credentials: false }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Checkout every Composer path dependency
+        run: node scripts/dogfood-dependencies.mjs --checkout
 
       - uses: shivammathur/setup-php@v2
         with:

@@ -1,8 +1,9 @@
-import { useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { useForm, usePoll } from '@inertiajs/react';
+import { useEffect, useState } from 'react';
+import { AgentReadiness } from '../../components/agent-readiness';
 import { LabShell } from '../../components/lab-shell';
 
-type AgentResponse = { id: string; agent: string; language: string; status: string; answer: string | null; evidence: unknown; confidence: string | null; dissent: string | null };
+type AgentResponse = { id: string; agent: string; language: string; status: string; answer: string | null; failure_reason?: string | null; evidence: unknown; confidence: string | null; dissent: string | null };
 type Tally = { agents: number; responded: number; unavailable: number; dissenting: number };
 type RunLearning = { ref: string; title: string; severity: string; severity_label: string; what_was_learned: string; evidence: string; why_it_matters: string; what_should_change: string | null; path: string };
 type Run = {
@@ -13,6 +14,12 @@ type Run = {
 
 export default function Consensus({ runs }: { runs: Run[] }) {
     const [creating, setCreating] = useState(false);
+    const collecting = runs.some(run => run.status === 'collecting');
+    const { start, stop } = usePoll(2000, { only: ['runs'] }, { autoStart: false });
+    useEffect(() => {
+        if (collecting) start(); else stop();
+        return stop;
+    }, [collecting, start, stop]);
 
     // Selection is held as an ID and the run is looked up from the CURRENT
     // props on every render. Holding the run object itself meant the panel
@@ -36,15 +43,17 @@ export default function Consensus({ runs }: { runs: Run[] }) {
         <div className="lab-page-heading">
             <div>
                 <h1 className="lab-title">Agreement without erasing dissent.</h1>
-                <p className="lab-lead">Collect independent language-agent answers, review the synthesis, then publish a preserved artifact. Every run that ends files a 0Learning — including the ones that collected nothing.</p>
+                <p className="lab-lead">Collect independent language-agent answers and review the synthesis. Every run that ends files a 0Learning — including the ones that collected nothing.</p>
             </div>
             <button className="k-btn k-btn--grad" onClick={() => setCreating(value => !value)}>{creating ? 'Close request' : 'Request consensus'}</button>
         </div>
 
-        {creating && <form className="lab-panel lab-draft-form" onSubmit={event => { event.preventDefault(); request.post('/lab/consensus', { onSuccess: () => { request.reset(); setCreating(false); } }); }}>
+        <AgentReadiness capability="consensus" />
+
+        {creating && <form className="lab-panel lab-draft-form" onSubmit={event => { event.preventDefault(); request.post('/lab/consensus', { onSuccess: page => { setSelectedId((page.props.runs as Run[])[0]?.id ?? null); review.reset(); request.reset(); setCreating(false); } }); }}>
             <Field label="Question" error={request.errors.question}><textarea className="lab-input" rows={5} value={request.data.question} onChange={e => request.setData('question', e.target.value)} /></Field>
             <Field label="Evidence brief · optional" error={request.errors.evidence}><textarea className="lab-input" rows={4} value={request.data.evidence} onChange={e => request.setData('evidence', e.target.value)} /></Field>
-            <p className="lab-diagnostic-note">Each available parity agent receives the same question and evidence. Collection may take several minutes.</p>
+            <p className="lab-diagnostic-note">Each available parity agent receives the same question and evidence. Collection runs in the background and may take several minutes. The Overseer queue worker must be running.</p>
             <button className="k-btn k-btn--grad" disabled={request.processing}>{request.processing ? 'Collecting responses…' : 'Start collection'}</button>
         </form>}
 
@@ -65,6 +74,11 @@ export default function Consensus({ runs }: { runs: Run[] }) {
                     <h2 className="lab-review-question">{selected.question}</h2>
                     <Tallies tally={selected.tally} />
                     <Responses responses={selected.responses} />
+                    {selected.status === 'collecting' && <button type="button" className="k-btn k-btn--ghost" disabled={abandon.processing} onClick={() => {
+                        if (window.confirm('Stop collecting this run? An agent call already in progress may finish, but its late answer will be discarded and no further agent will be called.')) {
+                            abandon.post(`/lab/consensus/${selected.id}/abandon`);
+                        }
+                    }}>Stop collection</button>}
                     {selected.status === 'awaiting_review'
                         ? <>
                             <form onSubmit={event => { event.preventDefault(); review.post(`/lab/consensus/${selected.id}/review`); }}>
@@ -111,7 +125,7 @@ export default function Consensus({ runs }: { runs: Run[] }) {
 function Tallies({ tally }: { tally: Tally }) {
     return <div className="lab-tally">
         <span><b>{tally.responded}</b> of {tally.agents} agents answered</span>
-        {tally.unavailable > 0 && <span className="is-warn"><b>{tally.unavailable}</b> unreachable</span>}
+        {tally.unavailable > 0 && <span className="is-warn"><b>{tally.unavailable}</b> unavailable</span>}
         <span className={tally.dissenting > 0 ? 'is-dissent' : ''}><b>{tally.dissenting}</b> declared dissent</span>
         <small>PLabs does not judge whether the answers agree. It reports what each agent declared.</small>
     </div>;
@@ -136,9 +150,9 @@ function Responses({ responses }: { responses: AgentResponse[] }) {
                 <div><small>{response.language}</small><b>{response.agent}</b></div>
                 {/* Absent, not zero. A model that stated no confidence is not a
                     model that is certain it is wrong. */}
-                <span className="lab-status">{response.status === 'responded' ? (response.confidence === null ? 'no confidence stated' : `confidence ${response.confidence}`) : 'unreachable'}</span>
+                <span className="lab-status">{response.status === 'responded' ? (response.confidence === null ? 'no confidence stated' : `confidence ${response.confidence}`) : 'unavailable'}</span>
             </header>
-            <p>{response.answer?.trim() || 'This agent returned no text.'}</p>
+            <p>{response.failure_reason ?? response.answer?.trim() ?? 'This agent returned no text.'}</p>
             {response.dissent && <p className="lab-dissent"><b>Dissent</b>{response.dissent}</p>}
             {Array.isArray(response.evidence) && response.evidence.length > 0 && <details>
                 <summary>{response.evidence.length} piece(s) of evidence this agent cited</summary>
