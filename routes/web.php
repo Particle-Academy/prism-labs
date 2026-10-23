@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Lab\AgentConversationController;
+use App\Http\Controllers\Lab\AgentReadinessController;
 use App\Http\Controllers\Lab\BenchmarkController;
 use App\Http\Controllers\Lab\CapabilityController;
 use App\Http\Controllers\Lab\ChatController;
@@ -54,6 +55,7 @@ if (app()->environment('local')) {
         // timeout. A dead agent should cost one card, not the board.
         Route::get('/lab/team', [TeamController::class, 'show'])->name('lab.team');
         Route::get('/lab/team/roster', [TeamController::class, 'roster'])->name('lab.team.roster');
+        Route::get('/lab/team/readiness', AgentReadinessController::class)->middleware('throttle:30,1')->name('lab.team.readiness');
 
         // The harness ports, exercised end to end in BOTH languages. Fetched
         // separately from the page for the same reason the roster is: two

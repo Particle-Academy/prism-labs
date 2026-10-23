@@ -4,18 +4,27 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "25 8 * * *"
 
 permissions:
   contents: read
 
 jobs:
   build:
-    name: Build
+    name: Build (${{ matrix.resolution }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        resolution: [locked, current]
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
@@ -42,6 +51,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Resolve current compatible dependencies
+        if: matrix.resolution == 'current'
+        run: npm update --ignore-scripts
+
+      - name: Dependency guard assertions
+        run: node --test scripts/dogfood-dependencies.test.mjs
+
       # vite strips types rather than checking them, so a build passing says
       # nothing about whether the types hold. The Lab is the largest React
       # surface here and the one most likely to drift; this is the step that
@@ -52,8 +68,29 @@ jobs:
       - name: Provider probe UI assertions
         run: npm run test:ui
 
+      - name: Install the browser used by the dogfood UI tests
+        run: npx playwright install --with-deps chromium
+
+      - name: Consensus and Benchmarks browser regressions
+        run: npm run test:dogfood-ui
+
       # Client and SSR both, because the SSR bundle is built separately and
       # can fail on its own — an import that resolves in the browser build
       # and not on the server would ship unnoticed otherwise.
       - name: Build
         run: npm run build
+
+      - name: Audit the resolved dependency graph
+        if: always()
+        run: npm audit --audit-level=high
+
+      - name: Check first-party packages against the uncached registry
+        if: always() && matrix.resolution == 'current'
+        run: node scripts/dogfood-dependencies.mjs --currency
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dogfood-frontend-${{ matrix.resolution }}
+          path: package-lock.json
+          if-no-files-found: error

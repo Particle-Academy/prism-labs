@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Lab;
 
 use App\Consensus\ConsensusCoordinator;
 use App\Http\Controllers\Controller;
+use App\Jobs\CollectConsensusJob;
 use App\Learnings\Learning;
 use App\Models\ConsensusResponse;
 use App\Models\ConsensusRun;
@@ -47,6 +48,7 @@ final class ConsensusController extends Controller
                     'language' => $response->language,
                     'status' => $response->status,
                     'answer' => $response->answer,
+                    'failure_reason' => $response->failure_reason,
                     'evidence' => $response->evidence,
                     // A string from the decimal cast, and kept as one. Casting
                     // it to a float here would turn "no confidence stated"
@@ -68,15 +70,21 @@ final class ConsensusController extends Controller
             'evidence' => ['nullable', 'string', 'max:20000'],
         ]);
 
-        $coordinator->collect($input['question'], ['brief' => $input['evidence'] ?? '']);
+        $evidence = ['brief' => $input['evidence'] ?? ''];
+        $run = $coordinator->begin($input['question'], $evidence);
+        CollectConsensusJob::dispatch($run->id, $evidence);
 
-        return to_route('lab.consensus');
+        return to_route('lab.consensus')->with('status', 'Consensus collection queued. The Overseer worker collects the answers; this page refreshes while it runs.');
     }
 
     public function review(Request $request, ConsensusRun $run, ConsensusCoordinator $coordinator): RedirectResponse
     {
         $input = $request->validate(['synthesis' => ['required', 'string', 'max:20000']]);
-        $coordinator->review($run, $input['synthesis']);
+        try {
+            $coordinator->review($run, $input['synthesis']);
+        } catch (\LogicException $failure) {
+            return to_route('lab.consensus')->with('error', $failure->getMessage());
+        }
 
         return to_route('lab.consensus');
     }
@@ -92,7 +100,11 @@ final class ConsensusController extends Controller
     public function abandon(Request $request, ConsensusRun $run, ConsensusCoordinator $coordinator): RedirectResponse
     {
         $input = $request->validate(['reason' => ['nullable', 'string', 'max:500']]);
-        $coordinator->abandon($run, $input['reason'] ?? '');
+        try {
+            $coordinator->abandon($run, $input['reason'] ?? '');
+        } catch (\LogicException $failure) {
+            return to_route('lab.consensus')->with('error', $failure->getMessage());
+        }
 
         return to_route('lab.consensus');
     }

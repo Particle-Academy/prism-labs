@@ -20,26 +20,16 @@ use Composer\InstalledVersions as Composer;
 final class InstalledVersions
 {
     /**
-     * The packages worth showing. Order is display order.
-     *
-     * @var list<string>
-     */
-    private const PACKAGES = [
-        'particle-academy/prism',
-        'particle-academy/prism-harness',
-        'particle-academy/prism-perplexity',
-        'particle-academy/prism-opentelemetry',
-    ];
-
-    /**
      * @return array<string, string>
      */
     public static function all(): array
     {
         $versions = [];
 
-        foreach (self::PACKAGES as $package) {
-            if (! Composer::isInstalled($package)) {
+        $packages = Composer::getInstalledPackages();
+        sort($packages);
+        foreach ($packages as $package) {
+            if (! preg_match('/^particle-academy\/prism(?:-|$)/', $package)) {
                 continue;
             }
 

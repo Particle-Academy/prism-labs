@@ -33,12 +33,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Checkout prism-parity
         uses: actions/checkout@v4
         with:
           repository: Particle-Academy/prism-parity
           path: .parity
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
@@ -46,6 +48,9 @@ jobs:
 
       - name: Check claims
         run: node .parity/tools/factcheck.mjs
+
+      - name: Check the current shared trust rubric
+        run: node .parity/tools/trust-rubric.mjs
 
       # --strict promotes version drift from a warning to a failure. Nightly
       # only, so a release elsewhere cannot redden an unrelated pull request

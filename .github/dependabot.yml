@@ -1,0 +1,12 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 5
+    groups:
+      fancy:
+        patterns: ["@particle-academy/*"]
+    # Composer's path packages are separate sibling repositories, unavailable
+    # to Dependabot's resolver. tests.yml resolves and tests those daily.

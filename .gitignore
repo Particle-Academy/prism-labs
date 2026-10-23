@@ -27,3 +27,4 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 /bootstrap/ssr
+/dogfood-evidence.json
