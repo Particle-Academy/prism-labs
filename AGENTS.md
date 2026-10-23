@@ -120,3 +120,11 @@ npm run build        # CI builds the front end; a type error here fails the job
 
 CI runs `tests`, `formatting` and `build`. There is no live-provider job and
 there should not be one.
+
+Tests and build run locked/current dependency lanes daily and on pull requests.
+Path checkouts are derived by `scripts/dogfood-dependencies.mjs`; do not restore
+handwritten sibling lists. The nonempty `dogfood` PHPUnit group and
+`npm run test:dogfood-ui` exercise Consensus and Benchmarks with successful and
+refused controls. Read `docs/dogfood-ci.md` before interpreting their results as
+live readiness. In particular, G-10 remains open: no TypeScript/Python benchmark
+executor exists, and the preflight must keep refusing those lanes.

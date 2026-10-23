@@ -31,6 +31,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
+use PHPUnit\Framework\Attributes\Group;
 use Prism\Harness\Flow\HarnessAgentExecutor;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Facades\Prism;
@@ -44,6 +45,7 @@ use Prism\Workspace\Exceptions\PathRefused;
 use ReflectionMethod;
 use Tests\TestCase;
 
+#[Group('dogfood')]
 final class LabExperimentFoundationsTest extends TestCase
 {
     use RefreshDatabase;

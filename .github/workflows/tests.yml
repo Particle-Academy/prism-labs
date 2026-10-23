@@ -4,116 +4,83 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "15 8 * * *"
 
 permissions:
   contents: read
 
-env:
-  phpv: 8.4
-
 jobs:
   test:
-    name: Tests
+    name: Tests (${{ matrix.resolution }})
     runs-on: ubuntu-latest
-    needs: third-party
-    timeout-minutes: 10
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        resolution: [locked, current]
     defaults:
       run:
         working-directory: prism-labs
+    env:
+      DOGFOOD_RESOLUTION: ${{ matrix.resolution }}
+      APP_ENV: testing
+      APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      # No provider secrets, deployment, or live generations in CI.
+      DB_CONNECTION: sqlite
+      DB_DATABASE: ":memory:"
 
     steps:
       - uses: actions/checkout@v4
         with:
           path: prism-labs
-
-      # The Lab builds against its sibling packages' WORKING TREES, through
-      # composer path repositories (`../prism` and seven more), so it can test a
-      # change before that change is published. A runner has no siblings, and
-      # from 2026-09-10 every run failed at composer install with "Source path
-      # ../prism is not found" -- the gate went red and stayed red.
-      #
-      # So CI lays the workspace out the way the envelope does: the Lab and each
-      # sibling side by side, each sibling at its main branch.
-      - uses: actions/checkout@v4
-        with: { repository: Particle-Academy/prism, path: prism, persist-credentials: false }
-      - uses: actions/checkout@v4
-        with: { repository: Particle-Academy/prism-harness, path: prism-harness, persist-credentials: false }
-      - uses: actions/checkout@v4
-        with: { repository: Particle-Academy/prism-browser, path: prism-browser, persist-credentials: false }
-      - uses: actions/checkout@v4
-        with: { repository: Particle-Academy/prism-human-plus, path: prism-human-plus, persist-credentials: false }
-      - uses: actions/checkout@v4
-        with: { repository: Particle-Academy/prism-workspace, path: prism-workspace, persist-credentials: false }
-      - uses: actions/checkout@v4
-        with: { repository: Particle-Academy/prism-mcp, path: prism-mcp, persist-credentials: false }
-      - uses: actions/checkout@v4
-        with: { repository: Particle-Academy/prism-opentelemetry, path: prism-opentelemetry, persist-credentials: false }
-      - uses: actions/checkout@v4
-        with: { repository: Particle-Academy/prism-perplexity, path: prism-perplexity, persist-credentials: false }
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+          persist-credentials: false
+      - uses: actions/setup-node@v4
         with:
-          php-version: ${{ env.phpv }}
+          node-version: "22"
+      - name: Validate dependency checkout and currency guards
+        run: node --test scripts/dogfood-dependencies.test.mjs
+      - name: Checkout every path dependency from its main branch
+        run: node scripts/dogfood-dependencies.mjs --checkout
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
           extensions: dom, curl, libxml, mbstring, zip, fileinfo, sqlite3, pdo_sqlite
           coverage: none
-
-      # No stability matrix, unlike the packages in this org. This is an
-      # application: it ships the lock file, so the only resolution worth
-      # testing is the one it actually deploys. A prefer-lowest run here
-      # would prove something no environment will ever run.
-      #
-      # It does mean CI follows the first-party prereleases this app now
-      # tracks — which is the point of tracking them.
-      - uses: ramsey/composer-install@v3
-        with:
-          working-directory: prism-labs
-
-      # NOTHING IN THIS ESTATE HAD EVER AUDITED A PHP DEPENDENCY. Dependabot
-      # reported zero open alerts here while `composer audit` found two real
-      # league/commonmark advisories, because the alert feed and the resolved tree
-      # are not the same view. This repo DOES commit composer.lock, so the audit
-      # has something stable to check and a finding is directly fixable.
-      #
-      # Placed after the install so it audits what CI actually resolved, and before
-      # the tests so a vulnerable tree fails the run rather than passing it quietly.
-      - name: Audit dependencies for known advisories
-        working-directory: prism-labs
-        run: composer audit --no-interaction
-
-      - name: Prepare the environment
-        run: |
-          cp .env.example .env
-          php artisan key:generate
-
-      # sqlite in memory, per phpunit.xml — no service container needed.
-      - name: Execute tests
-        run: vendor/bin/phpunit
-
-  third-party:
-    name: Third-party dependency allowlist
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-
-    steps:
-      # This job only reads files, so it keeps no token in .git/config for
-      # the fetched checker to find.
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-
-      # Every direct dependency must be approved on the org allowlist and still
-      # maintained. The list is fetched, never vendored, so there is no copy here
-      # to drift. Nothing is published from this repository, so this workflow is
-      # the whole gate.
       - name: Fetch the third-party allowlist
         uses: actions/checkout@v4
         with:
           repository: Particle-Academy/.github
-          path: .third-party-allowlist
+          path: prism-labs/.third-party-allowlist
           persist-credentials: false
-
-      - name: Third-party dependency allowlist
+      - name: Check the allowlist before installing dependencies
         run: |
           node .third-party-allowlist/third-party/check.mjs --repo .
           node -e "require('node:fs').rmSync('.third-party-allowlist',{recursive:true,force:true})"
+      - uses: ramsey/composer-install@v3
+        with:
+          working-directory: prism-labs
+      - name: Resolve current compatible dependencies
+        if: matrix.resolution == 'current'
+        run: composer update --with-all-dependencies --no-interaction --no-progress
+      - name: Audit the resolved dependencies
+        run: composer audit --no-interaction
+      - name: Execute the complete suite
+        run: composer test
+      - name: Exercise the required dogfood paths explicitly
+        run: vendor/bin/phpunit --group dogfood --fail-on-empty-test-suite
+      - name: Check first-party released dependencies against Packagist
+        if: always() && matrix.resolution == 'current'
+        run: node scripts/dogfood-dependencies.mjs --composer-currency
+      - name: Record the exact code and dependency graph tested
+        if: always()
+        run: node scripts/dogfood-dependencies.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dogfood-php-${{ matrix.resolution }}
+          path: |
+            prism-labs/dogfood-evidence.json
+            prism-labs/composer.lock
+          if-no-files-found: error

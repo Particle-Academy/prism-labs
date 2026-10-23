@@ -66,6 +66,9 @@ uses live provider calls; live calls require the operator's explicit action.
 
 ## Running it
 
+CI, dependency currency, the evidence loop, and required local workers are
+documented in [Dogfood evidence and CI](docs/dogfood-ci.md).
+
 ```bash
 composer install
 npm install

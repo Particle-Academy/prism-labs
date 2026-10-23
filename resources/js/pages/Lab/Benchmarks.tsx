@@ -1,5 +1,6 @@
 import { Link, router } from '@inertiajs/react';
 import { useState } from 'react';
+import { AgentReadiness } from '../../components/agent-readiness';
 import { LabShell } from '../../components/lab-shell';
 
 type Spec = { id: string; name: string; revision: number; status: string; digest: string; archetype: string; surface_mode: string; lane_matrix: unknown[] };
@@ -20,6 +21,7 @@ export default function Benchmarks({ specs, runs, providerAggregateCount, compac
     };
     return <LabShell title="Benchmark Studio" current="/lab/benchmarks" eyebrow="Benchmark Studio · durable Fancy Flow orchestration">
         <div className="lab-page-heading"><div><h1 className="lab-title">Design tests with PLab.</h1><p className="lab-lead">Discuss what you want to learn in the Overseer flyout. PLab turns the conversation into a fair, reviewable specification—then you decide whether to freeze and run it.</p></div><button type="button" className="overseer-presence" onClick={() => window.dispatchEvent(new Event('overseer:open'))}><i /><span>Open Overseer</span></button></div>
+        <AgentReadiness capability="benchmark" />
         <section className="lab-studio-grid">
             <aside className="lab-panel lab-steps"><b>PLab’s design process</b><span className="is-active">01 Understand the question</span><span>02 Define evidence</span><span>03 Design the rubric</span><span>04 Choose lanes &amp; budgets</span><span>05 Propose a draft</span></aside>
             <div className="lab-panel"><div className="lab-panel-head"><span>Drafts and frozen specifications</span><span>{specs.length} recent</span></div>{specs.length === 0 ? <p className="lab-empty">No benchmark specification exists yet. Create a revisioned draft; launch remains unavailable until approval freezes its digest.</p> : specs.map(spec => <Link href={`/lab/benchmarks/specs/${spec.id}`} className="lab-spec" key={spec.id}><div><b>{spec.name}</b><small>rev {spec.revision} · {spec.archetype} · {spec.surface_mode.replace('_', '+')}</small><code>{spec.digest.slice(0, 12)}…</code></div><div><span className="lab-status">{spec.status}</span><small>{spec.lane_matrix.length} lanes · Review all details →</small></div></Link>)}</div>
