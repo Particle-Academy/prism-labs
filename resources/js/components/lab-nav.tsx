@@ -43,6 +43,11 @@ export const LAB_SECTIONS: LabSection[] = [
         blurb: 'Talk to any configured provider. Conversations persist through the harness, so the model remembers across requests and page reloads.',
     },
     {
+        href: '/lab/acp',
+        label: 'ACP agent',
+        blurb: 'Drive the PHP ACP agent (prism-acp) as an editor would: initialize, a session, a prompt, every session/update it sends, and what stopping its process tree left behind.',
+    },
+    {
         href: '/lab/human-plus-fixture',
         label: 'Human+ fixture',
         blurb: 'A live Fancy-owned browser surface with controlled JSON state, stable handles, presence, and staged writes for end-to-end agent testing.',

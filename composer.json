@@ -68,6 +68,13 @@
             "options": {
                 "symlink": true
             }
+        },
+        {
+            "type": "path",
+            "url": "../prism-acp",
+            "options": {
+                "symlink": true
+            }
         }
     ],
     "require": {
@@ -87,7 +94,8 @@
         "particle-academy/prism-opentelemetry": "dev-main as 0.5.2",
         "particle-academy/prism-perplexity": "dev-main as 0.3.0",
         "particle-academy/prism-workspace": "dev-main as 0.2.0",
-        "symfony/process": "^8.1"
+        "symfony/process": "^8.1",
+        "particle-academy/prism-acp": "dev-main as 0.1.0"
     },
     "require-dev": {
         "laravel/pail": "^1.2.5",

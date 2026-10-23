@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "b0446eb55ee96fc9bbfc3ea161e2b462",
+    "content-hash": "efeed21e7bdad35e853dc22d13e391dd",
     "packages": [
         {
             "name": "brick/math",
@@ -3343,7 +3343,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism",
-                "reference": "af6db0862395f62c22309382e90a1bc04d89be7f"
+                "reference": "fe70e3f3554f6e4af162869c80e6f16290e3bb96"
             },
             "require": {
                 "ext-fileinfo": "*",
@@ -3445,6 +3445,68 @@
                 }
             ],
             "description": "A powerful Laravel package for integrating Large Language Models (LLMs) into your applications. Actively maintained fork of prism-php/prism.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "particle-academy/prism-acp",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "../prism-acp",
+                "reference": "90125e74d055a33130a2d749c8441f91271a2949"
+            },
+            "require": {
+                "ext-json": "*",
+                "ext-mbstring": "*",
+                "php": "^8.2"
+            },
+            "require-dev": {
+                "laravel/pint": "^1.30",
+                "pestphp/pest": "^3.0|^4.0",
+                "phpstan/phpstan": "^2.0"
+            },
+            "suggest": {
+                "ext-pcntl": "Required on Linux: the process-tree supervisor forks the provider into its own session.",
+                "ext-posix": "Required on Linux: the process-tree supervisor uses setsid and signals the provider's tree.",
+                "laravel/framework": "Optional: Prism\\Acp\\Laravel\\PrismAcpServiceProvider binds the drivers and config. The core never needs it."
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Prism\\Acp\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "@php vendor/bin/pest"
+                ],
+                "types": [
+                    "@php vendor/bin/phpstan analyse"
+                ],
+                "format": [
+                    "@php vendor/bin/pint"
+                ]
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Speak the Agent Client Protocol to a coding-agent CLI the user has already signed in to. No API key, no third-party adapter. Laravel-compatible, not Laravel-reliant.",
+            "keywords": [
+                "acp",
+                "agent-client-protocol",
+                "claude",
+                "codex",
+                "laravel",
+                "prism"
+            ],
             "transport-options": {
                 "symlink": true,
                 "relative": true
@@ -3655,7 +3717,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-mcp",
-                "reference": "4befc212c15b3a0d7a687c66322ea4022cb1ec00"
+                "reference": "10fba8e5987ff87a2b16ef73740e655ef6c6ece8"
             },
             "require": {
                 "ext-json": "*",
@@ -3740,7 +3802,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-opentelemetry",
-                "reference": "0a4e3bee31b97e0c59bb5395e42f4c4f7ed13a4c"
+                "reference": "bafee39b3d97550609094ca1674642c5e163bcc6"
             },
             "require": {
                 "ext-json": "*",
@@ -3821,7 +3883,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-perplexity",
-                "reference": "e0ff3a7a55f4f5c3686fc01648652fa67774059d"
+                "reference": "78524c2d2fd5ce159ba9151605a9bff4d6e06e0b"
             },
             "require": {
                 "laravel/framework": "^12.69.0|^13.30.0",
@@ -3893,7 +3955,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-workspace",
-                "reference": "e7daa5b426cd95d9fe4d1630bff42e24d2078c1b"
+                "reference": "d8d9aaedac30e539cb5312b92b2842aeb3c5efa7"
             },
             "require": {
                 "ext-mbstring": "*",
@@ -10145,6 +10207,12 @@
             "alias_normalized": "0.130.0.0"
         },
         {
+            "package": "particle-academy/prism-acp",
+            "version": "dev-main",
+            "alias": "0.1.0",
+            "alias_normalized": "0.1.0.0"
+        },
+        {
             "package": "particle-academy/prism-browser",
             "version": "dev-main",
             "alias": "0.1.0",
@@ -10190,6 +10258,7 @@
     "minimum-stability": "dev",
     "stability-flags": {
         "particle-academy/prism": 20,
+        "particle-academy/prism-acp": 20,
         "particle-academy/prism-browser": 20,
         "particle-academy/prism-harness": 20,
         "particle-academy/prism-human-plus": 20,
