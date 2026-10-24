@@ -8,6 +8,12 @@ if (getenv('GITHUB_ACTIONS') !== 'true') {
 }
 $file = dirname(__DIR__).'/composer.json';
 $manifest = json_decode((string) file_get_contents($file), true, flags: JSON_THROW_ON_ERROR);
-$manifest['repositories'] = array_values(array_filter($manifest['repositories'], fn (array $repository): bool => ($repository['url'] ?? null) !== '../prism-acp'));
-$manifest['require']['particle-academy/prism-acp'] = '0.1.0-alpha.1';
+$mode = $argv[1] ?? '--published';
+if (! in_array($mode, ['--source', '--published'], true)) {
+    throw new RuntimeException('select --source or --published ACP resolution');
+}
+if ($mode === '--published') {
+    $manifest['repositories'] = array_values(array_filter($manifest['repositories'], fn (array $repository): bool => ($repository['url'] ?? null) !== '../prism-acp'));
+}
+$manifest['require']['particle-academy/prism-acp'] = $mode === '--source' ? 'dev-main as 0.1.0-alpha.4' : '0.1.0-alpha.4';
 file_put_contents($file, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)."\n");

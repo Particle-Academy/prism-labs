@@ -36,16 +36,49 @@ These jobs exercise source checkouts, not downloaded release archives.
 
 ### PHP ACP source and release coverage
 
-PHP ACP is public at `Particle-Academy/prism-acp`, with Windows/Claude preview
-`v0.1.0-alpha.1` at `06149dea5105ff0287fa99b3e79d087ad37cf846`.
+PHP ACP is public at `Particle-Academy/prism-acp`, with Windows/Claude/Codex preview
+`v0.1.0-alpha.4` at `050d9d5f063849680497b4eac5a92f70490e1cdc`.
 `acp.yml` runs Windows consumer lanes against both current sibling source and
 the actual release archive resolved through Packagist. It verifies the release's
-source SHA and dist installation. The fake provider belongs to the Lab's
-tests, since release archives exclude package tests. No model calls or real tools run.
-Both lanes exercise a turn, resume, model refusal, all-tool denial (including a
-future tool), duplicate delivery and verified process cleanup. Ubuntu still runs
-portable checks; Windows-only process tests are named skips there. The ACP plan
-also records unfinished POSIX containment and Codex support.
+source SHA and dist installation. The fake providers belong to the Lab's tests,
+since release archives exclude package tests. No model calls or real tools run.
+The normal local install uses the exact released archive; the noncanonical ACP
+path entry only inventories the source sibling. The source lane explicitly
+selects its development alias.
+Both lanes exercise both providers, resume, model refusal, Claude wildcard tool
+denial (including a future tool), Codex approval denial, malformed native config,
+duplicate delivery and verified process cleanup. Portable transport tests check
+effective MCP isolation and fixed policy; browser controls check provider/model
+selection, Continue and escaped output. Ubuntu runs portable checks;
+Windows-only process tests are named skips there. POSIX containment remains open.
+
+The ACP page defaults to Claude/haiku, without changing the Lab's global provider
+defaults. Codex uses the native account's model unless one is selected. Resume
+requires the same provider and a completed source turn. Codex replay is stored
+and shown separately from the new answer. Both providers use their native login;
+the Lab does not forward API keys. The Overseer worker also runs ACP jobs.
+
+Claude's wildcard hook denies every tool. Codex has a bounded conversation policy:
+read-only sandbox, untrusted approval policy, shell/search/apps/subagents disabled,
+all effective inherited and explicit MCP servers disabled by ID, and every ACP
+permission request declined. Native tools can bypass ACP permission callbacks;
+an empty MCP map is deep-merged by Codex and does not disable inherited servers.
+The host reads effective configuration on the same connection before thread
+start/resume and refuses the session if it cannot verify isolation. This is a
+measured policy for the installed CLI, not a universal denial of future tools.
+
+Optional native control (Windows, measured Codex CLI 0.163.0):
+
+```sh
+node scripts/native-acp-policy.mjs <php.exe> <codex.exe>
+```
+
+It uses owned disposable homes and local model/MCP fixtures, without paid model
+calls or user credentials. Harmless shell and auto-approved inherited MCP calls
+are positive controls; the identical hidden native invocations must fail under
+the Lab policy on both start and resume. Every process tree must be verified
+empty. Recheck these controls when upgrading the native CLI. The general ACP
+limitations for model-list paging and protocol metadata (G-99/G-100) remain open.
 
 ## The improvement loop
 
