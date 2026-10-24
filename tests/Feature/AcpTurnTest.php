@@ -15,8 +15,8 @@ use Tests\TestCase;
 
 /**
  * /lab/acp, end to end: the job really starts `php artisan lab:acp-agent` under prism-acp's containment and speaks ACP
- * to it. The only stand-in is the Claude CLI behind the agent, which is prism-acp's own fake (it speaks the real
- * frames), reached through the same environment variables a person would set.
+ * to it. Consumer-owned Claude and Codex CLI fixtures speak native frames through the same environment variables
+ * a person would set. No model requests or real tools run.
  *
  * The controller is called directly, as the Lab's other tests do: its routes exist only in the local environment.
  */
@@ -29,14 +29,15 @@ final class AcpTurnTest extends TestCase
         parent::setUp();
         // Release archives intentionally exclude package tests: the consumer owns its fake CLI.
         $fake = base_path('tests/fixtures/acp/fake-claude.php');
-        foreach (['LAB_ACP_CLAUDE_BINARY' => PHP_BINARY, 'LAB_ACP_CLAUDE_ARGS' => str_replace('\\', '/', $fake), 'LAB_ACP_MODEL' => 'haiku'] as $name => $value) {
+        foreach (['LAB_ACP_CLAUDE_BINARY' => PHP_BINARY, 'LAB_ACP_CLAUDE_ARGS' => str_replace('\\', '/', $fake), 'LAB_ACP_MODEL' => 'haiku',
+            'LAB_ACP_CODEX_BINARY' => PHP_BINARY, 'LAB_ACP_CODEX_ARGS' => str_replace('\\', '/', base_path('tests/fixtures/acp/fake-codex.php'))] as $name => $value) {
             putenv("{$name}={$value}");
         }
     }
 
     protected function tearDown(): void
     {
-        foreach (['LAB_ACP_CLAUDE_BINARY', 'LAB_ACP_CLAUDE_ARGS', 'LAB_ACP_MODEL'] as $name) {
+        foreach (['LAB_ACP_CLAUDE_BINARY', 'LAB_ACP_CLAUDE_ARGS', 'LAB_ACP_MODEL', 'LAB_ACP_CODEX_BINARY', 'LAB_ACP_CODEX_ARGS', 'LAB_ACP_SESSION_SECONDS'] as $name) {
             putenv($name);
         }
         parent::tearDown();
@@ -120,5 +121,101 @@ final class AcpTurnTest extends TestCase
         $this->assertSame(AcpTurn::RUNNING, $turn->status);
         $this->assertNull($turn->handshake);
         $this->assertNull($turn->process);
+    }
+
+    public function test_codex_runs_the_published_agent_and_keeps_replayed_history_out_of_the_new_answer(): void
+    {
+        if (PHP_OS_FAMILY !== 'Windows') {
+            $this->markTestSkipped('native ACP process containment is Windows-only');
+        }
+        $first = AcpTurn::query()->create(['status' => AcpTurn::QUEUED, 'provider' => 'codex', 'prompt' => 'one', 'model' => 'fixture-model']);
+        (new RunAcpTurnJob($first->id))->handle();
+        $first->refresh();
+        $this->assertSame(AcpTurn::FINISHED, $first->status, (string) $first->error);
+        $this->assertSame('418fb379-86dc-456a-ac17-ab1df70f7216', $first->cli_session_id);
+        $this->assertSame('echo: one', $this->answer($first->updates));
+        $this->assertTrue($first->process['stop']['verified']);
+        $this->assertSame(0, $first->process['stop']['survivors']);
+
+        Queue::fake();
+        $response = app(AcpController::class)->send(Request::create('/lab/acp', 'POST', [
+            'provider' => 'codex', 'prompt' => 'two', 'continue' => $first->id, 'model' => 'fixture-model',
+        ]));
+        $this->assertSame(202, $response->getStatusCode());
+        $second = AcpTurn::query()->where('prompt', 'two')->sole();
+        putenv('LAB_ACP_CODEX_ARGS='.str_replace('\\', '/', base_path('tests/fixtures/acp/fake-codex.php')).' --fixture-slow-history');
+        putenv('LAB_ACP_SESSION_SECONDS=2');
+        config(['acp.session_seconds' => 2]);
+        (new RunAcpTurnJob($second->id))->handle();
+        $second->refresh();
+        $this->assertSame(AcpTurn::FINISHED, $second->status, (string) $second->error);
+        $this->assertSame('codex', $second->toPayload()['provider']);
+        $this->assertSame('echo: two', $this->answer($second->updates));
+        $this->assertSame('earlier answer', $this->answer($second->history_updates));
+        $this->assertArrayHasKey('session/load', $second->handshake);
+        $this->assertTrue($second->process['stop']['empty']);
+        $this->assertTrue($second->process['stop']['verified']);
+    }
+
+    public function test_native_codex_approval_is_declined(): void
+    {
+        if (PHP_OS_FAMILY !== 'Windows') {
+            $this->markTestSkipped('native ACP process containment is Windows-only');
+        }
+        $turn = AcpTurn::query()->create(['status' => AcpTurn::QUEUED, 'provider' => 'codex', 'prompt' => 'approval']);
+        (new RunAcpTurnJob($turn->id))->handle();
+        $turn->refresh();
+        $this->assertSame(AcpTurn::FINISHED, $turn->status, (string) $turn->error);
+        $this->assertSame('permission denied', $this->answer($turn->updates));
+        $this->assertTrue($turn->process['stop']['verified']);
+        $this->assertSame(0, $turn->process['stop']['survivors']);
+    }
+
+    public function test_invalid_effective_mcp_configuration_refuses_the_turn_without_leaking_it(): void
+    {
+        if (PHP_OS_FAMILY !== 'Windows') {
+            $this->markTestSkipped('native ACP process containment is Windows-only');
+        }
+        putenv('LAB_ACP_CODEX_ARGS='.str_replace('\\', '/', base_path('tests/fixtures/acp/fake-codex.php')).' --fixture-invalid-config');
+        $turn = AcpTurn::query()->create(['status' => AcpTurn::QUEUED, 'provider' => 'codex', 'prompt' => 'must refuse']);
+        (new RunAcpTurnJob($turn->id))->handle();
+        $turn->refresh();
+        $this->assertSame(AcpTurn::FAILED, $turn->status);
+        $this->assertStringNotContainsString('dummy-sensitive-config', json_encode($turn->toPayload()));
+        $this->assertTrue($turn->process['stop']['verified']);
+        $this->assertSame(0, $turn->process['stop']['survivors']);
+    }
+
+    public function test_cross_provider_or_pending_resumes_never_reach_the_queue(): void
+    {
+        Queue::fake();
+        $previous = AcpTurn::query()->create(['status' => AcpTurn::FINISHED, 'provider' => 'codex', 'prompt' => 'old', 'cli_session_id' => '418fb379-86dc-456a-ac17-ab1df70f7216']);
+        $crossed = app(AcpController::class)->send(Request::create('/lab/acp', 'POST', ['provider' => 'claude', 'prompt' => 'x', 'continue' => $previous->id]));
+        $this->assertSame(422, $crossed->getStatusCode());
+        $previous->update(['status' => AcpTurn::RUNNING]);
+        $pending = app(AcpController::class)->send(Request::create('/lab/acp', 'POST', ['provider' => 'codex', 'prompt' => 'x', 'continue' => $previous->id]));
+        $this->assertSame(422, $pending->getStatusCode());
+        Queue::assertNothingPushed();
+    }
+
+    public function test_unknown_provider_is_rejected_and_omitting_it_still_selects_claude(): void
+    {
+        Queue::fake();
+        try {
+            app(AcpController::class)->send(Request::create('/lab/acp', 'POST', ['provider' => '--unsafe', 'prompt' => 'x']));
+            $this->fail('unknown provider was accepted');
+        } catch (ValidationException $error) {
+            $this->assertArrayHasKey('provider', $error->errors());
+        }
+        Queue::assertNothingPushed();
+        $response = app(AcpController::class)->send(Request::create('/lab/acp', 'POST', ['prompt' => 'default']));
+        $this->assertSame('claude', $response->getData(true)['provider']);
+        Queue::assertPushed(RunAcpTurnJob::class, 1);
+    }
+
+    /** @param list<array<string,mixed>>|null $updates */
+    private function answer(?array $updates): string
+    {
+        return collect($updates)->where('sessionUpdate', 'agent_message_chunk')->map(fn (array $update) => $update['content']['text'])->implode('');
     }
 }

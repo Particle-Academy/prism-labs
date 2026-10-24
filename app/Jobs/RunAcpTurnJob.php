@@ -44,22 +44,30 @@ final class RunAcpTurnJob implements ShouldQueue
         $turn = AcpTurn::query()->findOrFail($this->turnId);
 
         $updates = [];
+        $history = [];
+        $replaying = $turn->provider === 'codex' && $turn->resume_session_id !== null;
         $savedAt = 0.0;
-        $save = function (bool $now = false) use ($turn, &$updates, &$savedAt): void {
+        $save = function (bool $now = false) use ($turn, &$updates, &$history, &$savedAt): void {
             if ($now || microtime(true) - $savedAt > 0.3) {
-                $turn->forceFill(['updates' => $updates])->save();
+                $turn->forceFill(['updates' => $updates, 'history_updates' => $history])->save();
                 $savedAt = microtime(true);
             }
         };
         $client = null;
         try {
             $client = new AcpClient(
-                onUpdate: function (mixed $params) use (&$updates, $save): void {
-                    $updates[] = json_decode(Json::encode($params->update ?? null), true);
+                onUpdate: function (mixed $params) use (&$updates, &$history, &$replaying, $save): void {
+                    $update = json_decode(Json::encode($params->update ?? null), true);
+                    if ($replaying) {
+                        $history[] = $update;
+                    } else {
+                        $updates[] = $update;
+                    }
                     $save();
                 },
-                // Every tool asks through the hook, including future tools. This Lab surface denies all of them.
+                // Claude hooks ask for every tool. Codex also has native policy and MCP isolation in its host.
                 onPermission: fn (mixed $params) => ['outcome' => ['outcome' => 'cancelled']],
+                provider: $turn->provider ?? 'claude',
             );
             $process = ['tree' => $client->tree()];
             $turn->forceFill(['process' => $process])->save();
@@ -69,9 +77,11 @@ final class RunAcpTurnJob implements ShouldQueue
                 mkdir($cwd, 0700, true);
             }
             $init = $client->request('initialize', ['protocolVersion' => 1, 'clientCapabilities' => new \stdClass], 30);
+            $sessionSeconds = (float) config('acp.session_seconds');
             $session = $turn->resume_session_id === null
-                ? $client->request('session/new', ['cwd' => $cwd, 'mcpServers' => []], 60)
-                : $client->request('session/load', ['sessionId' => $turn->resume_session_id, 'cwd' => $cwd, 'mcpServers' => []], 60);
+                ? $client->request('session/new', ['cwd' => $cwd, 'mcpServers' => []], $sessionSeconds)
+                : $client->request('session/load', ['sessionId' => $turn->resume_session_id, 'cwd' => $cwd, 'mcpServers' => []], $sessionSeconds);
+            $replaying = false;
             $sessionId = $turn->resume_session_id ?? (string) ($session->sessionId ?? '');
             $turn->forceFill(['handshake' => [
                 'initialize' => json_decode(Json::encode($init), true),
@@ -110,6 +120,7 @@ final class RunAcpTurnJob implements ShouldQueue
             }
             $turn->forceFill([
                 'updates' => $updates,
+                'history_updates' => $history,
                 'cli_session_id' => self::cliSessionId($updates) ?? $turn->resume_session_id,
                 'process' => $process,
                 'finished_at' => now(),

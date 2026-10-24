@@ -41,12 +41,15 @@ final class AcpClient
      * @param  \Closure(mixed): void  $onUpdate  each `session/update` notification's params
      * @param  \Closure(mixed): mixed  $onPermission  answers `session/request_permission`
      */
-    public function __construct(\Closure $onUpdate, \Closure $onPermission)
+    public function __construct(\Closure $onUpdate, \Closure $onPermission, string $provider = 'claude')
     {
+        if (! in_array($provider, ['claude', 'codex'], true)) {
+            throw new \InvalidArgumentException('Unsupported ACP provider');
+        }
         $this->loop = new Loop;
         $this->framer = new NdjsonFramer;
-        $env = ChildEnv::build(getenv(), ['CLAUDE_CONFIG_DIR', 'XDG_CONFIG_HOME', 'LAB_ACP_CLAUDE_BINARY', 'LAB_ACP_CLAUDE_ARGS', 'LAB_ACP_MODEL', 'APP_ENV'])->env;
-        $process = Provider::launch(PHP_BINARY, ['artisan', 'lab:acp-agent'], base_path(), $env);
+        $env = ChildEnv::build(getenv(), ['CLAUDE_CONFIG_DIR', 'CODEX_HOME', 'CODEX_CONFIG_DIR', 'XDG_CONFIG_HOME', 'LAB_ACP_CLAUDE_BINARY', 'LAB_ACP_CLAUDE_ARGS', 'LAB_ACP_MODEL', 'LAB_ACP_CODEX_BINARY', 'LAB_ACP_CODEX_ARGS', 'LAB_ACP_CODEX_MODEL', 'LAB_ACP_SESSION_SECONDS', 'APP_ENV'])->env;
+        $process = Provider::launch(PHP_BINARY, ['artisan', 'lab:acp-agent', '--provider='.$provider], base_path(), $env);
 
         $this->peer = new JsonRpcPeer(
             send: fn (mixed $message) => $process->write(NdjsonFramer::encodeLine($message)),

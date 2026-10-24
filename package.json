@@ -32,7 +32,7 @@
         "@particle-academy/fancy-echarts": "^6.1.0",
         "@particle-academy/fancy-inertia": "^0.14.0",
         "@particle-academy/fancy-pwa": "^0.2.0",
-        "@particle-academy/fancy-query": "^0.8.0",
+        "@particle-academy/fancy-query": "^0.9.0",
         "@particle-academy/fancy-screens": "^0.7.1",
         "@particle-academy/react-fancy": "^5.60.0",
         "@tanstack/react-query": "^5.102.0",
