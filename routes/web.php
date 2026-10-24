@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Lab\AcpController;
 use App\Http\Controllers\Lab\AgentConversationController;
 use App\Http\Controllers\Lab\AgentReadinessController;
 use App\Http\Controllers\Lab\BenchmarkController;
@@ -109,6 +110,12 @@ if (app()->environment('local')) {
         // A spoken turn. Throttled harder than a typed one because it costs
         // three provider calls rather than one — transcribe, answer, speak.
         Route::post('/lab/agent/voice', [AgentConversationController::class, 'voice'])->middleware('throttle:10,1')->name('lab.agent.voice');
+        // The PHP ACP agent (particle-academy/prism-acp), driven by the Lab as an
+        // ACP client. The turn runs on a queue, as the Overseer's does; the page
+        // polls the row the job writes.
+        Route::get('/lab/acp', [AcpController::class, 'show'])->name('lab.acp');
+        Route::post('/lab/acp', [AcpController::class, 'send'])->middleware('throttle:10,1')->name('lab.acp.send');
+        Route::get('/lab/acp/turn/{turn}', [AcpController::class, 'turn'])->middleware('throttle:240,1')->name('lab.acp.turn');
         Route::get('/lab/capabilities', [CapabilityController::class, 'status'])->name('lab.capabilities');
         Route::get('/lab/human-plus-fixture', [HumanPlusFixtureController::class, 'show'])->name('lab.human-plus-fixture');
         Route::post('/lab/capabilities/browser', [CapabilityController::class, 'openBrowser'])->middleware('throttle:10,1')->name('lab.capabilities.browser.open');
