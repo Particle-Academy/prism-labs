@@ -1,0 +1,84 @@
+name: ACP dogfood
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '37 9 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  acp:
+    name: ACP (${{ matrix.resolution }})
+    runs-on: windows-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        resolution: [source, published]
+    defaults:
+      run:
+        working-directory: prism-labs
+    env:
+      APP_ENV: testing
+      APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      DB_CONNECTION: sqlite
+      DB_DATABASE: ':memory:'
+      DOGFOOD_RESOLUTION: acp-${{ matrix.resolution }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: prism-labs
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Checkout every path dependency from its main branch
+        run: node scripts/dogfood-dependencies.mjs --checkout
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: dom, curl, libxml, mbstring, zip, fileinfo, sqlite3, pdo_sqlite
+          coverage: none
+      - name: Select the published Packagist release
+        if: matrix.resolution == 'published'
+        run: php scripts/use-acp-release.php
+      - name: Fetch org dependency policy
+        uses: actions/checkout@v4
+        with:
+          repository: Particle-Academy/.github
+          path: prism-labs/.third-party-allowlist
+          persist-credentials: false
+      - name: Check org dependency policy before installation
+        run: node .third-party-allowlist/third-party/check.mjs --repo .
+      - name: Install locked source dependencies
+        if: matrix.resolution == 'source'
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Install the tagged ACP release
+        if: matrix.resolution == 'published'
+        run: composer update particle-academy/prism-acp --with-dependencies --no-interaction --prefer-dist --no-progress
+      - run: composer audit --no-interaction
+      - name: Verify release source and dist installation
+        if: matrix.resolution == 'published'
+        run: php scripts/verify-acp-release.php
+      - name: Exercise the real job, host, permission hook, resume and verified cleanup with a fake provider
+        run: |
+          php -r "file_exists('.env') || copy('.env.example', '.env');"
+          php artisan config:clear
+          php artisan test --filter=AcpTurnTest --fail-on-warning
+      - name: Record code and dependency evidence
+        if: always()
+        run: node scripts/dogfood-dependencies.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dogfood-acp-${{ matrix.resolution }}
+          path: |
+            prism-labs/dogfood-evidence.json
+            prism-labs/dogfood-acp-release.json
+            prism-labs/composer.lock
+          if-no-files-found: error

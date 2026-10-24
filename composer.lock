@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "ca83baceacf6165de3c26143415fb3b5",
+    "content-hash": "e261ec156807440e854bb89bafec8c96",
     "packages": [
         {
             "name": "brick/math",
@@ -3452,6 +3452,74 @@
                 }
             ],
             "description": "A powerful Laravel package for integrating Large Language Models (LLMs) into your applications. Actively maintained fork of prism-php/prism.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "particle-academy/prism-acp",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "../prism-acp",
+                "reference": "06149dea5105ff0287fa99b3e79d087ad37cf846"
+            },
+            "require": {
+                "ext-ctype": "*",
+                "ext-json": "*",
+                "ext-mbstring": "*",
+                "php": "^8.2"
+            },
+            "require-dev": {
+                "laravel/pint": "^1.30",
+                "pestphp/pest": "^3.0|^4.0",
+                "phpstan/phpstan": "^2.0",
+                "rector/rector": "^2.7"
+            },
+            "bin": [
+                "bin/prism-acp"
+            ],
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Prism\\Acp\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "@php vendor/bin/pest"
+                ],
+                "types": [
+                    "@php vendor/bin/phpstan analyse"
+                ],
+                "format": [
+                    "@php vendor/bin/pint"
+                ],
+                "rector": [
+                    "@php vendor/bin/rector process --dry-run"
+                ]
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Agent Client Protocol for the signed-in Claude CLI from PHP. Initial Windows preview, with no third-party runtime dependencies.",
+            "homepage": "https://github.com/Particle-Academy/prism-acp",
+            "keywords": [
+                "acp",
+                "agent-client-protocol",
+                "claude",
+                "prism"
+            ],
+            "support": {
+                "issues": "https://github.com/Particle-Academy/prism-acp/issues",
+                "source": "https://github.com/Particle-Academy/prism-acp"
+            },
             "transport-options": {
                 "symlink": true,
                 "relative": true
@@ -10235,6 +10303,12 @@
             "alias_normalized": "0.130.0.0"
         },
         {
+            "package": "particle-academy/prism-acp",
+            "version": "dev-main",
+            "alias": "0.1.0-alpha.1",
+            "alias_normalized": "0.1.0.0-alpha1"
+        },
+        {
             "package": "particle-academy/prism-browser",
             "version": "dev-main",
             "alias": "0.1.0",
@@ -10280,6 +10354,7 @@
     "minimum-stability": "dev",
     "stability-flags": {
         "particle-academy/prism": 20,
+        "particle-academy/prism-acp": 20,
         "particle-academy/prism-browser": 20,
         "particle-academy/prism-harness": 20,
         "particle-academy/prism-human-plus": 20,

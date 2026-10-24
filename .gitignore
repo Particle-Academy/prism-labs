@@ -28,3 +28,4 @@ Homestead.yaml
 Thumbs.db
 /bootstrap/ssr
 /dogfood-evidence.json
+/dogfood-acp-release.json
