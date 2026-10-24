@@ -34,19 +34,18 @@ npm lock. These identify what passed. Path aliases in Composer are constraint
 compatibility labels, not proof of the published release installed by a user.
 These jobs exercise source checkouts, not downloaded release archives.
 
-### Rollout prerequisite: PHP ACP source
+### PHP ACP source and release coverage
 
-As audited on 2026-10-23, `../prism-acp` is local Git only: no origin remote,
-no GitHub repository, and no Packagist release. The unpublished ACP integration
-in the local Lab requires it; the published baseline does not. The CI rollout
-is based on the published baseline, so those unrelated development commits do
-not prevent the current published application from being tested. A clean
-runner cannot install the ACP integration yet. Its missing checkout
-must fail visibly; removing it from the manifest, substituting a stub, or
-skipping its tests would create false coverage. Publish the reviewed PHP ACP
-source at its agreed remote, or supply that source through another reviewed
-CI mechanism, before claiming that integration is CI-tested. The ACP plan
-also records unfinished POSIX containment and release review.
+PHP ACP is public at `Particle-Academy/prism-acp`, with Windows/Claude preview
+`v0.1.0-alpha.1` at `06149dea5105ff0287fa99b3e79d087ad37cf846`.
+`acp.yml` runs Windows consumer lanes against both current sibling source and
+the actual release archive resolved through Packagist. It verifies the release's
+source SHA and dist installation. The fake provider belongs to the Lab's
+tests, since release archives exclude package tests. No model calls or real tools run.
+Both lanes exercise a turn, resume, model refusal, all-tool denial (including a
+future tool), duplicate delivery and verified process cleanup. Ubuntu still runs
+portable checks; Windows-only process tests are named skips there. The ACP plan
+also records unfinished POSIX containment and Codex support.
 
 ## The improvement loop
 

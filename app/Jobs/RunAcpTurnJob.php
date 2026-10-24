@@ -35,11 +35,13 @@ final class RunAcpTurnJob implements ShouldQueue
 
     public function handle(): void
     {
-        $turn = AcpTurn::query()->find($this->turnId);
-        if (! $turn instanceof AcpTurn || $turn->status !== AcpTurn::QUEUED) {
+        $claimed = AcpTurn::query()->whereKey($this->turnId)->where('status', AcpTurn::QUEUED)->update([
+            'status' => AcpTurn::RUNNING, 'started_at' => now(), 'updates' => '[]',
+        ]);
+        if ($claimed !== 1) {
             return;
         }
-        $turn->forceFill(['status' => AcpTurn::RUNNING, 'started_at' => now(), 'updates' => []])->save();
+        $turn = AcpTurn::query()->findOrFail($this->turnId);
 
         $updates = [];
         $savedAt = 0.0;
@@ -56,7 +58,7 @@ final class RunAcpTurnJob implements ShouldQueue
                     $updates[] = json_decode(Json::encode($params->update ?? null), true);
                     $save();
                 },
-                // The agent runs in dontAsk mode, so nothing should ask; anything that does is refused.
+                // Every tool asks through the hook, including future tools. This Lab surface denies all of them.
                 onPermission: fn (mixed $params) => ['outcome' => ['outcome' => 'cancelled']],
             );
             $process = ['tree' => $client->tree()];

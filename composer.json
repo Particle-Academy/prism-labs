@@ -87,7 +87,6 @@
         "open-telemetry/sdk": "^1.0",
         "particle-academy/fancy-flow-php": "0.64.0",
         "particle-academy/prism": "dev-main as 0.130.0",
-        "particle-academy/prism-acp": "dev-main as 0.1.0",
         "particle-academy/prism-browser": "dev-main as 0.1.0",
         "particle-academy/prism-harness": "dev-main as 0.12.0",
         "particle-academy/prism-human-plus": "dev-main as 0.4.0",
@@ -95,7 +94,8 @@
         "particle-academy/prism-opentelemetry": "dev-main as 0.5.2",
         "particle-academy/prism-perplexity": "dev-main as 0.3.0",
         "particle-academy/prism-workspace": "dev-main as 0.2.0",
-        "symfony/process": "^8.1"
+        "symfony/process": "^8.1",
+        "particle-academy/prism-acp": "dev-main as 0.1.0-alpha.1"
     },
     "require-dev": {
         "laravel/pail": "^1.2.5",

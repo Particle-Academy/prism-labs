@@ -27,10 +27,8 @@ final class AcpTurnTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        if (PHP_OS_FAMILY !== 'Windows') {
-            $this->markTestSkipped('prism-acp contains a provider on Windows only so far');
-        }
-        $fake = base_path('vendor/particle-academy/prism-acp/tests/fixtures/fake-claude.php');
+        // Release archives intentionally exclude package tests: the consumer owns its fake CLI.
+        $fake = base_path('tests/fixtures/acp/fake-claude.php');
         foreach (['LAB_ACP_CLAUDE_BINARY' => PHP_BINARY, 'LAB_ACP_CLAUDE_ARGS' => str_replace('\\', '/', $fake), 'LAB_ACP_MODEL' => 'haiku'] as $name => $value) {
             putenv("{$name}={$value}");
         }
@@ -46,6 +44,9 @@ final class AcpTurnTest extends TestCase
 
     public function test_a_turn_runs_through_the_php_agent_and_its_tree_is_gone_afterwards(): void
     {
+        if (PHP_OS_FAMILY !== 'Windows') {
+            $this->markTestSkipped('this ACP preview runs providers on Windows only');
+        }
         $turn = AcpTurn::query()->create(['status' => AcpTurn::QUEUED, 'prompt' => 'hello', 'model' => 'haiku']);
         (new RunAcpTurnJob($turn->id))->handle();
         $turn->refresh();
@@ -64,6 +65,9 @@ final class AcpTurnTest extends TestCase
 
     public function test_continuing_a_conversation_resumes_it_through_session_load(): void
     {
+        if (PHP_OS_FAMILY !== 'Windows') {
+            $this->markTestSkipped('this ACP preview runs providers on Windows only');
+        }
         $first = AcpTurn::query()->create(['status' => AcpTurn::QUEUED, 'prompt' => 'one']);
         (new RunAcpTurnJob($first->id))->handle();
         Queue::fake();
@@ -90,5 +94,31 @@ final class AcpTurnTest extends TestCase
             $this->assertArrayHasKey('model', $refused->errors());
         }
         Queue::assertNothingPushed();
+    }
+
+    public function test_a_future_tool_is_denied_by_the_lab_through_the_actual_hook(): void
+    {
+        if (PHP_OS_FAMILY !== 'Windows') {
+            $this->markTestSkipped('this ACP preview runs providers on Windows only');
+        }
+        $turn = AcpTurn::query()->create(['status' => AcpTurn::QUEUED, 'prompt' => 'hook FutureTool']);
+        (new RunAcpTurnJob($turn->id))->handle();
+        $turn->refresh();
+        $text = collect($turn->updates)->where('sessionUpdate', 'agent_message_chunk')->map(fn (array $update) => $update['content']['text'])->implode('');
+        $hook = json_decode($text, true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame(AcpTurn::FINISHED, $turn->status, (string) $turn->error);
+        $this->assertSame('deny', $hook['stdout']['hookSpecificOutput']['permissionDecision']);
+        $this->assertTrue($turn->process['stop']['verified']);
+        $this->assertSame(0, $turn->process['stop']['survivors']);
+    }
+
+    public function test_a_duplicate_delivery_cannot_start_an_already_claimed_turn(): void
+    {
+        $turn = AcpTurn::query()->create(['status' => AcpTurn::RUNNING, 'prompt' => 'already claimed']);
+        (new RunAcpTurnJob($turn->id))->handle();
+        $turn->refresh();
+        $this->assertSame(AcpTurn::RUNNING, $turn->status);
+        $this->assertNull($turn->handshake);
+        $this->assertNull($turn->process);
     }
 }

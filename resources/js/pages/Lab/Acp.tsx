@@ -136,7 +136,7 @@ export default function Acp({ version, turns: initial, model: defaultModel }: { 
                             Continuing {continuing.cli_session_id} (session/load) · <button type="button" className="underline" onClick={() => setContinuing(null)}>start fresh instead</button>
                         </p>
                     ) : null}
-                    <textarea className="lab-input min-h-28 w-full resize-y" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Ask the agent something. It can read and answer; it cannot write files or run commands." />
+                    <textarea className="lab-input min-h-28 w-full resize-y" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Ask the agent something. This surface denies every tool call." />
                     <div className="mt-3 flex flex-wrap items-center gap-3">
                         <label className="k-mono text-sm">model <input className="lab-input ml-2 w-48" value={model} onChange={(e) => setModel(e.target.value)} /></label>
                         <button type="button" className="k-btn k-btn--grad" disabled={busy || prompt.trim() === ''} onClick={send}>Run turn</button>
