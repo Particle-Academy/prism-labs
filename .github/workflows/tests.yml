@@ -71,7 +71,9 @@ jobs:
       - name: Audit the resolved dependencies
         run: composer audit --no-interaction
       - name: Execute the complete suite
-        run: composer test
+        run: |
+          php -r "file_exists('.env') || copy('.env.example', '.env');"
+          composer test -- --fail-on-warning
       - name: Exercise the required dogfood paths explicitly
         run: vendor/bin/phpunit --group dogfood --fail-on-empty-test-suite
       - name: Check first-party released dependencies against Packagist
