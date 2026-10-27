@@ -48,6 +48,11 @@ and a clear failure message. Browser installation follows separately with a
 control and builds run. The browser cache does not replace system dependency
 installation or skip any assertion.
 
+The Azure apt mirror also stalled during a warm-cache control, so this step
+selects Ubuntu's upstream archive in the disposable runner's mirror list.
+Ubuntu channels and package signature verification stay enabled. A missing
+expected mirror list fails explicitly so a runner-image change is investigated.
+
 Only `~/.cache/ms-playwright` is cached, under an exact operating-system and
 Playwright-version key with no fallback keys. The version comes from the lane's
 resolved `package-lock.json` and must match the installed `playwright-core`.

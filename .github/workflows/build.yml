@@ -161,6 +161,13 @@ jobs:
       - name: Install Chromium system dependencies (12-minute bound)
         timeout-minutes: 12
         run: |
+          # The Azure mirror repeatedly stalled on small font archives. Keep
+          # Ubuntu's channels and signature checks, using its upstream archive.
+          if [ ! -f /etc/apt/apt-mirrors.txt ]; then
+            echo '::error::Expected Ubuntu runner apt mirror list is missing; inspect the runner image before installing browser dependencies.'
+            exit 1
+          fi
+          sudo sed -i 's|http://azure[.]archive[.]ubuntu[.]com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
           echo 'Installing Chromium system dependencies; browser, render and build checks run only after this succeeds.'
           if ! npx playwright install-deps chromium; then
             echo '::error::Chromium system dependency installation failed. Browser, render and build checks have not run.'
