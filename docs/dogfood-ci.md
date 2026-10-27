@@ -34,6 +34,28 @@ npm lock. These identify what passed. Path aliases in Composer are constraint
 compatibility labels, not proof of the published release installed by a user.
 These jobs exercise source checkouts, not downloaded release archives.
 
+### Browser installation and cache evidence
+
+The frontend job has a 20-minute bound. The earlier 10-minute bound expired
+twice during Chromium's system dependency installation; one measured attempt
+spent 9 minutes 42 seconds there and never reached the browser, render or build
+checks. Ubuntu reported 25.9 MB of package archives and 79.5 MB of installed
+space. The added margin covers installation plus the existing assertions.
+
+Chromium system dependencies install in their own step with a 12-minute bound
+and a clear failure message. Browser installation follows separately with a
+5-minute bound. Both must succeed before the unchanged browser tests, renderer
+control and builds run. The browser cache does not replace system dependency
+installation or skip any assertion.
+
+Only `~/.cache/ms-playwright` is cached, under an exact operating-system and
+Playwright-version key with no fallback keys. The version comes from the lane's
+resolved `package-lock.json` and must match the installed `playwright-core`.
+`playwright-cache-evidence.json` records that version and the exact cache-hit
+result alongside the existing lock and render artifacts. Validate the cache
+with successful cold-cache and warm-cache runs on the same reviewed commit;
+a restored cache alone does not prove browser behavior.
+
 ### Every committed lock is audited
 
 `npm run audit:locks` discovers every Git-tracked `package-lock.json` and

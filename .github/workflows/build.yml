@@ -15,7 +15,9 @@ jobs:
   build:
     name: Build (${{ matrix.resolution }})
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # The previous 10-minute bound expired during Chromium's apt dependencies
+    # (9m42s in installation alone), before browser/render/build assertions ran.
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -118,8 +120,60 @@ jobs:
       - name: Provider probe UI assertions
         run: npm run test:ui
 
+      - name: Read the exact locked Playwright browser version
+        id: playwright-version
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+          const version = lock.packages?.['node_modules/playwright-core']?.version;
+          const installed = JSON.parse(fs.readFileSync('node_modules/playwright-core/package.json', 'utf8')).version;
+          if (!/^\d+\.\d+\.\d+$/.test(version || '') || installed !== version) {
+            throw new Error('Cannot derive an exact installed Playwright version from the resolved lock.');
+          }
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\n`);
+          console.log(`Locked and installed Playwright browser version: ${version}`);
+          NODE
+
+      - name: Restore the exact Playwright browser cache
+        id: playwright-browser-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: prism-playwright-v1-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+
+      - name: Record the browser cache result
+        env:
+          PLAYWRIGHT_VERSION: ${{ steps.playwright-version.outputs.version }}
+          PLAYWRIGHT_CACHE_HIT: ${{ steps.playwright-browser-cache.outputs.cache-hit == 'true' }}
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const evidence = {
+            version: process.env.PLAYWRIGHT_VERSION,
+            cacheHit: process.env.PLAYWRIGHT_CACHE_HIT === 'true',
+            path: '~/.cache/ms-playwright',
+          };
+          fs.writeFileSync('playwright-cache-evidence.json', JSON.stringify(evidence, null, 2) + '\n');
+          console.log(JSON.stringify(evidence));
+          NODE
+
+      - name: Install Chromium system dependencies (12-minute bound)
+        timeout-minutes: 12
+        run: |
+          echo 'Installing Chromium system dependencies; browser, render and build checks run only after this succeeds.'
+          if ! npx playwright install-deps chromium; then
+            echo '::error::Chromium system dependency installation failed. Browser, render and build checks have not run.'
+            exit 1
+          fi
+
       - name: Install the browser used by the dogfood UI tests
-        run: npx playwright install --with-deps chromium
+        timeout-minutes: 5
+        run: |
+          if ! npx playwright install chromium; then
+            echo '::error::Chromium browser installation failed. Browser, render and build checks have not run.'
+            exit 1
+          fi
 
       - name: Consensus and Benchmarks browser regressions
         run: npm run test:dogfood-ui
@@ -152,4 +206,5 @@ jobs:
             package-lock.json
             tools/remotion-runtime/package-lock.json
             remotion-render-evidence.json
+            playwright-cache-evidence.json
           if-no-files-found: error
