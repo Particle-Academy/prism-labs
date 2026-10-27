@@ -15,5 +15,5 @@ if (! in_array($mode, ['--source', '--published'], true)) {
 if ($mode === '--published') {
     $manifest['repositories'] = array_values(array_filter($manifest['repositories'], fn (array $repository): bool => ($repository['url'] ?? null) !== '../prism-acp'));
 }
-$manifest['require']['particle-academy/prism-acp'] = $mode === '--source' ? 'dev-main as 0.1.0-alpha.4' : '0.1.0-alpha.4';
+$manifest['require']['particle-academy/prism-acp'] = $mode === '--source' ? 'dev-main as 0.1.0-alpha.5' : '0.1.0-alpha.5';
 file_put_contents($file, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)."\n");

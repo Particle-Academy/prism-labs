@@ -37,7 +37,7 @@ These jobs exercise source checkouts, not downloaded release archives.
 ### PHP ACP source and release coverage
 
 PHP ACP is public at `Particle-Academy/prism-acp`, with Windows/Claude/Codex preview
-`v0.1.0-alpha.4` at `050d9d5f063849680497b4eac5a92f70490e1cdc`.
+`v0.1.0-alpha.5` at `ae62700bf719dccbb3aaa9d002c558bbe765eb74`.
 `acp.yml` runs Windows consumer lanes against both current sibling source and
 the actual release archive resolved through Packagist. It verifies the release's
 source SHA and dist installation. The fake providers belong to the Lab's tests,
