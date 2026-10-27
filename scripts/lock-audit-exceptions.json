@@ -1,0 +1,12 @@
+[
+    {
+        "id": "GHSA-mrhx-c7xc-m3w5",
+        "package": "zod",
+        "lock": "tools/remotion-runtime/package-lock.json",
+        "owner": "prism",
+        "reviewOn": "2026-11-03",
+        "expiresAt": "2026-11-10T08:00:00Z",
+        "guard": "remotion-zod-fixed-parent",
+        "reason": "Local-only bounded rendering requires Remotion's published bundler, which brings Studio and an exact vulnerable Zod pin even without the CLI. No patched parent release was available at review; a patched release immediately invalidates this temporary exception. No deployment, downgrade or dependency override."
+    }
+]

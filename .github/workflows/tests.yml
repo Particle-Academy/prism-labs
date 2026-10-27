@@ -58,6 +58,10 @@ jobs:
         run: |
           node .third-party-allowlist/third-party/check.mjs --repo .
           node -e "require('node:fs').rmSync('.third-party-allowlist',{recursive:true,force:true})"
+      - name: Check discovery and failure behavior for every committed lockfile
+        run: node --test scripts/audit-locks.test.mjs
+      - name: Audit every committed npm and Composer lockfile
+        run: npm run audit:locks
       - uses: ramsey/composer-install@v3
         with:
           working-directory: prism-labs
@@ -83,4 +87,5 @@ jobs:
           path: |
             prism-labs/dogfood-evidence.json
             prism-labs/composer.lock
+            prism-labs/lock-audit-evidence.json
           if-no-files-found: error
