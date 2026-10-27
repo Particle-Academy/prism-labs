@@ -62,6 +62,7 @@ jobs:
         # is hashed here, so a push to the source repo cannot change what runs in
         # this workflow until someone reviews it and re-pins.
         shell: bash
+        working-directory: ${{ github.workspace }}
         env:
           PIN_ROOT: prism-labs/.third-party-allowlist
           PIN_DIR: prism-labs/.third-party-allowlist/third-party
