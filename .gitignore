@@ -29,3 +29,5 @@ Thumbs.db
 /bootstrap/ssr
 /dogfood-evidence.json
 /dogfood-acp-release.json
+/lock-audit-evidence.json
+/remotion-render-evidence.json

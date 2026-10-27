@@ -58,6 +58,10 @@ jobs:
         run: |
           node .third-party-allowlist/third-party/check.mjs --repo .
           node -e "require('node:fs').rmSync('.third-party-allowlist',{recursive:true,force:true})"
+      - name: Check discovery and failure behavior for every committed lockfile
+        run: node --test scripts/audit-locks.test.mjs
+      - name: Audit every committed npm and Composer lockfile
+        run: npm run audit:locks
       - uses: ramsey/composer-install@v3
         with:
           working-directory: prism-labs
@@ -67,7 +71,9 @@ jobs:
       - name: Audit the resolved dependencies
         run: composer audit --no-interaction
       - name: Execute the complete suite
-        run: composer test
+        run: |
+          php -r "file_exists('.env') || copy('.env.example', '.env');"
+          composer test -- --fail-on-warning
       - name: Exercise the required dogfood paths explicitly
         run: vendor/bin/phpunit --group dogfood --fail-on-empty-test-suite
       - name: Check first-party released dependencies against Packagist
@@ -83,4 +89,5 @@ jobs:
           path: |
             prism-labs/dogfood-evidence.json
             prism-labs/composer.lock
+            prism-labs/lock-audit-evidence.json
           if-no-files-found: error

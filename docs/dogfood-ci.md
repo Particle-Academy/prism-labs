@@ -34,6 +34,39 @@ npm lock. These identify what passed. Path aliases in Composer are constraint
 compatibility labels, not proof of the published release installed by a user.
 These jobs exercise source checkouts, not downloaded release archives.
 
+### Every committed lock is audited
+
+`npm run audit:locks` discovers every Git-tracked `package-lock.json` and
+`composer.lock`, including nested runtimes. It audits lock data without
+installing packages or running lifecycle scripts, checks dev dependencies too,
+and records each path, SHA256 and result in `lock-audit-evidence.json`. The PHP
+CI lanes run it before installation. Empty inventory, missing tools, invalid
+evidence and registry failures fail the gate; a failing lock does not skip the
+remaining audits. All severities are checked. Current-resolution lanes retain
+their separate audits after resolving updates.
+
+The isolated Remotion runtime's source-map-js, fast-uri and selector parser are patched. One
+remaining advisory, Zod `GHSA-mrhx-c7xc-m3w5`, has an explicit temporary exception
+in `scripts/lock-audit-exceptions.json` for that runtime's lock only. Owner:
+Prism; re-review: 2026-11-03; expiry: 2026-11-10 08:00 UTC. The exception is shown
+in CI's run summary and does not cover another advisory or another lock.
+Remotion's published bundler still brings Studio and pins vulnerable Zod even
+when the CLI is removed; an owned API-only dependency-tree control verified
+this. No dependency override or downgrade is used. The gate checks uncached
+latest bundler/Studio metadata and invalidates the exception as soon as patched
+Zod can resolve, or when registry evidence is unavailable or changes shape.
+This is a recorded remaining vulnerability in a local-only renderer, not a
+claim that the dependency is fixed.
+
+Both frontend CI lanes install the isolated renderer with `--ignore-scripts`,
+render an owned 30-frame control, and inspect its H.264 artifact with ffprobe.
+This needs no database, provider credentials or model requests. The receipt
+records the artifact and runtime-lock hashes. Locally, run
+`npm ci --prefix tools/remotion-runtime --ignore-scripts` followed by
+`npm run test:remotion-runtime`. On Windows, `PRISM_AUDIT_COMPOSER_PHAR` may name
+the absolute Composer PHAR and `PRISM_AUDIT_PHP_BINARY` its PHP executable for
+the every-lock audit when Composer is not on PATH.
+
 ### PHP ACP source and release coverage
 
 PHP ACP is public at `Particle-Academy/prism-acp`, with Windows/Claude/Codex preview

@@ -3,6 +3,8 @@
     "private": true,
     "type": "module",
     "scripts": {
+        "audit:locks": "node scripts/audit-locks.mjs",
+        "test:remotion-runtime": "node scripts/test-remotion-runtime.mjs",
         "test:ui": "node scripts/test-provider-ui.mjs",
         "test:dogfood-ui": "node scripts/test-dogfood-ui.mjs",
         "build": "vite build && vite build --ssr",

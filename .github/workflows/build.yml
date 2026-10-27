@@ -74,6 +74,12 @@ jobs:
       - name: Consensus and Benchmarks browser regressions
         run: npm run test:dogfood-ui
 
+      - name: Install the committed isolated renderer without lifecycle scripts
+        run: npm ci --prefix tools/remotion-runtime --ignore-scripts
+
+      - name: Render and independently inspect the deterministic Remotion control
+        run: npm run test:remotion-runtime
+
       # Client and SSR both, because the SSR bundle is built separately and
       # can fail on its own — an import that resolves in the browser build
       # and not on the server would ship unnoticed otherwise.
@@ -92,5 +98,8 @@ jobs:
         if: always()
         with:
           name: dogfood-frontend-${{ matrix.resolution }}
-          path: package-lock.json
+          path: |
+            package-lock.json
+            tools/remotion-runtime/package-lock.json
+            remotion-render-evidence.json
           if-no-files-found: error
