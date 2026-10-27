@@ -9,9 +9,9 @@ $installed = json_decode((string) file_get_contents(dirname(__DIR__).'/vendor/co
 $package = array_values(array_filter($installed['packages'], fn (array $entry): bool => $entry['name'] === 'particle-academy/prism-acp'))[0] ?? null;
 if ($package === null || ($package['installation-source'] ?? null) !== 'dist'
     || ($package['dist']['type'] ?? null) !== 'zip'
-    || ($package['source']['reference'] ?? null) !== '050d9d5f063849680497b4eac5a92f70490e1cdc'
-    || ($package['dist']['reference'] ?? null) !== '050d9d5f063849680497b4eac5a92f70490e1cdc'
-    || Version::VERSION !== '0.1.0-alpha.4') {
+    || ($package['source']['reference'] ?? null) !== 'ae62700bf719dccbb3aaa9d002c558bbe765eb74'
+    || ($package['dist']['reference'] ?? null) !== 'ae62700bf719dccbb3aaa9d002c558bbe765eb74'
+    || Version::VERSION !== '0.1.0-alpha.5') {
     throw new RuntimeException('the ACP consumer is not running the expected downloaded release');
 }
 $registry = json_decode((string) file_get_contents('https://repo.packagist.org/p2/particle-academy/prism-acp.json', false,
@@ -24,7 +24,7 @@ foreach ($releases as $release) {
         $latest = ['version' => $version, 'sha' => $release['source']['reference'] ?? null];
     }
 }
-if ($latest === null || $latest['version'] !== '0.1.0-alpha.4' || $latest['sha'] !== $package['source']['reference']) {
+if ($latest === null || $latest['version'] !== '0.1.0-alpha.5' || $latest['sha'] !== $package['source']['reference']) {
     throw new RuntimeException('a newer or changed ACP release requires a reviewed consumer update');
 }
 file_put_contents(dirname(__DIR__).'/dogfood-acp-release.json', json_encode([

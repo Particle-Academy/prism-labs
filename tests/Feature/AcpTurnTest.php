@@ -108,6 +108,7 @@ final class AcpTurnTest extends TestCase
         $text = collect($turn->updates)->where('sessionUpdate', 'agent_message_chunk')->map(fn (array $update) => $update['content']['text'])->implode('');
         $hook = json_decode($text, true, flags: JSON_THROW_ON_ERROR);
         $this->assertSame(AcpTurn::FINISHED, $turn->status, (string) $turn->error);
+        $this->assertSame(2, $hook['exit'], 'the real approval adapter must block the tool at the process boundary');
         $this->assertSame('deny', $hook['stdout']['hookSpecificOutput']['permissionDecision']);
         $this->assertTrue($turn->process['stop']['verified']);
         $this->assertSame(0, $turn->process['stop']['survivors']);

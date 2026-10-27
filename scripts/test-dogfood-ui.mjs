@@ -43,7 +43,7 @@ try {
     const props = () => component === 'Lab/Consensus'
         ? { runs, errors: {} }
         : component === 'Lab/Acp'
-            ? { version: 'fixture', acpVersion: 'v0.1.0-alpha.4', model: 'haiku', models: { claude: 'haiku', codex: '' }, turns: acpTurns, errors: {} }
+            ? { version: 'fixture', acpVersion: 'v0.1.0-alpha.5', model: 'haiku', models: { claude: 'haiku', codex: '' }, turns: acpTurns, errors: {} }
             : { specs: [], runs: [], compactionRuns: [], providerAggregateCount: 0, errors: {} };
     const inertia = url => ({ component, props: props(), url, version: 'dogfood-fixture', clearHistory: false, encryptHistory: false });
     await page.route('**/*', async route => {

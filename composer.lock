@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "d06f9b1d49128a6f1afbac0872518c27",
+    "content-hash": "2d5d982b2caa91fb2dccad37505fcb63",
     "packages": [
         {
             "name": "brick/math",
@@ -3350,7 +3350,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism",
-                "reference": "1000cdeb6d861d9d35327ac221bdb19e722b3a16"
+                "reference": "548c41d525849b4a2715fa25c8659aa96fc0af9e"
             },
             "require": {
                 "ext-fileinfo": "*",
@@ -3458,16 +3458,16 @@
         },
         {
             "name": "particle-academy/prism-acp",
-            "version": "v0.1.0-alpha.4",
+            "version": "v0.1.0-alpha.5",
             "source": {
                 "type": "git",
                 "url": "https://github.com/Particle-Academy/prism-acp.git",
-                "reference": "050d9d5f063849680497b4eac5a92f70490e1cdc"
+                "reference": "ae62700bf719dccbb3aaa9d002c558bbe765eb74"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Particle-Academy/prism-acp/zipball/050d9d5f063849680497b4eac5a92f70490e1cdc",
-                "reference": "050d9d5f063849680497b4eac5a92f70490e1cdc",
+                "url": "https://api.github.com/repos/Particle-Academy/prism-acp/zipball/ae62700bf719dccbb3aaa9d002c558bbe765eb74",
+                "reference": "ae62700bf719dccbb3aaa9d002c558bbe765eb74",
                 "shasum": ""
             },
             "require": {
@@ -3508,7 +3508,7 @@
                 "issues": "https://github.com/Particle-Academy/prism-acp/issues",
                 "source": "https://github.com/Particle-Academy/prism-acp"
             },
-            "time": "2026-10-24T06:50:11+00:00"
+            "time": "2026-10-27T04:44:00+00:00"
         },
         {
             "name": "particle-academy/prism-browser",
@@ -3516,7 +3516,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-browser",
-                "reference": "0fdb022e56844f3754766a6f4a49aa055b1b582e"
+                "reference": "b2469d068a50ffaff3d0534175273ef9bd1627e6"
             },
             "require": {
                 "ext-json": "*",
@@ -3578,11 +3578,11 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-harness",
-                "reference": "138ad8162c5bb092e2711308d48b47bd6e14b2c0"
+                "reference": "a3572d6f3f8ed98ba9946053e50411059dd82c56"
             },
             "require": {
                 "laravel/framework": "^12.69.0|^13.30.0",
-                "particle-academy/prism": ">=0.134 <1.0",
+                "particle-academy/prism": ">=0.135.0 <1.0",
                 "php": "^8.2"
             },
             "require-dev": {
@@ -3652,7 +3652,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-human-plus",
-                "reference": "c60e7d2760f44bdd2c342f50c9bb361b1ac39c6a"
+                "reference": "c662b4b961c62cda01768631da2edfffeda42802"
             },
             "require": {
                 "ext-json": "*",
@@ -3715,7 +3715,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-mcp",
-                "reference": "10fba8e5987ff87a2b16ef73740e655ef6c6ece8"
+                "reference": "c3cc84752880b845193145928563fbd547f5bb63"
             },
             "require": {
                 "ext-json": "*",
@@ -3800,7 +3800,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-opentelemetry",
-                "reference": "bafee39b3d97550609094ca1674642c5e163bcc6"
+                "reference": "c09ed5bd95d6a0e05e40caf3ed896fd141bfe225"
             },
             "require": {
                 "ext-json": "*",
@@ -3881,7 +3881,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-perplexity",
-                "reference": "78524c2d2fd5ce159ba9151605a9bff4d6e06e0b"
+                "reference": "c4f0cb90cc9cf981a533e5e0634545abc4c1e851"
             },
             "require": {
                 "laravel/framework": "^12.69.0|^13.30.0",
@@ -3953,7 +3953,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-workspace",
-                "reference": "d8d9aaedac30e539cb5312b92b2842aeb3c5efa7"
+                "reference": "28111f5d41578d89fad7711548228a3446259e3b"
             },
             "require": {
                 "ext-mbstring": "*",
@@ -8981,16 +8981,16 @@
         },
         {
             "name": "phpunit/phpunit",
-            "version": "13.4.3",
+            "version": "13.4.5",
             "source": {
                 "type": "git",
                 "url": "https://github.com/sebastianbergmann/phpunit.git",
-                "reference": "2180c47c4229e5da117ff248753370443c074f10"
+                "reference": "941457a4f147a60fe2074d40e1fce0d08ea8d930"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sebastianbergmann/phpunit/zipball/2180c47c4229e5da117ff248753370443c074f10",
-                "reference": "2180c47c4229e5da117ff248753370443c074f10",
+                "url": "https://api.github.com/repos/sebastianbergmann/phpunit/zipball/941457a4f147a60fe2074d40e1fce0d08ea8d930",
+                "reference": "941457a4f147a60fe2074d40e1fce0d08ea8d930",
                 "shasum": ""
             },
             "require": {
@@ -9015,7 +9015,7 @@
                 "sebastian/environment": "^9.3.3",
                 "sebastian/exporter": "^8.2.1",
                 "sebastian/file-filter": "^1.0",
-                "sebastian/git-state": "^1.0",
+                "sebastian/git-state": "^1.1",
                 "sebastian/global-state": "^9.0.1",
                 "sebastian/object-enumerator": "^8.1.0",
                 "sebastian/recursion-context": "^8.0.1",
@@ -9061,7 +9061,7 @@
             "support": {
                 "issues": "https://github.com/sebastianbergmann/phpunit/issues",
                 "security": "https://github.com/sebastianbergmann/phpunit/security/policy",
-                "source": "https://github.com/sebastianbergmann/phpunit/tree/13.4.3"
+                "source": "https://github.com/sebastianbergmann/phpunit/tree/13.4.5"
             },
             "funding": [
                 {
@@ -9069,7 +9069,7 @@
                     "type": "other"
                 }
             ],
-            "time": "2026-10-16T05:56:47+00:00"
+            "time": "2026-10-27T04:16:22+00:00"
         },
         {
             "name": "sebastian/cli-parser",
@@ -10284,8 +10284,8 @@
         {
             "package": "particle-academy/prism",
             "version": "dev-main",
-            "alias": "0.134.0",
-            "alias_normalized": "0.134.0.0"
+            "alias": "0.135.0",
+            "alias_normalized": "0.135.0.0"
         },
         {
             "package": "particle-academy/prism-browser",
