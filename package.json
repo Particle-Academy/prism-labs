@@ -28,7 +28,7 @@
     },
     "dependencies": {
         "@inertiajs/react": "^3.7.0",
-        "@particle-academy/agent-integrations": "^0.51.0",
+        "@particle-academy/agent-integrations": "^0.52.0",
         "@particle-academy/fancy-app-update": "^0.7.0",
         "@particle-academy/fancy-code": "^0.15.0",
         "@particle-academy/fancy-echarts": "^6.1.0",
