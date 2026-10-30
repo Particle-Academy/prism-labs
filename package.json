@@ -37,7 +37,7 @@
         "@particle-academy/fancy-query": "^0.9.0",
         "@particle-academy/fancy-screens": "^0.7.1",
         "@particle-academy/react-fancy": "^5.65.0",
-        "@tanstack/react-query": "^5.102.0",
+        "@tanstack/react-query": "^5.105.0",
         "react": "^19.2.8",
         "react-dom": "^19.2.8"
     }
