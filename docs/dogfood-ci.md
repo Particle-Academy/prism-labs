@@ -22,7 +22,7 @@ and daily schedules. Both have `locked` and `current` lanes:
   upgrades into reviewable pull requests.
 - Both run their dependency audit. PHP runs the full suite and the explicit,
   nonempty `dogfood` group. The frontend typechecks, checks provider displays,
-  runs Chromium against the actual application entry and pages, and builds
+  exercises the native Human+ form bridge, runs Chromium against the actual application entry and pages, and builds
   both client and SSR bundles.
 - Factcheck uses the current shared checker and trust rubric from prism-parity.
   The rubric checks the quality of the shared security corpora; it does not
@@ -33,6 +33,31 @@ hashes, and the resolved Composer lock. Frontend artifacts include its resolved
 npm lock. These identify what passed. Path aliases in Composer are constraint
 compatibility labels, not proof of the published release installed by a user.
 These jobs exercise source checkouts, not downloaded release archives.
+
+### First-party prerelease ranges in the local Lab
+
+The Lab is never deployed or published. Its `agent-integrations` constraint is
+`>=0.52.0 <1.0.0`: the locked lane keeps the reviewed distribution (currently
+0.53.0), while the current lane installs the newest first-party 0.x release and
+actually exercises it. A new minor is a reason to test its behavior, rather
+than repeatedly changing a caret range before the preceding PR can land.
+Version 1.0 remains outside this range and requires a separate review.
+
+This policy is specific to the first-party package with observed release churn.
+Other package constraints, every third-party constraint and the uncached
+currency gate are unchanged. The reviewed lock stays reproducible; broad
+dogfood ranges are not a recommendation for deployed applications or published
+packages.
+
+`npm run test:ui` runs the provider display checks and
+`scripts/test-human-plus-bridge.mjs` in both frontend lanes. The native controls
+exercise the Lab's one-form call shape, controlled writes and refusal, human
+confirmation, owner isolation, replacement/disposal, deferred host acceptance,
+late rejection and partial bulk writes. They allow additional tools while
+requiring the existing call shapes to keep working. A behavior regression fails
+CI even when package currency passes. These are synthetic, in-process controls
+without a relay, credentials or billable calls; they do not establish external
+session acceptance or coverage of every upstream API.
 
 ### Browser installation and cache evidence
 
