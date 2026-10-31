@@ -15,6 +15,12 @@ and daily schedules. Both have `locked` and `current` lanes:
   silently omit it from CI. This includes ACP.
   First-party packages installed from Packagist are compared with its current
   stable releases too, including the pinned workflow engine.
+  Before checkout or installation, the current PHP lane also compares every
+  explicit `dev-main as X.Y.Z` path label with the latest stable release from
+  uncached Packagist. A label below that release fails CI even when the sibling
+  source itself is current. Child dependency floors remain authoritative.
+  The noncanonical PHP ACP path's exact prerelease constraint has no stable
+  release alias; its existing dependency and lock checks remain separate.
 - The frontend installs the npm lock, then the current lane resolves allowed
   updates. It also compares every direct first-party npm package with the
   uncached registry. A release outside the current constraint fails currency
