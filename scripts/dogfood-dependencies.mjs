@@ -124,7 +124,7 @@ export async function checkComposerAliasCurrency(manifest, fetchMetadata = fetch
         });
         if (!response.ok) throw new Error(`Packagist lookup failed for ${name}: ${response.status}`);
         const latest = latestComposerStable(await response.json(), name);
-        return { name, alias, latest, current: compareVersions(alias, latest) >= 0 };
+        return { name, alias, latest, current: compareVersions(alias, latest) >= 0, ahead: compareVersions(alias, latest) > 0 };
     }));
 }
 
@@ -149,6 +149,8 @@ async function main() {
     } else if (process.argv.includes('--composer-alias-currency')) {
         const results = await checkComposerAliasCurrency(manifest);
         console.log(JSON.stringify(results, null, 2));
+        const ahead = results.filter(result => result.ahead);
+        if (ahead.length) console.log(`Notice: path aliases ahead of published stable releases: ${ahead.map(result => `${result.name} (${result.alias} > ${result.latest})`).join(', ')}.`);
         if (results.some(result => !result.current)) throw new Error('Path compatibility aliases are behind Packagist. Review and update their labels without lowering child dependency floors.');
     } else if (process.argv.includes('--composer-currency')) {
         const results = await checkComposerCurrency(manifest, JSON.parse(readFileSync(resolve(root, 'composer.lock'), 'utf8')));

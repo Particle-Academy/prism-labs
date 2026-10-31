@@ -19,6 +19,8 @@ and daily schedules. Both have `locked` and `current` lanes:
   explicit `dev-main as X.Y.Z` path label with the latest stable release from
   uncached Packagist. A label below that release fails CI even when the sibling
   source itself is current. Child dependency floors remain authoritative.
+  Ahead-of-release aliases remain allowed for testing unpublished sibling main;
+  the result reports `ahead: true` and prints a notice so they stay visible.
   The noncanonical PHP ACP path's exact prerelease constraint has no stable
   release alias; its existing dependency and lock checks remain separate.
 - The frontend installs the npm lock, then the current lane resolves allowed

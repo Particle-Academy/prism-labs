@@ -66,10 +66,12 @@ const aliasMetadata = versions => async (url, options) => {
 test('path aliases check stable currency independently of their dev-main source lock', async () => {
     const metadata = aliasMetadata(['dev-main', '0.144.0-beta.1', 'v0.9.0', 'v0.143.0', '0.142.0']);
     assert.deepEqual(await checkComposerAliasCurrency(aliasManifest('dev-main as 0.143.0'), metadata), [
-        { name: 'particle-academy/prism', alias: '0.143.0', latest: '0.143.0', current: true },
+        { name: 'particle-academy/prism', alias: '0.143.0', latest: '0.143.0', current: true, ahead: false },
     ]);
     assert.equal((await checkComposerAliasCurrency(aliasManifest('dev-main as 0.135.0'), metadata))[0].current, false);
-    assert.equal((await checkComposerAliasCurrency(aliasManifest('dev-main as 0.144.0'), metadata))[0].current, true);
+    const ahead = (await checkComposerAliasCurrency(aliasManifest('dev-main as 0.144.0'), metadata))[0];
+    assert.equal(ahead.current, true);
+    assert.equal(ahead.ahead, true);
 });
 
 test('alias currency fails closed on malformed labels, empty inventory and failed or missing registry evidence', async () => {
