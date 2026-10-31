@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { siblingRepositories, checkNpmCurrency, checkComposerCurrency } from './dogfood-dependencies.mjs';
+import { siblingRepositories, checkNpmCurrency, checkComposerCurrency, checkComposerAliasCurrency } from './dogfood-dependencies.mjs';
 
 test('every manifest path is a checkout, including ACP and future satellites', () => {
     const manifest = JSON.parse(readFileSync(new URL('../composer.json', import.meta.url), 'utf8'));
@@ -52,4 +52,56 @@ test('Composer release currency excludes path aliases and compares stable regist
     assert.equal((await checkComposerCurrency(manifest, lock, metadata))[0].current, false);
     await assert.rejects(checkComposerCurrency(manifest, lock, async () => ({ ok: false, status: 503 })));
     await assert.rejects(checkComposerCurrency(manifest, lock, async () => ({ ok: true, json: async () => ({}) })));
+});
+
+const aliasManifest = alias => ({ repositories: [{ type: 'path', url: '../prism' }, { type: 'path', url: '../prism-acp' }], require: { 'particle-academy/prism': alias, 'particle-academy/prism-acp': 'dev-main' } });
+const aliasMetadata = versions => async (url, options) => {
+    assert.equal(url, 'https://repo.packagist.org/p2/particle-academy/prism.json');
+    assert.equal(options.headers['Cache-Control'], 'no-cache');
+    assert.equal(options.headers.Pragma, 'no-cache');
+    assert.equal(options.cache, 'no-store');
+    return { ok: true, json: async () => ({ packages: { 'particle-academy/prism': versions.map(version => ({ version })) } }) };
+};
+
+test('path aliases check stable currency independently of their dev-main source lock', async () => {
+    const metadata = aliasMetadata(['dev-main', '0.144.0-beta.1', 'v0.9.0', 'v0.143.0', '0.142.0']);
+    assert.deepEqual(await checkComposerAliasCurrency(aliasManifest('dev-main as 0.143.0'), metadata), [
+        { name: 'particle-academy/prism', alias: '0.143.0', latest: '0.143.0', current: true, ahead: false },
+    ]);
+    assert.equal((await checkComposerAliasCurrency(aliasManifest('dev-main as 0.135.0'), metadata))[0].current, false);
+    const ahead = (await checkComposerAliasCurrency(aliasManifest('dev-main as 0.144.0'), metadata))[0];
+    assert.equal(ahead.current, true);
+    assert.equal(ahead.ahead, true);
+});
+
+test('alias currency fails closed on malformed labels, empty inventory and failed or missing registry evidence', async () => {
+    for (const alias of ['dev-main as ^0.143', 'dev-main as 0.143.0-beta.1', 'dev-main as latest', '^0.143', 'dev-main as 0.143.0 || *', undefined, null, ['dev-main as 0.143.0'], {}, 42]) {
+        await assert.rejects(checkComposerAliasCurrency(aliasManifest(alias), aliasMetadata(['0.143.0'])));
+    }
+    await assert.rejects(checkComposerAliasCurrency(aliasManifest('dev-main'), aliasMetadata(['0.143.0'])));
+    await assert.rejects(checkComposerAliasCurrency(aliasManifest('dev-main as 0.143.0'), async () => ({ ok: false, status: 503 })));
+    await assert.rejects(checkComposerAliasCurrency(aliasManifest('dev-main as 0.143.0'), aliasMetadata(['dev-main', '0.144.0-alpha.1'])));
+    await assert.rejects(checkComposerAliasCurrency(aliasManifest('dev-main as 0.143.0'), async () => ({ ok: true, json: async () => ({}) })));
+});
+
+test('the shared stable selector orders numeric versions without integer precision loss', async () => {
+    const metadata = aliasMetadata(['9007199254740993.0.0', '9007199254740992.99.99', '2.0.0']);
+    assert.equal((await checkComposerAliasCurrency(aliasManifest('dev-main as 9007199254740992.99.99'), metadata))[0].current, false);
+});
+
+test('all actual manifest aliases are checked while the noncanonical exact ACP prerelease stays separate', async () => {
+    const manifest = JSON.parse(readFileSync(new URL('../composer.json', import.meta.url), 'utf8'));
+    const declared = Object.entries(manifest.require).filter(([, value]) => /^dev-main as \d+\.\d+\.\d+$/.test(value));
+    assert.ok(declared.length > 0);
+    const called = [];
+    const results = await checkComposerAliasCurrency(manifest, async url => {
+        const name = new URL(url).pathname.slice('/p2/'.length, -'.json'.length);
+        called.push(name);
+        const alias = manifest.require[name].match(/^dev-main as (\d+\.\d+\.\d+)$/)?.[1];
+        assert.ok(alias, 'Only explicit release aliases belong in this guard.');
+        return { ok: true, json: async () => ({ packages: { [name]: [{ version: alias }] } }) };
+    });
+    assert.deepEqual(called.sort(), declared.map(([name]) => name).sort());
+    assert.equal(results.length, declared.length);
+    assert.ok(results.every(result => result.current));
 });

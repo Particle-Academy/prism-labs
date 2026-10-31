@@ -78,15 +78,53 @@ export async function checkComposerCurrency(manifest, lock, fetchMetadata = fetc
         });
         if (!response.ok) throw new Error(`Packagist lookup failed for ${name}: ${response.status}`);
         const body = await response.json();
-        const stable = (body.packages?.[name] ?? []).map(item => item.version?.replace(/^v/, ''))
-            .filter(version => typeof version === 'string' && /^\d+\.\d+\.\d+$/.test(version));
-        stable.sort((a, b) => {
-            const left = a.split('.').map(Number), right = b.split('.').map(Number);
-            return right[0] - left[0] || right[1] - left[1] || right[2] - left[2];
-        });
-        if (stable.length === 0) throw new Error(`Packagist returned no stable version for ${name}.`);
+        const latest = latestComposerStable(body, name);
         const installed = [...(lock.packages ?? []), ...(lock['packages-dev'] ?? [])].find(item => item.name === name)?.version?.replace(/^v/, '');
-        return { name, installed: installed ?? null, latest: stable[0], current: installed === stable[0] };
+        return { name, installed: installed ?? null, latest, current: installed === latest };
+    }));
+}
+
+function compareVersions(a, b) {
+    const left = a.split('.').map(BigInt), right = b.split('.').map(BigInt);
+    for (let i = 0; i < 3; i++) {
+        if (left[i] !== right[i]) return left[i] > right[i] ? 1 : -1;
+    }
+    return 0;
+}
+
+function latestComposerStable(body, name) {
+    const stable = (body.packages?.[name] ?? []).map(item => item.version?.replace(/^v/, ''))
+        .filter(version => typeof version === 'string' && /^\d+\.\d+\.\d+$/.test(version));
+    stable.sort((a, b) => compareVersions(b, a));
+    if (stable.length === 0) throw new Error(`Packagist returned no stable version for ${name}.`);
+    return stable[0];
+}
+
+export async function checkComposerAliasCurrency(manifest, fetchMetadata = fetch) {
+    const aliases = siblingRepositories(manifest).flatMap(sibling => {
+        const name = `particle-academy/${sibling}`, constraint = manifest.require[name];
+        if (typeof constraint !== 'string') throw new Error(`Invalid path constraint for ${name}.`);
+        // Bare dev-main has no release compatibility label. This gate checks
+        // explicit path aliases.
+        if (constraint === 'dev-main') return [];
+        const repository = manifest.repositories.find(item => item.type === 'path' && basename(item.url) === sibling);
+        // A noncanonical source explicitly labelled dev-main can coexist with
+        // an exact prerelease installed from Packagist (the PHP ACP fixture).
+        if (repository.canonical === false && repository.options?.versions?.[name] === 'dev-main'
+            && /^\d+\.\d+\.\d+-[A-Za-z0-9.-]+$/.test(constraint)) return [];
+        const match = /^dev-main as (\d+\.\d+\.\d+)$/.exec(constraint);
+        if (!match) throw new Error(`Unsupported path alias for ${name}: expected dev-main as X.Y.Z.`);
+        return [{ name, alias: match[1] }];
+    });
+    if (aliases.length === 0) throw new Error('No path aliases to check; refusing an empty currency inventory.');
+    return Promise.all(aliases.map(async ({ name, alias }) => {
+        const response = await fetchMetadata(`https://repo.packagist.org/p2/${name}.json`, {
+            headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache', Accept: 'application/json' },
+            cache: 'no-store', signal: AbortSignal.timeout(15000),
+        });
+        if (!response.ok) throw new Error(`Packagist lookup failed for ${name}: ${response.status}`);
+        const latest = latestComposerStable(await response.json(), name);
+        return { name, alias, latest, current: compareVersions(alias, latest) >= 0, ahead: compareVersions(alias, latest) > 0 };
     }));
 }
 
@@ -108,6 +146,12 @@ async function main() {
                 throw new Error(`Required source Particle-Academy/${name} could not be checked out. An unpublished or inaccessible path dependency blocks CI; supply its reviewed remote source before treating the gate as operational.`);
             }
         }
+    } else if (process.argv.includes('--composer-alias-currency')) {
+        const results = await checkComposerAliasCurrency(manifest);
+        console.log(JSON.stringify(results, null, 2));
+        const ahead = results.filter(result => result.ahead);
+        if (ahead.length) console.log(`Notice: path aliases ahead of published stable releases: ${ahead.map(result => `${result.name} (${result.alias} > ${result.latest})`).join(', ')}.`);
+        if (results.some(result => !result.current)) throw new Error('Path compatibility aliases are behind Packagist. Review and update their labels without lowering child dependency floors.');
     } else if (process.argv.includes('--composer-currency')) {
         const results = await checkComposerCurrency(manifest, JSON.parse(readFileSync(resolve(root, 'composer.lock'), 'utf8')));
         console.log(JSON.stringify(results, null, 2));

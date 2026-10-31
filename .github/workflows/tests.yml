@@ -110,6 +110,9 @@ jobs:
           node -e "require('node:fs').rmSync('.third-party-allowlist',{recursive:true,force:true})"
       - name: Validate dependency checkout and currency guards
         run: node --test scripts/dogfood-dependencies.test.mjs
+      - name: Check path compatibility aliases against current releases
+        if: matrix.resolution == 'current'
+        run: node scripts/dogfood-dependencies.mjs --composer-alias-currency
       - name: Checkout every path dependency from its main branch
         run: node scripts/dogfood-dependencies.mjs --checkout
       - uses: shivammathur/setup-php@v2
