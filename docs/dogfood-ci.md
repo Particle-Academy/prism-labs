@@ -108,7 +108,7 @@ their separate audits after resolving updates.
 The isolated Remotion runtime's source-map-js, fast-uri and selector parser are patched. One
 remaining advisory, Zod `GHSA-mrhx-c7xc-m3w5`, has an explicit temporary exception
 in `scripts/lock-audit-exceptions.json` for that runtime's lock only. Owner:
-Prism; re-review: 2026-11-03; expiry: 2026-11-10 08:00 UTC. The exception is shown
+Prism; re-review: 2026-11-08; expiry: 2026-11-17 08:00 UTC. The exception is shown
 in CI's run summary and does not cover another advisory or another lock.
 Remotion's published bundler still brings Studio and pins vulnerable Zod even
 when the CLI is removed; an owned API-only dependency-tree control verified
