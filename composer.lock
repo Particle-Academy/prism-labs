@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "e56b8b61cfab525d531a93728bb7ee83",
+    "content-hash": "67a1e6e9df6e34eab456463ebb44a6c1",
     "packages": [
         {
             "name": "brick/math",
@@ -3271,16 +3271,16 @@
         },
         {
             "name": "particle-academy/fancy-flow-php",
-            "version": "v0.64.0",
+            "version": "v0.65.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/Particle-Academy/fancy-flow-php.git",
-                "reference": "53aa1fe786e8464cf726bc60046c2aea4f1b3ccc"
+                "reference": "4fc28f11922e57aa11f7684efb26c8cbac3852b2"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Particle-Academy/fancy-flow-php/zipball/53aa1fe786e8464cf726bc60046c2aea4f1b3ccc",
-                "reference": "53aa1fe786e8464cf726bc60046c2aea4f1b3ccc",
+                "url": "https://api.github.com/repos/Particle-Academy/fancy-flow-php/zipball/4fc28f11922e57aa11f7684efb26c8cbac3852b2",
+                "reference": "4fc28f11922e57aa11f7684efb26c8cbac3852b2",
                 "shasum": ""
             },
             "require": {
@@ -3342,7 +3342,7 @@
                 "issues": "https://github.com/Particle-Academy/fancy-flow-php/issues",
                 "source": "https://github.com/Particle-Academy/fancy-flow-php"
             },
-            "time": "2026-10-07T00:05:38+00:00"
+            "time": "2026-11-01T09:32:26+00:00"
         },
         {
             "name": "particle-academy/prism",
@@ -3350,7 +3350,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism",
-                "reference": "c131f2d25edbedad36df122dc9693b6e3ea375d4"
+                "reference": "d26f350686d9e1fafdb10101154ec9a7ef7eded8"
             },
             "require": {
                 "ext-fileinfo": "*",
