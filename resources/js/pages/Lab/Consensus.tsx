@@ -54,7 +54,7 @@ export default function Consensus({ runs }: { runs: Run[] }) {
             <Field label="Question" error={request.errors.question}><textarea className="lab-input" rows={5} value={request.data.question} onChange={e => request.setData('question', e.target.value)} /></Field>
             <Field label="Evidence brief · optional" error={request.errors.evidence}><textarea className="lab-input" rows={4} value={request.data.evidence} onChange={e => request.setData('evidence', e.target.value)} /></Field>
             <p className="lab-diagnostic-note">Each available parity agent receives the same question and evidence. Collection runs in the background and may take several minutes. The Overseer queue worker must be running.</p>
-            <button className="k-btn k-btn--grad" disabled={request.processing}>{request.processing ? 'Collecting responses…' : 'Start collection'}</button>
+            <button type="submit" className="k-btn k-btn--grad" disabled={request.processing}>{request.processing ? 'Collecting responses…' : 'Start collection'}</button>
         </form>}
 
         <section className="lab-consensus-grid">
@@ -85,7 +85,7 @@ export default function Consensus({ runs }: { runs: Run[] }) {
                                 <Field label="Prism.php synthesis · dissent must remain explicit" error={review.errors.synthesis}>
                                     <textarea className="lab-input" rows={12} value={review.data.synthesis} onChange={e => review.setData('synthesis', e.target.value)} />
                                 </Field>
-                                <button className="k-btn k-btn--grad mt-4" disabled={review.processing}>Mark reviewed</button>
+                                <button type="submit" className="k-btn k-btn--grad mt-4" disabled={review.processing}>Mark reviewed</button>
                             </form>
                             {/* Confirmed, because abandonment is terminal: the run
                                 can never be reviewed afterwards, and the 0L it
@@ -101,7 +101,7 @@ export default function Consensus({ runs }: { runs: Run[] }) {
                                 <Field label="Why · optional, and it goes into the 0Learning verbatim" error={abandon.errors.reason}>
                                     <input className="lab-input" value={abandon.data.reason} onChange={e => abandon.setData('reason', e.target.value)} />
                                 </Field>
-                                <button className="k-btn k-btn--ghost mt-4" disabled={abandon.processing}>Abandon without review</button>
+                                <button type="submit" className="k-btn k-btn--ghost mt-4" disabled={abandon.processing}>Abandon without review</button>
                             </form>
                         </>
                         : <div className="lab-synthesis">{selected.synthesis ?? (selected.status === 'abandoned'

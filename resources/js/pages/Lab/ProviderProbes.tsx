@@ -54,7 +54,7 @@ export default function ProviderProbes() {
             <h2 className="text-xl font-bold">Perplexity research</h2>
             <form onSubmit={runResearch} className="space-y-3">
                 <label className="block">Question<textarea className="lab-input mt-2 min-h-28" value={question} onChange={e => setQuestion(e.target.value)} required maxLength={10000} /></label>
-                <button className="k-btn k-btn--grad" disabled={busy}>{busy ? 'Researching…' : 'Run research · paid call'}</button>
+                <button type="submit" className="k-btn k-btn--grad" disabled={busy}>{busy ? 'Researching…' : 'Run research · paid call'}</button>
             </form>
             {error && <p role="alert">{error}</p>}
             {research && <div><p>{research.ok ? 'Completed' : 'Unsuccessful run'}</p>{research.reason && <p>{research.reason}</p>}{research.answer && <pre className="whitespace-pre-wrap">{research.answer}</pre>}<RunDiagnosticsView diagnostics={research.diagnostics} /></div>}
@@ -64,7 +64,7 @@ export default function ProviderProbes() {
             <p>Private addresses, unsafe schemes, unresolved hosts and redirects into private networks should be refused. The preset metadata address must be refused before a request is sent.</p>
             <form onSubmit={runFetch} className="space-y-3">
                 <label className="block">URL<input className="lab-input mt-2" value={url} onChange={e => setUrl(e.target.value)} required maxLength={2048} /></label>
-                <button className="k-btn k-btn--grad" disabled={fetchBusy}>{fetchBusy ? 'Checking…' : 'Fetch through public URL guard'}</button>
+                <button type="submit" className="k-btn k-btn--grad" disabled={fetchBusy}>{fetchBusy ? 'Checking…' : 'Fetch through public URL guard'}</button>
             </form>
             {fetchError && <p role="alert">{fetchError}</p>}
             {fetched && <FetchResultView result={fetched} />}
@@ -77,7 +77,7 @@ export default function ProviderProbes() {
                 <label className="block">Stable reference<textarea className="lab-input mt-2 min-h-48" placeholder="Paste the reference that stays the same for both questions." value={prefix} onChange={e => setPrefix(e.target.value)} required maxLength={100000} /></label>
                 <label className="block">First question<input className="lab-input mt-2" value={cacheQuestion} onChange={e => setCacheQuestion(e.target.value)} required maxLength={2000} /></label>
                 <label className="block">Second question<input className="lab-input mt-2" value={followUp} onChange={e => setFollowUp(e.target.value)} required maxLength={2000} /></label>
-                <button className="k-btn k-btn--grad" disabled={cacheBusy}>{cacheBusy ? 'Comparing two calls…' : 'Compare cache usage · 2 paid calls'}</button>
+                <button type="submit" className="k-btn k-btn--grad" disabled={cacheBusy}>{cacheBusy ? 'Comparing two calls…' : 'Compare cache usage · 2 paid calls'}</button>
             </form>
             {cacheError && <p role="alert">{cacheError}</p>}
             {cache && <CacheEvidence result={cache} />}

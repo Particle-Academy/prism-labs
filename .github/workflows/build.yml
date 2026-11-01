@@ -194,6 +194,9 @@ jobs:
       - name: Consensus and Benchmarks browser regressions
         run: npm run test:dogfood-ui
 
+      - name: Every real form — click, Enter and non-submit composition
+        run: npm run test:forms
+
       - name: Install the committed isolated renderer without lifecycle scripts
         run: npm ci --prefix tools/remotion-runtime --ignore-scripts
 
@@ -223,4 +226,5 @@ jobs:
             tools/remotion-runtime/package-lock.json
             remotion-render-evidence.json
             playwright-cache-evidence.json
+            prism-labs-forms-ci.json
           if-no-files-found: error
