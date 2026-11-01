@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "36ab7a2b6ae51c98693a4dc6a5a8fad8",
+    "content-hash": "d238c2479a1748dbc2f0bd8a8a80eb13",
     "packages": [
         {
             "name": "brick/math",
@@ -11309,8 +11309,8 @@
         {
             "package": "particle-academy/prism",
             "version": "dev-main",
-            "alias": "0.144.0",
-            "alias_normalized": "0.144.0.0"
+            "alias": "0.144.1",
+            "alias_normalized": "0.144.1.0"
         },
         {
             "package": "particle-academy/prism-browser",
