@@ -92,7 +92,7 @@
         "particle-academy/fancy-flow-php": "0.65.1",
         "particle-academy/prism": "dev-main as 0.145.0",
         "particle-academy/prism-browser": "dev-main as 0.4.1",
-        "particle-academy/prism-harness": "dev-main as 0.22.0",
+        "particle-academy/prism-harness": "dev-main as 0.22.1",
         "particle-academy/prism-human-plus": "dev-main as 0.5.1",
         "particle-academy/prism-mcp": "dev-main as 0.2.0",
         "particle-academy/prism-opentelemetry": "dev-main as 0.5.2",
