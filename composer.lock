@@ -3580,11 +3580,11 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-harness",
-                "reference": "cb2fd0f7e26286b14891ae86d4f499bde9edaf10"
+                "reference": "3fd87f6123592a6237c862f63c9d449240ea6ec0"
             },
             "require": {
                 "laravel/framework": "^12.69.0|^13.30.0",
-                "particle-academy/prism": "^0.143 || ^0.144",
+                "particle-academy/prism": "^0.143 || ^0.144 || ^0.145",
                 "php": "^8.2"
             },
             "require-dev": {
