@@ -31,7 +31,7 @@
         "@inertiajs/react": "^3.7.0",
         "@particle-academy/agent-integrations": ">=0.52.0 <1.0.0",
         "@particle-academy/fancy-app-update": "^0.7.1",
-        "@particle-academy/fancy-code": "^0.15.1",
+        "@particle-academy/fancy-code": "^0.16.0",
         "@particle-academy/fancy-echarts": "^6.1.0",
         "@particle-academy/fancy-inertia": "^0.14.1",
         "@particle-academy/fancy-pwa": "^0.2.0",
