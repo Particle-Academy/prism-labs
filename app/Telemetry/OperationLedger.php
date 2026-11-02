@@ -63,12 +63,99 @@ final class OperationLedger
         ])->save();
     }
 
-    public function failGeneration(TelemetryContext $context, float $durationMs, Throwable $failure): void
+    public function failGeneration(TelemetryContext $context, float $durationMs, Throwable $failure, ?object $failureUsage = null): void
+    {
+        $this->recordGenerationFailure($context, $durationMs, $failure, $failureUsage);
+    }
+
+    public function errorGeneration(TelemetryContext $context, float $durationMs, ?object $failureUsage = null): void
+    {
+        $this->recordGenerationFailure($context, $durationMs, null, $failureUsage);
+    }
+
+    private function recordGenerationFailure(TelemetryContext $context, float $durationMs, ?Throwable $failure, ?object $failureUsage): void
     {
         $operation = $this->startGeneration($context);
+        $metadata = $operation->metadata;
+        $snapshot = $this->failureSnapshot($failureUsage);
+        if ($snapshot !== null) {
+            $metadata = [...($metadata ?? []), 'failure_usage' => $snapshot];
+            $this->recordFailedStep($context, $snapshot);
+        }
         $operation->forceFill([
             'status' => 'failed', 'duration_ms' => (int) round($durationMs),
-            'failure_class' => $failure::class, 'finished_at' => now(),
+            'failure_class' => $failure === null ? $operation->failure_class : $failure::class,
+            'input_tokens' => null, 'output_tokens' => null, 'cache_write_tokens' => null,
+            'cache_read_tokens' => null, 'reasoning_tokens' => null, 'cost' => null,
+            'cost_source' => 'unpriced', 'metadata' => $metadata, 'finished_at' => now(),
+        ])->save();
+    }
+
+    /** @return array<string, mixed>|null */
+    private function failureSnapshot(?object $failure): ?array
+    {
+        $class = 'Prism\\Prism\\ValueObjects\\StreamFailureUsage';
+        if ($failure === null || ! class_exists($class) || ! $failure instanceof $class) {
+            return null;
+        }
+        $data = get_object_vars($failure);
+        $usage = $data['usage'] ?? null;
+        $fields = $data['reportedFields'] ?? null;
+        $step = $data['stepIndex'] ?? null;
+        if (! $usage instanceof Usage || ! is_array($fields) || ! is_int($step) || $step < 0) {
+            return null;
+        }
+        $values = $usage->toArray();
+        foreach ($values as $field => $value) {
+            if (! (is_int($value) || is_float($value)) || ! is_finite((float) $value) || $value < 0) {
+                $values[$field] = null;
+            }
+        }
+        $reported = [];
+        foreach ($fields as $field) {
+            $value = is_string($field) ? ($values[$field] ?? null) : null;
+            if ((is_int($value) || is_float($value)) && is_finite((float) $value) && $value >= 0) {
+                $reported[] = $field;
+            }
+        }
+        if ($reported === []) {
+            return null;
+        }
+
+        return ['usage' => $values, 'reported_fields' => $reported, 'step_index' => $step,
+            'status' => 'provisional', 'scope' => 'attempt', 'includes_completed_steps' => false];
+    }
+
+    /** @param array<string, mixed> $snapshot */
+    private function recordFailedStep(TelemetryContext $context, array $snapshot): void
+    {
+        $step = $snapshot['step_index'];
+        $operation = LabOperation::query()->where('parent_id', $context->traceId)
+            ->where('kind', 'generation.step')->where('metadata->step_index', $step)->first();
+        if ($operation === null) {
+            // Stable primary key makes repeated failure notifications for this
+            // attempt idempotent even when no StepCompleted event was emitted.
+            $digest = hash('sha256', 'prism-failed-step:'.$context->traceId.':'.$step);
+            $id = substr($digest, 0, 8).'-'.substr($digest, 8, 4).'-5'.substr($digest, 13, 3).'-8'.substr($digest, 17, 3).'-'.substr($digest, 20, 12);
+            $operation = LabOperation::query()->firstOrCreate(['id' => $id], [
+                'parent_id' => $context->traceId, 'trace_id' => $context->traceId,
+                'harness_session' => $context->sessionId, 'provider' => $context->provider,
+                'model' => $context->model, 'kind' => 'generation.step',
+                ...$this->benchmarkIdentity($context->sessionId),
+                'started_at' => now(),
+            ]);
+        }
+        $numbers = [];
+        foreach (['prompt_tokens' => 'input_tokens', 'completion_tokens' => 'output_tokens',
+            'cache_write_input_tokens' => 'cache_write_tokens', 'cache_read_input_tokens' => 'cache_read_tokens',
+            'thought_tokens' => 'reasoning_tokens', 'cost' => 'cost'] as $field => $column) {
+            $numbers[$column] = in_array($field, $snapshot['reported_fields'], true) ? $snapshot['usage'][$field] : null;
+        }
+        $operation->forceFill([
+            ...$numbers, 'status' => 'failed', 'duration_ms' => 0,
+            'cost_source' => $numbers['cost'] === null ? 'unpriced' : 'provider_reported',
+            'metadata' => ['step_index' => $step, 'finish_reason' => 'error', 'failure_usage' => $snapshot],
+            'finished_at' => now(),
         ])->save();
     }
 
