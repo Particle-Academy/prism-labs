@@ -105,18 +105,14 @@ evidence and registry failures fail the gate; a failing lock does not skip the
 remaining audits. All severities are checked. Current-resolution lanes retain
 their separate audits after resolving updates.
 
-The isolated Remotion runtime's source-map-js, fast-uri and selector parser are patched. One
-remaining advisory, Zod `GHSA-mrhx-c7xc-m3w5`, has an explicit temporary exception
-in `scripts/lock-audit-exceptions.json` for that runtime's lock only. Owner:
-Prism; re-review: 2026-11-08; expiry: 2026-11-17 08:00 UTC. The exception is shown
-in CI's run summary and does not cover another advisory or another lock.
-Remotion's published bundler still brings Studio and pins vulnerable Zod even
-when the CLI is removed; an owned API-only dependency-tree control verified
-this. No dependency override or downgrade is used. The gate checks uncached
-latest bundler/Studio metadata and invalidates the exception as soon as patched
-Zod can resolve, or when registry evidence is unavailable or changes shape.
-This is a recorded remaining vulnerability in a local-only renderer, not a
-claim that the dependency is fixed.
+The isolated Remotion runtime uses exact Remotion 4.0.540 packages. Its published
+Studio parent resolves patched Zod 4.6.7, so the temporary exception for
+`GHSA-mrhx-c7xc-m3w5` has been deleted from `scripts/lock-audit-exceptions.json`.
+The lock contains the patched package and its audit passes without a waiver,
+dependency override or downgrade. This resolves the dated November 8 re-review
+early: the guard detected the newly patched parent on November 2. Every-lock
+audits remain mandatory, and the existing registry/expiry controls continue to
+test that a future exception cannot outlive a published fix.
 
 Both frontend CI lanes install the isolated renderer with `--ignore-scripts`,
 render an owned 30-frame control, and inspect its H.264 artifact with ffprobe.
