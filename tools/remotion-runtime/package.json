@@ -4,10 +4,10 @@
   "version": "1.0.0",
   "description": "Pinned, isolated renderer for Prism Labs benchmark lanes.",
   "dependencies": {
-    "@remotion/cli": "4.0.506",
+    "@remotion/cli": "4.0.540",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "remotion": "4.0.506",
+    "remotion": "4.0.540",
     "typescript": "5.9.3"
   }
 }

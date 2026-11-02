@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "3a234b9cd7831d19ee80e0400864ba89",
+    "content-hash": "c3fe156864cc27a3536f2e496bf94581",
     "packages": [
         {
             "name": "brick/math",
@@ -3350,7 +3350,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism",
-                "reference": "d26f350686d9e1fafdb10101154ec9a7ef7eded8"
+                "reference": "f684d3aca5d2ca36bf68d452d3515d541600b507"
             },
             "require": {
                 "ext-fileinfo": "*",
@@ -3580,11 +3580,11 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-harness",
-                "reference": "3fd87f6123592a6237c862f63c9d449240ea6ec0"
+                "reference": "b69b0baa8531e7f36c7866af4bdb5c771e1248b5"
             },
             "require": {
                 "laravel/framework": "^12.69.0|^13.30.0",
-                "particle-academy/prism": "^0.143 || ^0.144 || ^0.145",
+                "particle-academy/prism": "^0.143 || ^0.144 || ^0.145 || ^0.146",
                 "php": "^8.2"
             },
             "require-dev": {
@@ -3806,7 +3806,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-opentelemetry",
-                "reference": "4c46a81bdb5c824d4609a9e4009071a0d0db3577"
+                "reference": "fe2735db4b6ba7027d85a79887b98cd7a041a626"
             },
             "require": {
                 "ext-json": "*",
@@ -11309,8 +11309,8 @@
         {
             "package": "particle-academy/prism",
             "version": "dev-main",
-            "alias": "0.145.1",
-            "alias_normalized": "0.145.1.0"
+            "alias": "0.146.0",
+            "alias_normalized": "0.146.0.0"
         },
         {
             "package": "particle-academy/prism-browser",
@@ -11321,8 +11321,8 @@
         {
             "package": "particle-academy/prism-harness",
             "version": "dev-main",
-            "alias": "0.22.1",
-            "alias_normalized": "0.22.1.0"
+            "alias": "0.22.2",
+            "alias_normalized": "0.22.2.0"
         },
         {
             "package": "particle-academy/prism-human-plus",
@@ -11339,8 +11339,8 @@
         {
             "package": "particle-academy/prism-opentelemetry",
             "version": "dev-main",
-            "alias": "0.5.2",
-            "alias_normalized": "0.5.2.0"
+            "alias": "0.6.0",
+            "alias_normalized": "0.6.0.0"
         },
         {
             "package": "particle-academy/prism-perplexity",
