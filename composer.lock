@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "c3fe156864cc27a3536f2e496bf94581",
+    "content-hash": "f6340d2413bdaaed01145d8a76aa425c",
     "packages": [
         {
             "name": "brick/math",
@@ -3458,16 +3458,16 @@
         },
         {
             "name": "particle-academy/prism-acp",
-            "version": "v0.1.0-alpha.5",
+            "version": "v0.1.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/Particle-Academy/prism-acp.git",
-                "reference": "ae62700bf719dccbb3aaa9d002c558bbe765eb74"
+                "reference": "a3edf05d07b0cbc81b8cbb1d714fd4cc71dd04dc"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Particle-Academy/prism-acp/zipball/ae62700bf719dccbb3aaa9d002c558bbe765eb74",
-                "reference": "ae62700bf719dccbb3aaa9d002c558bbe765eb74",
+                "url": "https://api.github.com/repos/Particle-Academy/prism-acp/zipball/a3edf05d07b0cbc81b8cbb1d714fd4cc71dd04dc",
+                "reference": "a3edf05d07b0cbc81b8cbb1d714fd4cc71dd04dc",
                 "shasum": ""
             },
             "require": {
@@ -3508,7 +3508,8 @@
                 "issues": "https://github.com/Particle-Academy/prism-acp/issues",
                 "source": "https://github.com/Particle-Academy/prism-acp"
             },
-            "time": "2026-10-27T04:44:00+00:00"
+            "time": "2026-11-02T22:09:58+00:00",
+            "published-time": "2026-11-02T22:19:47+00:00"
         },
         {
             "name": "particle-academy/prism-browser",

@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import { build } from 'vite';
 import { resolve } from 'node:path';
 import { chromium } from 'playwright';
+import { readFileSync } from 'node:fs';
+
+const acpRelease = JSON.parse(readFileSync(new URL('./acp-release.json', import.meta.url), 'utf8'));
 
 // Real entry point, pages, Inertia forms and Fancy providers. The browser's
 // network is intercepted: no web server, database, credentials or model calls.
@@ -43,7 +46,7 @@ try {
     const props = () => component === 'Lab/Consensus'
         ? { runs, errors: {} }
         : component === 'Lab/Acp'
-            ? { version: 'fixture', acpVersion: 'v0.1.0-alpha.5', model: 'haiku', models: { claude: 'haiku', codex: '' }, turns: acpTurns, errors: {} }
+            ? { version: 'fixture', acpVersion: acpRelease.tag, model: 'haiku', models: { claude: 'haiku', codex: '' }, turns: acpTurns, errors: {} }
             : { specs: [], runs: [], compactionRuns: [], providerAggregateCount: 0, errors: {} };
     const inertia = url => ({ component, props: props(), url, version: 'dogfood-fixture', clearHistory: false, encryptHistory: false });
     await page.route('**/*', async route => {
