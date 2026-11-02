@@ -21,8 +21,9 @@ and daily schedules. Both have `locked` and `current` lanes:
   source itself is current. Child dependency floors remain authoritative.
   Ahead-of-release aliases remain allowed for testing unpublished sibling main;
   the result reports `ahead: true` and prints a notice so they stay visible.
-  The noncanonical PHP ACP path's exact prerelease constraint has no stable
-  release alias; its existing dependency and lock checks remain separate.
+  The noncanonical PHP ACP path's exact stable pin is also checked against the
+  latest stable release; stale and unpublished pins fail. Its current-source
+  lane still uses the explicit development alias.
 - The frontend installs the npm lock, then the current lane resolves allowed
   updates. It also compares every direct first-party npm package with the
   uncached registry. A release outside the current constraint fails currency
@@ -125,8 +126,11 @@ the every-lock audit when Composer is not on PATH.
 
 ### PHP ACP source and release coverage
 
-PHP ACP is public at `Particle-Academy/prism-acp`, with Windows/Claude/Codex preview
-`v0.1.0-alpha.5` at `ae62700bf719dccbb3aaa9d002c558bbe765eb74`.
+PHP ACP is public at `Particle-Academy/prism-acp`, with the first stable release
+`v0.1.1` at `a3edf05d07b0cbc81b8cbb1d714fd4cc71dd04dc`.
+The reviewed version, tag and source SHA live in `scripts/acp-release.json`;
+dependency switching, artifact verification and the browser fixture read that
+same file. The exact Composer constraint and lock must match it.
 `acp.yml` runs Windows consumer lanes against both current sibling source and
 the actual release archive resolved through Packagist. It verifies the release's
 source SHA and dist installation. The fake providers belong to the Lab's tests,

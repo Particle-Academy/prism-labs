@@ -89,19 +89,38 @@ test('the shared stable selector orders numeric versions without integer precisi
     assert.equal((await checkComposerAliasCurrency(aliasManifest('dev-main as 9007199254740992.99.99'), metadata))[0].current, false);
 });
 
-test('all actual manifest aliases are checked while the noncanonical exact ACP prerelease stays separate', async () => {
+test('all actual manifest aliases and the noncanonical stable ACP pin are checked', async () => {
     const manifest = JSON.parse(readFileSync(new URL('../composer.json', import.meta.url), 'utf8'));
-    const declared = Object.entries(manifest.require).filter(([, value]) => /^dev-main as \d+\.\d+\.\d+$/.test(value));
+    const declared = Object.entries(manifest.require).filter(([name, value]) => /^dev-main as \d+\.\d+\.\d+$/.test(value)
+        || (name === 'particle-academy/prism-acp' && /^\d+\.\d+\.\d+$/.test(value)));
     assert.ok(declared.length > 0);
     const called = [];
     const results = await checkComposerAliasCurrency(manifest, async url => {
         const name = new URL(url).pathname.slice('/p2/'.length, -'.json'.length);
         called.push(name);
-        const alias = manifest.require[name].match(/^dev-main as (\d+\.\d+\.\d+)$/)?.[1];
-        assert.ok(alias, 'Only explicit release aliases belong in this guard.');
+        const alias = manifest.require[name].match(/^(?:dev-main as )?(\d+\.\d+\.\d+)$/)?.[1];
+        assert.ok(alias, 'Only explicit release aliases or exact stable consumers belong in this guard.');
         return { ok: true, json: async () => ({ packages: { [name]: [{ version: alias }] } }) };
     });
     assert.deepEqual(called.sort(), declared.map(([name]) => name).sort());
     assert.equal(results.length, declared.length);
     assert.ok(results.every(result => result.current));
+});
+
+test('an exact stable noncanonical consumer refuses both stale and unpublished versions', async () => {
+    const name = 'particle-academy/prism-acp';
+    const manifest = version => ({ repositories: [{ type: 'path', url: '../prism-acp', canonical: false,
+        options: { versions: { [name]: 'dev-main' } } }], require: { [name]: version } });
+    const metadata = async url => {
+        assert.equal(url, `https://repo.packagist.org/p2/${name}.json`);
+        return { ok: true, json: async () => ({ packages: { [name]: [{ version: 'v0.1.1' }, { version: 'v0.1.0' }] } }) };
+    };
+    assert.equal((await checkComposerAliasCurrency(manifest('0.1.1'), metadata))[0].current, true);
+    assert.equal((await checkComposerAliasCurrency(manifest('0.1.0'), metadata))[0].current, false);
+    const ahead = (await checkComposerAliasCurrency(manifest('0.1.2'), metadata))[0];
+    assert.equal(ahead.current, false);
+    assert.equal(ahead.ahead, true);
+    for (const malformed of ['^0.1.1', '0.1.1 || *', 'latest']) {
+        await assert.rejects(checkComposerAliasCurrency(manifest(malformed), metadata));
+    }
 });

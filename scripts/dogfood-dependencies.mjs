@@ -112,19 +112,24 @@ export async function checkComposerAliasCurrency(manifest, fetchMetadata = fetch
         // an exact prerelease installed from Packagist (the PHP ACP fixture).
         if (repository.canonical === false && repository.options?.versions?.[name] === 'dev-main'
             && /^\d+\.\d+\.\d+-[A-Za-z0-9.-]+$/.test(constraint)) return [];
+        // Once that published consumer is stable, its exact pin must be current
+        // too. An ahead-of-registry exact release is not an installable alias.
+        if (repository.canonical === false && repository.options?.versions?.[name] === 'dev-main'
+            && /^\d+\.\d+\.\d+$/.test(constraint)) return [{ name, alias: constraint, exact: true }];
         const match = /^dev-main as (\d+\.\d+\.\d+)$/.exec(constraint);
         if (!match) throw new Error(`Unsupported path alias for ${name}: expected dev-main as X.Y.Z.`);
         return [{ name, alias: match[1] }];
     });
     if (aliases.length === 0) throw new Error('No path aliases to check; refusing an empty currency inventory.');
-    return Promise.all(aliases.map(async ({ name, alias }) => {
+    return Promise.all(aliases.map(async ({ name, alias, exact = false }) => {
         const response = await fetchMetadata(`https://repo.packagist.org/p2/${name}.json`, {
             headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache', Accept: 'application/json' },
             cache: 'no-store', signal: AbortSignal.timeout(15000),
         });
         if (!response.ok) throw new Error(`Packagist lookup failed for ${name}: ${response.status}`);
         const latest = latestComposerStable(await response.json(), name);
-        return { name, alias, latest, current: compareVersions(alias, latest) >= 0, ahead: compareVersions(alias, latest) > 0 };
+        const comparison = compareVersions(alias, latest);
+        return { name, alias, latest, current: exact ? comparison === 0 : comparison >= 0, ahead: comparison > 0 };
     }));
 }
 
