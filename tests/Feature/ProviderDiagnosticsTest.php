@@ -44,7 +44,7 @@ class ProviderDiagnosticsTest extends TestCase
             'incomplete_reason' => 'max_output_tokens',
             'output' => $body['output'],
             'citations' => [['type' => 'url_citation', 'url' => 'https://example.test/source', 'title' => 'Source']],
-            'usage' => ['prompt_tokens' => 12, 'completion_tokens' => 64, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => null, 'thought_tokens' => null, 'cost' => 0.01],
+            'usage' => ['prompt_tokens' => 12, 'completion_tokens' => 64, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => null, 'thought_tokens' => null, 'cost' => 0.01, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null],
         ];
 
         $this->postJson('/lab/provider-probes/research', ['question' => 'Fixture research'])
