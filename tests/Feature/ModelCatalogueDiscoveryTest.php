@@ -22,6 +22,9 @@ class ModelCatalogueDiscoveryTest extends TestCase
 {
     use RefreshDatabase;
 
+    /** Existing operator choices are fixtures, independent of fresh-install defaults. */
+    private const SAVED_LEGACY = ['anthropic:claude-sonnet-5', 'openai:gpt-4.1-mini'];
+
     private array $anthropicRoster = [];
 
     private array $openaiRoster = [];
@@ -45,6 +48,7 @@ class ModelCatalogueDiscoveryTest extends TestCase
             'openai' => ['api_key' => 'fixture-provider-secret', 'url' => 'https://openai.fixture/v1'],
         ]]);
         $this->roster();
+        DB::table('lab_settings')->insert(['key' => 'benchmark.allowed_models', 'value' => json_encode(self::SAVED_LEGACY, JSON_THROW_ON_ERROR), 'created_at' => now(), 'updated_at' => now()]);
     }
 
     private function roster(array $anthropic = ['claude-sonnet-5', 'claude-fable-5-1', 'claude-opus-5', 'claude-haiku-5-5', 'unpriced-future'], array $openai = ['gpt-4.1-mini', 'unpriced-openai']): void
@@ -69,7 +73,7 @@ class ModelCatalogueDiscoveryTest extends TestCase
         $this->assertNull($future['price']);
         $this->assertSame('Returned unpriced-future', $future['label']);
         $this->assertNotContains($future['key'], app(ModelPolicy::class)->allowed());
-        $this->assertSame(ModelCatalogue::DEFAULT_ENABLED, app(ModelPolicy::class)->allowed());
+        $this->assertSame(self::SAVED_LEGACY, app(ModelPolicy::class)->allowed());
     }
 
     public function test_cheapest_selection_respects_explicitly_allowed_ids(): void
@@ -90,7 +94,7 @@ class ModelCatalogueDiscoveryTest extends TestCase
                 ->where('providers.0.status', 'authentication_rejected')
                 ->where('providers.0.message', 'The provider rejected this API key or its access. Update its credentials or permissions in the Lab configuration, then refresh.')
                 ->where('providers.0.models', [])
-                ->where('selection', ModelCatalogue::DEFAULT_ENABLED)
+                ->where('selection', self::SAVED_LEGACY)
                 ->where('allowed', ['openai:gpt-4.1-mini']));
             $this->assertStringNotContainsString('fixture-provider-secret', $response->getContent());
             $this->assertStringNotContainsString('private-auth-body', $response->getContent());
@@ -129,7 +133,7 @@ class ModelCatalogueDiscoveryTest extends TestCase
             $this->assertSame($source, $price['source']);
             $this->assertSame(['label' => $status, 'checked_on' => '2026-11-04', 'source' => $source], app(ModelPrices::class)->lifecycleForModel('anthropic', $id));
         }
-        $this->assertSame(['anthropic:claude-sonnet-5', 'openai:gpt-4.1-mini'], ModelCatalogue::DEFAULT_ENABLED);
+        $this->assertSame(['anthropic:claude-sonnet-5-5', 'openai:gpt-5.4-mini'], ModelCatalogue::DEFAULT_ENABLED);
     }
 
     public function test_expanded_openai_promotional_prices_expire_before_the_monthly_review_date(): void
@@ -148,7 +152,7 @@ class ModelCatalogueDiscoveryTest extends TestCase
 
     public function test_numeric_prices_choose_the_cheapest_eligible_model(): void
     {
-        $this->assertSame(['provider' => 'openai', 'model' => 'gpt-4.1-mini'], app(ModelCatalogue::class)->cheapestConfigured(ModelCatalogue::DEFAULT_ENABLED));
+        $this->assertSame(['provider' => 'openai', 'model' => 'gpt-4.1-mini'], app(ModelCatalogue::class)->cheapestConfigured(self::SAVED_LEGACY));
         $this->assertSame(['provider' => 'anthropic', 'model' => 'claude-haiku-5-5'], app(ModelCatalogue::class)->cheapestConfigured(['openai:gpt-4.1-mini', 'anthropic:claude-haiku-5-5']));
     }
 
@@ -312,15 +316,15 @@ class ModelCatalogueDiscoveryTest extends TestCase
     public function test_post_during_an_outage_or_missing_key_preserves_that_providers_saved_choice_after_recovery(): void
     {
         $this->localRoutes();
-        $this->post('/lab/models', ['allowed' => ModelCatalogue::DEFAULT_ENABLED])->assertRedirect('/lab/models');
+        $this->post('/lab/models', ['allowed' => self::SAVED_LEGACY])->assertRedirect('/lab/models');
         $this->listingFailure = true;
         app(ModelCatalogue::class)->refresh();
         $this->post('/lab/models', ['allowed' => []])->assertRedirect('/lab/models');
-        $this->assertSame(ModelCatalogue::DEFAULT_ENABLED, json_decode(DB::table('lab_settings')->where('key', 'benchmark.allowed_models')->value('value'), true));
+        $this->assertSame(self::SAVED_LEGACY, json_decode(DB::table('lab_settings')->where('key', 'benchmark.allowed_models')->value('value'), true));
         $this->assertSame([], app(ModelPolicy::class)->allowed());
         $this->listingFailure = false;
         app(ModelCatalogue::class)->refresh();
-        $this->assertSame(ModelCatalogue::DEFAULT_ENABLED, app(ModelPolicy::class)->allowed());
+        $this->assertSame(self::SAVED_LEGACY, app(ModelPolicy::class)->allowed());
 
         config(['prism.providers.anthropic.api_key' => '']);
         $this->post('/lab/models', ['allowed' => []])->assertRedirect('/lab/models');
@@ -363,7 +367,7 @@ class ModelCatalogueDiscoveryTest extends TestCase
         $this->assertSame([$key], app(ModelPolicy::class)->allowed());
     }
 
-    public function test_legacy_and_deprecated_status_is_dated_cited_and_does_not_change_defaults(): void
+    public function test_legacy_and_deprecated_status_is_dated_cited_and_does_not_change_saved_choices(): void
     {
         foreach (['claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5', 'claude-fable-5'] as $id) {
             $this->assertSame(['label' => 'Legacy', 'checked_on' => '2026-11-04', 'source' => 'https://platform.claude.com/docs/en/about-claude/models/overview'], app(ModelPrices::class)->lifecycleForModel('anthropic', $id));
@@ -372,8 +376,8 @@ class ModelCatalogueDiscoveryTest extends TestCase
             $this->assertSame(['label' => 'Deprecated', 'checked_on' => '2026-11-04', 'source' => 'https://developers.openai.com/api/docs/models/gpt-4.1-mini'], app(ModelPrices::class)->lifecycleForModel('openai', $id));
         }
         $this->assertNull(app(ModelPrices::class)->lifecycleForModel('openai', 'unpriced-future'));
-        $this->assertSame(['anthropic:claude-sonnet-5', 'openai:gpt-4.1-mini'], ModelCatalogue::DEFAULT_ENABLED);
-        $this->assertSame(ModelCatalogue::DEFAULT_ENABLED, app(ModelPolicy::class)->allowed());
+        $this->assertSame(['anthropic:claude-sonnet-5-5', 'openai:gpt-5.4-mini'], ModelCatalogue::DEFAULT_ENABLED);
+        $this->assertSame(self::SAVED_LEGACY, app(ModelPolicy::class)->allowed());
     }
 
     public function test_browser_fixture_matches_the_native_listing_and_inertia_pipeline(): void
@@ -399,7 +403,7 @@ class ModelCatalogueDiscoveryTest extends TestCase
             };
             $initial = $read();
             $this->assertCount(6, $initial['providers']);
-            $this->assertSame(ModelCatalogue::DEFAULT_ENABLED, $initial['allowed']);
+            $this->assertSame(self::SAVED_LEGACY, $initial['allowed']);
             $this->roster(['claude-fable-5-1', 'unpriced-future', 'brand-new-after-refresh', $untrusted, $long]);
             app(ModelCatalogue::class)->refresh();
             $refreshed = $read();
@@ -430,7 +434,7 @@ class ModelCatalogueDiscoveryTest extends TestCase
             config(['prism.providers' => array_replace(['openai' => $configured['openai']], $configured)]);
             $this->roster(['claude-sonnet-5', 'claude-opus-4-5-20251101', 'claude-sonnet-4-5-20250929'], $scaleIds);
             app(ModelCatalogue::class)->refresh();
-            app(ModelPolicy::class)->allow(ModelCatalogue::DEFAULT_ENABLED);
+            app(ModelPolicy::class)->allow(self::SAVED_LEGACY);
             $scale = $read();
             $this->assertSame('openai', $scale['providers'][0]['key']);
             $this->assertCount(142, $scale['providers'][0]['models']);
@@ -440,7 +444,7 @@ class ModelCatalogueDiscoveryTest extends TestCase
             $authentication = $read();
             $this->assertSame('authentication_rejected', collect($authentication['providers'])->firstWhere('key', 'anthropic')['status']);
             $this->assertSame(['openai:gpt-4.1-mini'], $authentication['allowed']);
-            $this->assertSame(ModelCatalogue::DEFAULT_ENABLED, $authentication['selection']);
+            $this->assertSame(self::SAVED_LEGACY, $authentication['selection']);
             $payload = compact('initial', 'refreshed', 'outage', 'recovered', 'stale', 'scale', 'authentication');
             $json = json_encode($payload, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_PRESERVE_ZERO_FRACTION | JSON_HEX_TAG);
             $this->assertStringNotContainsString('fixture-provider-secret', $json);
