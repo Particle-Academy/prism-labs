@@ -49,7 +49,11 @@ The Models page uses provider listings through the installed Prism package,
 caches each result for ten minutes and provides an explicit refresh. Missing
 credentials, unsupported listing methods and failed requests remain visible
 as provider notices with no fallback model rows. Failed listings are cached
-for sixty seconds. Saved choices survive an unavailable provider; saving
+for sixty seconds. Authentication or access rejection (401/403) has its own
+fixed notice directing the operator to update Lab credentials or permissions;
+provider bodies, URLs and keys are never displayed. An unsupported notice means
+the installed package lacks that listing implementation, not that the provider
+has no API. Saved choices survive an unavailable provider; saving
 changes only providers whose listing succeeded. A withdrawn saved model is
 shown disabled until explicitly removed, and cannot start a benchmark.
 Replicate's public catalogue
@@ -59,8 +63,15 @@ withdrawn models are removed from the effective allow-list, including defaults.
 Their saved selection is preserved separately from that effective permission.
 
 Prices are dated USD list rates per million tokens, joined by exact model IDs.
-Unknown rates remain visible. Anthropic cache writes include both durations
-and Haiku's two context tiers; rates older than thirty days show a notice.
+Unknown rates remain visible. OpenAI standard text-token prices include explicit
+context tiers and the provider's 30-minute and 12-hour cache-write durations.
+Snapshot IDs receive a rate only when an official model page explicitly names
+that default snapshot; other historical dates are not inferred from an alias.
+Mixed-modality, audio, image, video, embedding and other non-text units remain
+unknown in this text-token view. Anthropic cache writes retain their distinct
+5-minute and 1-hour durations and Haiku's two context tiers. The dated Opus 4.5
+and Sonnet 4.5 entries cite their own official model pages. Rates older than
+thirty days, or past an explicitly dated promotion, show a checking notice.
 Dated legacy/deprecated labels cite the providers' model pages separately
 from prices. They do not change the operator's permissions or default IDs.
 Incidental commentary and scoring choose by numeric input price among the
@@ -68,7 +79,8 @@ operator's permitted, priced models. Refresh does not write the saved policy.
 Scoring can release its job every two minutes for up to thirty minutes only
 when a permitted, priced provider's listing is temporarily unreachable and
 before any inference has been sent. Missing configuration, unsupported listing,
-operator choices and exhausted retries show a specific reason without retrying.
+authentication/access rejection, operator choices and exhausted retries show
+a specific reason without retrying.
 An actual model call is never automatically repeated. Existing lane activities
 hold the visible reasons and a durable marker written before judging starts,
 so an interrupted worker cannot silently repeat an uncertain inference delivery.
@@ -85,6 +97,15 @@ outage/save/recovery, long-ID saves, dates, lifecycle badges, prices, stale/unav
 untrusted text and horizontal overflow, and records screenshots plus build,
 source and lock hashes. These CI controls make no provider calls and do not
 establish live account availability or inference readiness.
+
+Provider panels start collapsed, with model-bearing providers first. Priced or
+selected models appear before the expandable count of other unknown prices.
+The ID filter and provider jump navigate without saving or changing permissions;
+unconfigured providers use compact rows, while failures and unavailable saved
+choices stay expanded. The native synthetic scale fixture contains 142 OpenAI
+rows built from the public price entries and invented future IDs, rather than
+an operator's live account roster. Both browser sizes exercise it along with
+the normal, refreshed, outage, recovery, stale and authentication states.
 
 ### First-party prerelease ranges in the local Lab
 

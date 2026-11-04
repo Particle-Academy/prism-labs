@@ -24,7 +24,31 @@
 .lab-models-price-grid dd { margin-top: .25rem; color: var(--k-ink); font-size: .9rem; font-variant-numeric: tabular-nums; }
 .lab-models-source { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: .65rem; color: var(--k-ink-3); font-size: .65rem; }
 .lab-models-source a, .lab-models-source a span { color: var(--k-cyan); }
+.lab-models-navigation { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: .8rem; padding: 1rem 1.2rem; }
+.lab-models-navigation > * { min-width: 0; }
+.lab-models-navigation input, .lab-models-navigation select { background: var(--k-bg-2); color: var(--k-ink); border-color: var(--k-hairline); }
+.lab-models-navigation label, .lab-models-navigation label span { color: var(--k-ink-2); }
+.lab-models-filter-result { grid-column: 1 / -1; color: var(--k-ink-3); font-size: .75rem; }
+.lab-models-providers { width: 100%; align-items: stretch; gap: 1rem; }
+.lab-models-provider { width: 100%; scroll-margin-top: 1rem; }
+.lab-models-provider-section { width: 100%; }
+.lab-models-provider-head h2 { min-width: 0; }
+.lab-models-provider-toggle { padding: .35rem 0; height: auto; text-align: left; color: var(--k-ink); }
+.lab-models-provider-toggle span { color: var(--k-ink); }
+.lab-models-provider-toggle .lab-models-provider-name { margin-right: .75rem; }
+.lab-models-provider-toggle .lab-models-provider-action { font-size: .7rem; color: var(--k-ink-3); }
+.lab-models-unknown-group { border-top: 1px solid var(--k-hairline); }
+.lab-models-unknown-toggle { margin: .65rem 1rem; color: var(--k-ink-2); }
+.lab-models-unknown-toggle span { color: var(--k-ink-2); }
+.lab-models-keyless { padding: 1rem 1.2rem; }
+.lab-models-keyless h2 { color: var(--k-ink-2); font-size: .85rem; }
+.lab-models-keyless ul { list-style: none; padding: .5rem 0 0; }
+.lab-models-keyless li { display: flex; flex-wrap: wrap; align-items: baseline; gap: .35rem .75rem; padding: .5rem 0; font-size: .75rem; }
+.lab-models-keyless li + li { border-top: 1px solid var(--k-hairline); }
+.lab-models-keyless b { min-width: 7rem; font-weight: 500; color: var(--k-ink-2); }
+.lab-models-keyless li span { color: var(--k-ink-3); overflow-wrap: anywhere; }
 @media (max-width: 800px) {
+    .lab-models-navigation { grid-template-columns: minmax(0, 1fr); }
     .lab-models-heading { flex-direction: column; align-items: stretch; gap: 1rem; }
     .lab-models-row { grid-template-columns: minmax(0, 1fr); gap: .85rem; }
     .lab-models-price-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: .75rem; }

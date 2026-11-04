@@ -16,11 +16,14 @@ use App\Models\BenchmarkLane;
 use App\Models\BenchmarkScore;
 use App\Models\BenchmarkSpec;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
 use PHPUnit\Framework\Attributes\Group;
 use Prism\Prism\Facades\Prism;
+use Prism\Prism\PrismManager;
 use Prism\Prism\Testing\TextResponseFake;
 use Tests\Concerns\CachesModelRoster;
 use Tests\TestCase;
@@ -195,6 +198,47 @@ class BenchmarkScoringTest extends TestCase
     private function unreachableListing(): void
     {
         Cache::put('lab.model-listing.v1.anthropic', ['status' => 'unreachable', 'models' => [], 'checked_at' => now()->toIso8601String(), 'message' => 'Fixture listing unavailable.'], 60);
+    }
+
+    public function test_real_authentication_401_does_not_release_the_scoring_job(): void
+    {
+        $this->assertAuthenticationDoesNotRetry(401);
+    }
+
+    public function test_real_authentication_403_does_not_release_the_scoring_job(): void
+    {
+        $this->assertAuthenticationDoesNotRetry(403);
+    }
+
+    private function assertAuthenticationDoesNotRetry(int $status): void
+    {
+        $lane = $this->pendingLane();
+        $proof = $lane->proof;
+        app(ModelPolicy::class)->allow(['anthropic:claude-sonnet-5']);
+        $this->app->instance(PrismManager::class, new PrismManager($this->app));
+        config(['prism.providers.anthropic.url' => 'https://authentication.fixture/v1']);
+        Cache::forget('lab.model-listing.v1.anthropic');
+        Http::preventStrayRequests();
+        $requests = [];
+        Http::fake(function (Request $request) use ($status, &$requests) {
+            $requests[] = ['method' => $request->method(), 'path' => parse_url($request->url(), PHP_URL_PATH)];
+
+            return Http::response(['error' => 'fixture-private-auth-body fixture-only'], $status);
+        });
+        $job = (new ScoreLaneJob($lane->id))->withFakeQueueInteractions();
+        $job->handle(app(BenchmarkScorer::class));
+        $job->assertNotReleased();
+        $reason = 'Not scored: the provider rejected a selected API key or its access. Update the Lab configuration before retrying.';
+        $this->assertSame($reason, $lane->activities()->reorder('id', 'desc')->value('summary'));
+        $this->assertSame([['method' => 'GET', 'path' => '/v1/models']], $requests, 'Only one model listing; never inference or auth retries.');
+        $this->assertNull($lane->refresh()->score);
+        $this->assertSame($proof, $lane->proof);
+        $this->assertSame(0, $lane->activities()->where('kind', 'scoring.started')->count());
+        Route::middleware('web')->get('/fixtures/scoring-auth/{run}', [BenchmarkController::class, 'runRoom']);
+        $response = $this->get('/fixtures/scoring-auth/'.$lane->benchmark_run_id);
+        $response->assertOk()->assertInertia(fn ($page) => $page->where('results.0.scoring_reason', $reason));
+        $this->assertStringNotContainsString('fixture-private-auth-body', $response->getContent());
+        $this->assertStringNotContainsString('authentication.fixture', $response->getContent());
     }
 
     public function test_real_scoring_job_defers_before_inference_then_scores_after_listing_recovery(): void

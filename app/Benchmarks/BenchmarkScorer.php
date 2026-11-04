@@ -109,6 +109,9 @@ final readonly class BenchmarkScorer
             }
         }
 
+        if (in_array('authentication_rejected', $listingStates, true)) {
+            return new ScoringResult(null, 'Not scored: the provider rejected a selected API key or its access. Update the Lab configuration before retrying.');
+        }
         if (in_array('unreachable', $states, true)) {
             return new ScoringResult(null, "Not scored: couldn't reach the provider's model list.", true);
         }
