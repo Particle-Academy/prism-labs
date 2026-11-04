@@ -16,7 +16,7 @@ use Throwable;
 final class ModelCatalogue
 {
     /** @var list<string> */
-    public const DEFAULT_ENABLED = ['anthropic:claude-sonnet-5', 'openai:gpt-4.1-mini'];
+    public const DEFAULT_ENABLED = ['anthropic:claude-sonnet-5-5', 'openai:gpt-5.4-mini'];
 
     public function __construct(private readonly ProviderRegistry $providers, private readonly ModelPrices $prices) {}
 

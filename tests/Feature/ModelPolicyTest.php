@@ -37,8 +37,7 @@ class ModelPolicyTest extends TestCase
         // benchmark anyone ran cost the most it could.
         $allowed = app(ModelPolicy::class)->allowed();
 
-        $this->assertContains('anthropic:claude-sonnet-5', $allowed);
-        $this->assertContains('openai:gpt-4.1-mini', $allowed);
+        $this->assertSame(['anthropic:claude-sonnet-5-5', 'openai:gpt-5.4-mini'], $allowed);
         $this->assertNotContains('anthropic:claude-opus-5', $allowed);
     }
 

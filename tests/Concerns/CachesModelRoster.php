@@ -15,7 +15,7 @@ trait CachesModelRoster
         config(['prism.providers' => array_intersect_key($configured, array_flip(['anthropic', 'openai'])),
             'prism.providers.anthropic.api_key' => 'fixture-only',
             'prism.providers.openai.api_key' => $includeOpenAI ? 'fixture-only' : '']);
-        foreach (['anthropic' => ['claude-sonnet-5', 'claude-opus-5', 'claude-fable-5-1', 'claude-haiku-4-5'], 'openai' => ['gpt-4.1-mini']] as $provider => $ids) {
+        foreach (['anthropic' => ['claude-sonnet-5', 'claude-sonnet-5-5', 'claude-opus-5', 'claude-fable-5-1', 'claude-haiku-4-5'], 'openai' => ['gpt-4.1-mini', 'gpt-5.4-mini']] as $provider => $ids) {
             Cache::put('lab.model-listing.v1.'.$provider, ['status' => 'ready', 'checked_at' => now()->toIso8601String(), 'message' => null,
                 'models' => array_map(fn (string $id): array => ['id' => $id, 'name' => $id, 'created_at' => null], $ids)], 600);
         }

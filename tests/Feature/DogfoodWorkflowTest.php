@@ -195,7 +195,7 @@ final class DogfoodWorkflowTest extends TestCase
         Queue::fake();
         $designer = app(BenchmarkDesigner::class);
         $create = function (string $language) use ($designer) {
-            $draft = $designer->draft('dogfood-'.$language, 'application', 'standard', ['outcome' => 'Expected before execution', 'acceptance' => ['Receipt proves the outcome']], ['functional' => 100], [['language' => $language, 'harness' => 'prism-harness', 'provider' => 'anthropic', 'model' => 'claude-sonnet-5']], ['max_turns' => 2, 'cost' => 0.1]);
+            $draft = $designer->draft('dogfood-'.$language, 'application', 'standard', ['outcome' => 'Expected before execution', 'acceptance' => ['Receipt proves the outcome']], ['functional' => 100], [['language' => $language, 'harness' => 'prism-harness', 'provider' => 'anthropic', 'model' => 'claude-sonnet-5-5']], ['max_turns' => 2, 'cost' => 0.1]);
 
             return $designer->approve($designer->requestApproval($draft));
         };
