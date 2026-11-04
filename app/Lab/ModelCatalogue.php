@@ -33,7 +33,11 @@ final class ModelCatalogue
                 $listing = ['status' => 'unconfigured', 'models' => [], 'checked_at' => null,
                     'message' => $provider['requiresKey'] ? 'Provider not reachable: no API key is configured.' : 'Provider not reachable: no endpoint is configured.'];
             } else {
-                $listing = Cache::remember($cacheKey, 600, fn (): array => $this->discover($key));
+                $listing = Cache::get($cacheKey);
+                if ($listing === null) {
+                    $listing = $this->discover($key);
+                    Cache::put($cacheKey, $listing, $listing['status'] === 'ready' ? 600 : 60);
+                }
             }
 
             $models = array_map(fn (array $model): array => [
@@ -41,6 +45,7 @@ final class ModelCatalogue
                 'id' => $model['id'], 'label' => $model['name'] ?? $model['id'], 'created_at' => $model['created_at'],
                 // The listing API returns no capability classification. Never guess from IDs.
                 'kind' => 'other', 'configured' => true, 'price' => $this->prices->forModel($key, $model['id']),
+                'lifecycle' => $this->prices->lifecycleForModel($key, $model['id']),
             ], $listing['models']);
             usort($models, static function (array $a, array $b): int {
                 if ($a['price'] === null || $b['price'] === null) {

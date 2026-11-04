@@ -1,30 +1,35 @@
 import { router } from '@inertiajs/react';
-import { Button, Checkbox } from '@particle-academy/react-fancy';
+import { Badge, Button, Checkbox } from '@particle-academy/react-fancy';
 import { useState } from 'react';
 import { LabShell } from '../../components/lab-shell';
 import '../../../css/lab-models.css';
 
 type Rate = { context: string; input: number; output: number; cache_read: number | null; cache_write_5m: number | null; cache_write_1h: number | null };
 type Price = { input: number; rates: Rate[]; currency: 'USD'; unit: 'million_tokens'; checked_on: string; source: string; stale: boolean };
-type Model = { key: string; id: string; label: string; kind: 'other'; created_at: string | number | null; price: Price | null };
+type Model = { key: string; id: string; label: string; kind: 'other'; created_at: string | number | null; price: Price | null; lifecycle: { label: string; checked_on: string; source: string } | null };
 type Provider = { key: string; label: string; configured: boolean; status: 'ready' | 'unconfigured' | 'unreachable' | 'unsupported'; message: string | null; checked_at: string | null; scope: string | null; models: Model[] };
-type Props = { providers: Provider[]; allowed: string[]; pricing: { checked_on: string; stale: boolean }; errors?: Record<string, string> };
+type Unavailable = { key: string; provider: string; id: string; reason: 'withdrawn' | 'unavailable' };
+type Props = { providers: Provider[]; allowed: string[]; selection: string[]; unavailable: Unavailable[]; pricing: { checked_on: string; stale: boolean }; errors?: Record<string, string> };
 
 const money = (value: number | null) => value === null ? 'Not listed' : `$${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 3 }).format(value)}`;
 const checkedAt = (value: string | null) => value === null ? 'Not checked' : `${new Date(value).toISOString().slice(0, 16).replace('T', ' ')} UTC`;
+const createdDate = (value: string | number) => {
+    const date = new Date(typeof value === 'number' ? value * 1000 : value);
+    return Number.isNaN(date.getTime()) ? 'Date unavailable' : date.toISOString().slice(0, 10);
+};
 const columns: [keyof Omit<Rate, 'context'>, string][] = [['input', 'Input'], ['output', 'Output'], ['cache_read', 'Cache read'], ['cache_write_5m', 'Cache write · 5m'], ['cache_write_1h', 'Cache write · 1h']];
 
-export default function Models({ providers, allowed, pricing, errors = {} }: Props) {
-    const [selected, setSelected] = useState<string[]>(allowed);
+export default function Models({ providers, allowed, selection, unavailable, pricing, errors = {} }: Props) {
+    const [selected, setSelected] = useState<string[]>(selection);
     const [saving, setSaving] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
-    const dirty = selected.length !== allowed.length || selected.some(key => !allowed.includes(key));
+    const dirty = selected.length !== selection.length || selected.some(key => !selection.includes(key));
     const total = providers.reduce((count, provider) => count + provider.models.length, 0);
 
     const save = () => router.post('/lab/models', { allowed: selected }, {
         preserveScroll: true,
         onStart: () => setSaving(true),
-        onSuccess: page => setSelected(page.props.allowed as string[]),
+        onSuccess: page => setSelected(page.props.selection as string[]),
         onFinish: () => setSaving(false),
     });
 
@@ -33,8 +38,8 @@ export default function Models({ providers, allowed, pricing, errors = {} }: Pro
         onStart: () => setRefreshing(true),
         onSuccess: page => {
             const next = page.props as unknown as Props;
-            const available = new Set(next.providers.flatMap(provider => provider.models.map(model => model.key)));
-            setSelected(current => dirty ? current.filter(key => available.has(key)) : next.allowed);
+            const retained = new Set([...next.selection, ...next.providers.flatMap(provider => provider.models.map(model => model.key))]);
+            setSelected(current => dirty ? current.filter(key => retained.has(key)) : next.selection);
         },
         onFinish: () => setRefreshing(false),
     });
@@ -52,14 +57,14 @@ export default function Models({ providers, allowed, pricing, errors = {} }: Pro
         </div>
 
         <section className="lab-panel lab-models-intro" aria-label="About these listings and prices">
-            <p>{total} models returned by providers. Listings are cached for ten minutes. Refresh checks them again without enabling new models or changing your saved selection.</p>
+            <p>{total} models returned by providers. Successful listings are cached for ten minutes; unavailable listings are retried after one minute. Refresh checks them again without enabling new models or changing your saved selection.</p>
             <p>Prices are USD per one million tokens, checked {pricing.checked_on}. Provider rows show the highest input price first; unknown prices stay visible. Discounts, taxes and non-token charges may differ.</p>
-            <p>A listing does not guarantee permission to run a model or support for a particular task. These APIs do not classify capabilities here, so models are marked “Other”.</p>
+            <p>A listing does not guarantee permission to run a model or support for a particular task. These APIs do not classify capabilities here; none are guessed from model names.</p>
         </section>
 
         {pricing.stale && <section className="lab-fuse-tripped" role="status"><b>Prices need checking</b><span>These prices are more than thirty days old. Check the official source before enabling a model.</span></section>}
         {Object.keys(errors).length > 0 && <section className="lab-fuse-tripped" role="alert"><b>Selection could not be saved</b><span>{Object.values(errors).join(' ')}</span></section>}
-        {selected.length === 0 && <section className="lab-fuse-tripped" role="status"><b>No models enabled</b><span>Benchmark launches are refused until you select a model and save.</span></section>}
+        {allowed.length === 0 && <section className="lab-fuse-tripped" role="status"><b>No available models enabled</b><span>Benchmark launches are refused. Saved selections for unavailable providers are kept.</span></section>}
 
         {providers.map(provider => <section key={provider.key} className="lab-panel" data-model-provider={provider.key} data-listing-state={provider.status} aria-labelledby={`models-${provider.key}`}>
             <div className="lab-panel-head lab-models-provider-head">
@@ -76,9 +81,10 @@ export default function Models({ providers, allowed, pricing, errors = {} }: Pro
                 {provider.models.map(model => <li key={model.key} className="lab-models-row" data-model-key={model.key}>
                     <div className="lab-models-identity">
                         <Checkbox id={`model-${encodeURIComponent(model.key)}`} label={model.label} checked={selected.includes(model.key)} disabled={saving || refreshing} onCheckedChange={checked => setSelected(current => checked ? [...new Set([...current, model.key])] : current.filter(key => key !== model.key))} />
-                        <span className="lab-models-kind">Other</span>
+                        {model.lifecycle && <Badge color="amber" variant="soft" size="sm">{model.lifecycle.label}</Badge>}
                         <code>{model.id}</code>
-                        {model.created_at !== null && <small>Provider creation date: {model.created_at}</small>}
+                        {model.created_at !== null && <small>Provider creation date: {createdDate(model.created_at)}</small>}
+                        {model.lifecycle && <div className="lab-models-source"><span>Status checked {model.lifecycle.checked_on}</span><Button href={model.lifecycle.source} target="_blank" rel="noopener noreferrer" variant="ghost" size="sm">Model status source</Button></div>}
                     </div>
                     {model.price === null ? <p className="lab-models-unknown">Price unknown. No checked rate is recorded for this model ID.</p> : <div className="lab-models-prices">
                         {model.price.rates.map(rate => <div key={rate.context} className="lab-models-rate">
@@ -90,7 +96,12 @@ export default function Models({ providers, allowed, pricing, errors = {} }: Pro
                         <div className="lab-models-source"><span>USD / million tokens · Checked {model.price.checked_on}{model.price.stale ? ' · Needs checking' : ''}</span><Button href={model.price.source} target="_blank" rel="noopener noreferrer" variant="ghost" size="sm">Official prices</Button></div>
                     </div>}
                 </li>)}
+                {unavailable.filter(model => model.provider === provider.key && selected.includes(model.key)).map(model => <li key={model.key} className="lab-models-row" data-unavailable-key={model.key}>
+                    <div className="lab-models-identity"><Checkbox id={`unavailable-${encodeURIComponent(model.key)}`} label={model.id} checked disabled /><Badge color="amber" variant="soft" size="sm">{model.reason === 'withdrawn' ? 'No longer offered' : 'Unavailable'}</Badge><code>{model.id}</code></div>
+                    <div className="lab-models-unknown">{model.reason === 'withdrawn' ? <><p>This provider no longer offers this saved model. It cannot start a benchmark.</p><Button type="button" variant="ghost" disabled={saving || refreshing} onClick={() => setSelected(current => current.filter(key => key !== model.key))}>Remove saved model</Button></> : <p>Your selection is kept while this provider’s listing is unavailable. Saving another provider does not remove it. This model cannot start a benchmark until its listing is available.</p>}</div>
+                </li>)}
             </ul>
         </section>)}
+        {unavailable.filter(model => !providers.some(provider => provider.key === model.provider)).map(model => <section key={model.key} className="lab-panel lab-models-intro"><p>Saved selection {model.key} is kept but unavailable: its provider is not configured in this Lab.</p></section>)}
     </LabShell>;
 }

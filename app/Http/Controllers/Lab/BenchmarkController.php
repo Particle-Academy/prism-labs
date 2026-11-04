@@ -149,6 +149,7 @@ final class BenchmarkController extends Controller
                 'status' => $lane->status,
                 'scored' => $lane->score !== null,
                 'score' => $lane->score,
+                'scoring_reason' => $lane->score === null ? $lane->activities()->whereIn('kind', ['scoring.started', 'scoring.deferred', 'scoring.unavailable'])->reorder('id', 'desc')->value('summary') : null,
                 'dimensions' => BenchmarkScore::query()->where('benchmark_lane_id', $lane->id)
                     ->orderByDesc('weight')->get(['dimension', 'weight', 'score', 'justification', 'cited_receipt'])->all(),
                 'working_artifact' => $lane->proof['working_artifact'] ?? null,

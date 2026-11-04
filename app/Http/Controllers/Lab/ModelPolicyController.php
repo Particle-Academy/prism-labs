@@ -20,6 +20,8 @@ final class ModelPolicyController extends Controller
         return Inertia::render('Lab/Models', [
             'providers' => $catalogue->providers(),
             'allowed' => $policy->allowed(),
+            'selection' => $policy->selection(),
+            'unavailable' => $policy->unavailable(),
             'pricing' => ['checked_on' => ModelPrices::CHECKED_ON, 'stale' => $prices->stale()],
         ]);
     }
@@ -35,7 +37,7 @@ final class ModelPolicyController extends Controller
     {
         $input = $request->validate([
             'allowed' => ['present', 'array'],
-            'allowed.*' => ['string', 'max:120'],
+            'allowed.*' => ['string', 'max:4096'],
         ]);
 
         // An empty selection is ALLOWED and is not the same as no opinion: it

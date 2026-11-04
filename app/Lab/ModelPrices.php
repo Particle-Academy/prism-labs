@@ -15,6 +15,24 @@ final class ModelPrices
 
     private const OPENAI_SOURCE = 'https://developers.openai.com/api/docs/models/gpt-4.1-mini';
 
+    private const ANTHROPIC_MODELS_SOURCE = 'https://platform.claude.com/docs/en/about-claude/models/overview';
+
+    /** @var list<string> Explicitly listed under Legacy models in the official overview. */
+    private const LEGACY_ANTHROPIC = ['claude-fable-5', 'claude-opus-5', 'claude-opus-4-8', 'claude-opus-4-7', 'claude-opus-4-6', 'claude-opus-4-5', 'claude-sonnet-5', 'claude-sonnet-4-6', 'claude-haiku-4-5', 'claude-haiku-4-5-20251001'];
+
+    /** @return array{label: string, checked_on: string, source: string}|null */
+    public function lifecycleForModel(string $provider, string $id): ?array
+    {
+        if ($provider === 'anthropic' && in_array($id, self::LEGACY_ANTHROPIC, true)) {
+            return ['label' => 'Legacy', 'checked_on' => self::CHECKED_ON, 'source' => self::ANTHROPIC_MODELS_SOURCE];
+        }
+        if ($provider === 'openai' && in_array($id, ['gpt-4.1-mini', 'gpt-4.1-mini-2025-04-14'], true)) {
+            return ['label' => 'Deprecated', 'checked_on' => self::CHECKED_ON, 'source' => self::OPENAI_SOURCE];
+        }
+
+        return null;
+    }
+
     /** @var array<string, array{float, float, float, float, float}> Input, output, cache read, 5m write, 1h write. */
     private const ANTHROPIC = [
         'claude-fable-5-1' => [10.0, 50.0, 0.25, 12.5, 20.0],

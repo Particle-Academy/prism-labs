@@ -32,6 +32,8 @@ class ModelCatalogueDiscoveryTest extends TestCase
 
     private bool $listingFailure = false;
 
+    private array $unreachableProviders = [];
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -52,8 +54,8 @@ class ModelCatalogueDiscoveryTest extends TestCase
         }
         $this->rosterFakeInstalled = true;
         Http::fake([
-            'https://anthropic.fixture/v1/models*' => fn () => $this->listingFailure ? Http::response(['error' => 'fixture-provider-secret'], 503) : Http::response(['data' => array_map(fn (string $id): array => ['id' => $id, 'display_name' => $this->labels[$id] ?? 'Returned '.$id], $this->anthropicRoster), 'has_more' => false]),
-            'https://openai.fixture/v1/models*' => fn () => $this->listingFailure ? Http::response(['error' => 'fixture-provider-secret'], 503) : Http::response(['data' => array_map(fn (string $id): array => ['id' => $id], $this->openaiRoster)]),
+            'https://anthropic.fixture/v1/models*' => fn () => $this->listingFailure || in_array('anthropic', $this->unreachableProviders, true) ? Http::response(['error' => 'fixture-provider-secret'], 503) : Http::response(['data' => array_map(fn (string $id): array => ['id' => $id, 'display_name' => $this->labels[$id] ?? 'Returned '.$id], $this->anthropicRoster), 'has_more' => false]),
+            'https://openai.fixture/v1/models*' => fn () => $this->listingFailure || in_array('openai', $this->unreachableProviders, true) ? Http::response(['error' => 'fixture-provider-secret'], 503) : Http::response(['data' => array_map(fn (string $id): array => ['id' => $id, 'created' => 1712361441], $this->openaiRoster)]),
         ]);
     }
 
@@ -238,6 +240,73 @@ class ModelCatalogueDiscoveryTest extends TestCase
         Http::assertSent(fn (Request $request): bool => $request->hasHeader('x-api-key', 'fixture-provider-secret'));
     }
 
+    public function test_post_during_an_outage_or_missing_key_preserves_that_providers_saved_choice_after_recovery(): void
+    {
+        $this->localRoutes();
+        $this->post('/lab/models', ['allowed' => ModelCatalogue::DEFAULT_ENABLED])->assertRedirect('/lab/models');
+        $this->listingFailure = true;
+        app(ModelCatalogue::class)->refresh();
+        $this->post('/lab/models', ['allowed' => []])->assertRedirect('/lab/models');
+        $this->assertSame(ModelCatalogue::DEFAULT_ENABLED, json_decode(DB::table('lab_settings')->where('key', 'benchmark.allowed_models')->value('value'), true));
+        $this->assertSame([], app(ModelPolicy::class)->allowed());
+        $this->listingFailure = false;
+        app(ModelCatalogue::class)->refresh();
+        $this->assertSame(ModelCatalogue::DEFAULT_ENABLED, app(ModelPolicy::class)->allowed());
+
+        config(['prism.providers.anthropic.api_key' => '']);
+        $this->post('/lab/models', ['allowed' => []])->assertRedirect('/lab/models');
+        config(['prism.providers.anthropic.api_key' => 'fixture-provider-secret']);
+        $this->assertSame(['anthropic:claude-sonnet-5'], app(ModelPolicy::class)->allowed());
+    }
+
+    public function test_failed_listing_is_retried_after_sixty_seconds_and_has_a_distinct_refusal(): void
+    {
+        $this->listingFailure = true;
+        $this->assertSame([], app(ModelCatalogue::class)->all());
+        $this->assertStringContainsString('listing is unavailable', app(ModelPolicy::class)->refusal('anthropic', 'claude-sonnet-5'));
+        $this->listingFailure = false;
+        $this->assertSame([], app(ModelCatalogue::class)->all());
+        $this->travel(61)->seconds();
+        $this->assertTrue(app(ModelPolicy::class)->permits('anthropic', 'claude-sonnet-5'));
+        $this->travelBack();
+    }
+
+    public function test_withdrawn_choice_stays_visible_disabled_until_the_operator_removes_it(): void
+    {
+        $this->localRoutes();
+        $this->post('/lab/models', ['allowed' => ['anthropic:claude-sonnet-5']])->assertRedirect('/lab/models');
+        $this->roster(['replacement'], []);
+        app(ModelCatalogue::class)->refresh();
+        $this->get('/lab/models')->assertOk()->assertInertia(fn ($page) => $page
+            ->where('selection', ['anthropic:claude-sonnet-5'])
+            ->where('unavailable.0.key', 'anthropic:claude-sonnet-5')
+            ->where('unavailable.0.reason', 'withdrawn')->where('allowed', []));
+        $this->post('/lab/models', ['allowed' => []])->assertRedirect('/lab/models');
+        $this->get('/lab/models')->assertInertia(fn ($page) => $page->where('unavailable', []));
+    }
+
+    public function test_a_returned_long_model_id_can_be_explicitly_saved(): void
+    {
+        $this->localRoutes();
+        $key = 'anthropic:future-'.str_repeat('model-', 80);
+        $this->roster([substr($key, strlen('anthropic:'))], []);
+        $this->post('/lab/models', ['allowed' => [$key]])->assertSessionHasNoErrors()->assertRedirect('/lab/models');
+        $this->assertSame([$key], app(ModelPolicy::class)->allowed());
+    }
+
+    public function test_legacy_and_deprecated_status_is_dated_cited_and_does_not_change_defaults(): void
+    {
+        foreach (['claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5', 'claude-fable-5'] as $id) {
+            $this->assertSame(['label' => 'Legacy', 'checked_on' => '2026-11-04', 'source' => 'https://platform.claude.com/docs/en/about-claude/models/overview'], app(ModelPrices::class)->lifecycleForModel('anthropic', $id));
+        }
+        foreach (['gpt-4.1-mini', 'gpt-4.1-mini-2025-04-14'] as $id) {
+            $this->assertSame(['label' => 'Deprecated', 'checked_on' => '2026-11-04', 'source' => 'https://developers.openai.com/api/docs/models/gpt-4.1-mini'], app(ModelPrices::class)->lifecycleForModel('openai', $id));
+        }
+        $this->assertNull(app(ModelPrices::class)->lifecycleForModel('openai', 'unpriced-future'));
+        $this->assertSame(['anthropic:claude-sonnet-5', 'openai:gpt-4.1-mini'], ModelCatalogue::DEFAULT_ENABLED);
+        $this->assertSame(ModelCatalogue::DEFAULT_ENABLED, app(ModelPolicy::class)->allowed());
+    }
+
     public function test_browser_fixture_matches_the_native_listing_and_inertia_pipeline(): void
     {
         $this->localRoutes();
@@ -257,7 +326,7 @@ class ModelCatalogueDiscoveryTest extends TestCase
                 $response = $this->get('/lab/models');
                 $response->assertOk();
 
-                return array_intersect_key($response->inertiaProps(), array_flip(['providers', 'allowed', 'pricing']));
+                return array_intersect_key($response->inertiaProps(), array_flip(['providers', 'allowed', 'selection', 'unavailable', 'pricing']));
             };
             $initial = $read();
             $this->assertCount(6, $initial['providers']);
@@ -266,10 +335,23 @@ class ModelCatalogueDiscoveryTest extends TestCase
             app(ModelCatalogue::class)->refresh();
             $refreshed = $read();
             $this->assertSame(['openai:gpt-4.1-mini'], $refreshed['allowed']);
+            $this->assertSame('withdrawn', $refreshed['unavailable'][0]['reason']);
+            app(ModelPolicy::class)->allow(['anthropic:unpriced-future', 'openai:gpt-4.1-mini']);
+            $this->unreachableProviders = ['anthropic'];
+            app(ModelCatalogue::class)->refresh();
+            $outage = $read();
+            $this->assertSame(['openai:gpt-4.1-mini'], $outage['allowed']);
+            $this->assertSame('unavailable', $outage['unavailable'][0]['reason']);
+            $this->post('/lab/models', ['allowed' => []])->assertRedirect('/lab/models');
+            $this->unreachableProviders = [];
+            app(ModelCatalogue::class)->refresh();
+            $recovered = $read();
+            $this->assertSame(['anthropic:unpriced-future'], $recovered['selection']);
+            $this->assertSame($recovered['selection'], $recovered['allowed']);
             $this->travelTo(CarbonImmutable::parse('2026-12-05T12:00:00Z'));
             $stale = $read();
             $this->assertTrue($stale['pricing']['stale']);
-            $payload = compact('initial', 'refreshed', 'stale');
+            $payload = compact('initial', 'refreshed', 'outage', 'recovered', 'stale');
             $json = json_encode($payload, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_PRESERVE_ZERO_FRACTION | JSON_HEX_TAG);
             $this->assertStringNotContainsString('fixture-provider-secret', $json);
             $path = storage_path('framework/testing/model-catalogue-browser.actual.json');

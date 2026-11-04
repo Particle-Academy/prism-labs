@@ -15,7 +15,6 @@
 .lab-models-identity label, .lab-models-identity label span { color: var(--k-ink); white-space: normal; overflow-wrap: anywhere; }
 .lab-models-identity code, .lab-models-identity small { display: block; width: 100%; min-width: 0; color: var(--k-ink-3); font-size: .73rem; }
 .lab-models-identity code { color: var(--k-ink-2); white-space: normal; }
-.lab-models-kind { padding: .12rem .4rem; border: 1px solid var(--k-hairline); border-radius: .35rem; color: var(--k-ink-3); font-size: .65rem; }
 .lab-models-unknown { color: var(--k-ink-3); font-size: .8rem; line-height: 1.6; }
 .lab-models-prices { min-width: 0; }
 .lab-models-rate + .lab-models-rate { margin-top: .8rem; padding-top: .8rem; border-top: 1px solid var(--k-hairline); }
