@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "19d4b1cfe9062bc57adc79a365843957",
+    "content-hash": "a5eb0575ae970eb990855d7494cc1e33",
     "packages": [
         {
             "name": "brick/math",
@@ -3271,16 +3271,16 @@
         },
         {
             "name": "particle-academy/fancy-flow-php",
-            "version": "v0.65.1",
+            "version": "v0.66.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/Particle-Academy/fancy-flow-php.git",
-                "reference": "4fc28f11922e57aa11f7684efb26c8cbac3852b2"
+                "reference": "7bf5a15d5ee01cf1b78fcfdc893ae56c999c2bb5"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Particle-Academy/fancy-flow-php/zipball/4fc28f11922e57aa11f7684efb26c8cbac3852b2",
-                "reference": "4fc28f11922e57aa11f7684efb26c8cbac3852b2",
+                "url": "https://api.github.com/repos/Particle-Academy/fancy-flow-php/zipball/7bf5a15d5ee01cf1b78fcfdc893ae56c999c2bb5",
+                "reference": "7bf5a15d5ee01cf1b78fcfdc893ae56c999c2bb5",
                 "shasum": ""
             },
             "require": {
@@ -3342,7 +3342,8 @@
                 "issues": "https://github.com/Particle-Academy/fancy-flow-php/issues",
                 "source": "https://github.com/Particle-Academy/fancy-flow-php"
             },
-            "time": "2026-11-01T09:32:26+00:00"
+            "time": "2026-11-04T22:02:30+00:00",
+            "published-time": "2026-11-04T22:05:19+00:00"
         },
         {
             "name": "particle-academy/prism",
@@ -3350,7 +3351,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism",
-                "reference": "4092a6fe34cc41d7a18d93a0a6cc63cdedad94b3"
+                "reference": "723ddc474291074aa76de82f67f690cd922dbe03"
             },
             "require": {
                 "ext-fileinfo": "*",
@@ -3517,7 +3518,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-browser",
-                "reference": "7b0c7301b373b7f6c45dce749f4aa1e6eba2ae24"
+                "reference": "a7d2a915ef70840e325e9c0f06319b2994b13c9f"
             },
             "require": {
                 "ext-filter": "*",
@@ -3581,7 +3582,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-harness",
-                "reference": "a00b6820cdb086349fb264f37a185b773e60b2e4"
+                "reference": "b69b0baa8531e7f36c7866af4bdb5c771e1248b5"
             },
             "require": {
                 "laravel/framework": "^12.69.0|^13.30.0",
@@ -3656,7 +3657,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-human-plus",
-                "reference": "9cb22613a50df4a4376843a405b32d2b21eb3c05"
+                "reference": "c8413ec75fd20a588529fa915e316b24006ec0a8"
             },
             "require": {
                 "ext-curl": "*",
@@ -3888,7 +3889,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-perplexity",
-                "reference": "90aa3290962c8e34972c1c4ce27b162d89db4fda"
+                "reference": "483c762c0b7994a0e267bc77d81a7abeb05655c7"
             },
             "require": {
                 "laravel/framework": "^12.69.0|^13.30.0",
@@ -11349,8 +11350,8 @@
         {
             "package": "particle-academy/prism-perplexity",
             "version": "dev-main",
-            "alias": "0.4.0",
-            "alias_normalized": "0.4.0.0"
+            "alias": "0.4.1",
+            "alias_normalized": "0.4.1.0"
         },
         {
             "package": "particle-academy/prism-workspace",
