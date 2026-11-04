@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Benchmarks\BenchmarkScorer;
+use App\Benchmarks\LaneActivity;
 use App\Models\BenchmarkLane;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -22,13 +23,19 @@ final class ScoreLaneJob implements ShouldQueue
 {
     use Queueable;
 
-    public int $tries = 1;
+    /** Releases are pre-inference only; one uncaught failure must never repeat inference. */
+    public int $tries = 16;
+
+    public int $maxExceptions = 1;
+
+    public ?int $listingRetryDeadline = null;
 
     public int $timeout = 180;
 
     public function __construct(public readonly string $laneId)
     {
         $this->onQueue('scoring');
+        $this->listingRetryDeadline = now()->addMinutes(30)->getTimestamp();
     }
 
     /**
@@ -47,8 +54,22 @@ final class ScoreLaneJob implements ShouldQueue
     {
         $lane = BenchmarkLane::query()->with(['receipts', 'benchmarkRun.spec'])->find($this->laneId);
 
-        if ($lane instanceof BenchmarkLane) {
-            $scorer->score($lane);
+        if (! $lane instanceof BenchmarkLane || $lane->score !== null) {
+            return;
         }
+
+        $result = $scorer->score($lane);
+        $activity = app(LaneActivity::class);
+        // Jobs queued before this field existed get a bounded window on first execution.
+        $this->listingRetryDeadline ??= now()->addMinutes(30)->getTimestamp();
+        if ($result->retryListing && $this->attempts() < $this->tries && now()->getTimestamp() < $this->listingRetryDeadline) {
+            $activity->record($lane, 'scoring.deferred', "Scoring deferred: couldn't reach the provider's model list. Retrying in two minutes, for at most thirty minutes.");
+            $this->release(120);
+
+            return;
+        }
+
+        $activity->record($lane, $result->score !== null ? 'scoring.completed' : 'scoring.unavailable',
+            $result->score !== null ? 'Independent scoring completed.' : ($result->reason ?? 'Not scored: no judgement is available.'));
     }
 }

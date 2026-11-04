@@ -32,3 +32,5 @@ Thumbs.db
 /lock-audit-evidence.json
 /remotion-render-evidence.json
 /prism-labs-forms-ci.json
+/prism-labs-models-ci.json
+/models-browser-artifacts

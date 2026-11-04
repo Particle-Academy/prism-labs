@@ -17,7 +17,7 @@ type Worker = { state: 'starting' | 'active' | 'stalled' | 'settled'; message: s
 type Commentary = { id: number; line: string; created_at: string };
 type Receipt = { id: string; kind: string; digest: string; payload: unknown };
 type Dimension = { dimension: string; weight: number; score: number; justification: string; cited_receipt: string | null };
-type LaneResult = { lane_id: string; ordinal: number; provider: string; model: string; status: string; scored: boolean; score: string | null; dimensions: Dimension[]; working_artifact: string | null; spec_digest: string | null; zero_learning: string | null; checks: Record<string, unknown>; receipts: Receipt[] };
+type LaneResult = { lane_id: string; ordinal: number; provider: string; model: string; status: string; scored: boolean; score: string | null; scoring_reason?: string | null; dimensions: Dimension[]; working_artifact: string | null; spec_digest: string | null; zero_learning: string | null; checks: Record<string, unknown>; receipts: Receipt[] };
 type RunLearning = { ref: string; title: string; severity: string; severity_label: string; what_was_learned: string; evidence: string; why_it_matters: string; what_should_change: string | null; path: string };
 
 /**
@@ -124,6 +124,7 @@ function Results({ results, learning, settled }: { results: LaneResult[]; learni
                 {/* Absent, not zero. Nothing in the Lab computes a score yet, and
                     a "0" here would read as a verdict rather than a gap. */}
                 <span className={`lab-score ${result.scored ? '' : 'is-unscored'}`}>{result.scored ? result.score : 'not scored'}</span>
+                {!result.scored && result.scoring_reason && <p role="status">{result.scoring_reason}</p>}
             </header>
 
             {result.dimensions.length > 0 && <div className="lab-dimensions">

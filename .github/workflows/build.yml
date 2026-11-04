@@ -209,6 +209,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Models page production browser controls (desktop and mobile)
+        run: npm run test:models-ui
+
       - name: Audit the resolved dependency graph
         if: always()
         run: npm audit --audit-level=high
@@ -227,4 +230,6 @@ jobs:
             remotion-render-evidence.json
             playwright-cache-evidence.json
             prism-labs-forms-ci.json
+            prism-labs-models-ci.json
+            models-browser-artifacts/
           if-no-files-found: error

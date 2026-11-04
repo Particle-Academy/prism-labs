@@ -6,16 +6,23 @@ namespace Tests\Feature;
 
 use App\Benchmarks\BenchmarkDesigner;
 use App\Benchmarks\BenchmarkScorer;
+use App\Benchmarks\LaneActivity;
 use App\Benchmarks\ProofRecorder;
 use App\Benchmarks\Rubric;
+use App\Http\Controllers\Lab\BenchmarkController;
 use App\Jobs\ScoreLaneJob;
+use App\Lab\ModelPolicy;
 use App\Models\BenchmarkLane;
 use App\Models\BenchmarkScore;
 use App\Models\BenchmarkSpec;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
 use PHPUnit\Framework\Attributes\Group;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Testing\TextResponseFake;
+use Tests\Concerns\CachesModelRoster;
 use Tests\TestCase;
 
 /**
@@ -27,12 +34,14 @@ use Tests\TestCase;
 #[Group('dogfood')]
 class BenchmarkScoringTest extends TestCase
 {
+    use CachesModelRoster;
     use RefreshDatabase;
 
     protected function setUp(): void
     {
         parent::setUp();
         config(['prism.providers.anthropic.api_key' => 'sk-test']);
+        $this->cacheModelRoster();
     }
 
     private function scoredLane(string $judgeJson): BenchmarkLane
@@ -171,6 +180,134 @@ class BenchmarkScoringTest extends TestCase
         // `default` carries the lanes for the length of a run, so a scoring job
         // queued there would wait behind every remaining lane.
         $this->assertSame('scoring', (new ScoreLaneJob('any'))->queue);
+    }
+
+    private function pendingLane(): BenchmarkLane
+    {
+        $lane = $this->scoredLane('{"dimensions":[{"name":"Correctness","score":80,"justification":"traced"}]}');
+        $lane->activities()->where('kind', 'scoring.started')->delete();
+        BenchmarkScore::query()->where('benchmark_lane_id', $lane->id)->delete();
+        $lane->forceFill(['score' => null])->save();
+
+        return $lane->refresh();
+    }
+
+    private function unreachableListing(): void
+    {
+        Cache::put('lab.model-listing.v1.anthropic', ['status' => 'unreachable', 'models' => [], 'checked_at' => now()->toIso8601String(), 'message' => 'Fixture listing unavailable.'], 60);
+    }
+
+    public function test_real_scoring_job_defers_before_inference_then_scores_after_listing_recovery(): void
+    {
+        $lane = $this->pendingLane();
+        $proof = $lane->proof;
+        $this->unreachableListing();
+        $fake = Prism::fake([]);
+        $job = (new ScoreLaneJob($lane->id))->withFakeQueueInteractions();
+        $job->handle(app(BenchmarkScorer::class));
+        $job->assertReleased(120);
+        $fake->assertRequest(fn (array $requests) => $this->assertCount(0, $requests));
+        $this->assertStringContainsString('deferred', $lane->activities()->reorder('id', 'desc')->value('summary'));
+        $this->assertSame($proof, $lane->refresh()->proof);
+        $this->assertNull($lane->score);
+        $this->cacheModelRoster();
+        $fake = Prism::fake([TextResponseFake::make()->withText('{"dimensions":[{"name":"Correctness","score":80,"justification":"traced"}]}')]);
+        $recovered = (new ScoreLaneJob($lane->id))->withFakeQueueInteractions();
+        $recovered->handle(app(BenchmarkScorer::class));
+        $recovered->assertNotReleased();
+        $this->assertEquals(80, $lane->refresh()->score);
+        $fake->assertRequest(fn (array $requests) => $this->assertCount(1, $requests));
+        $again = (new ScoreLaneJob($lane->id))->withFakeQueueInteractions();
+        $again->handle(app(BenchmarkScorer::class));
+        $fake->assertRequest(fn (array $requests) => $this->assertCount(1, $requests));
+    }
+
+    public function test_real_scoring_job_exhaustion_keeps_a_visible_reason_without_inference(): void
+    {
+        $lane = $this->pendingLane();
+        $job = (new ScoreLaneJob($lane->id))->withFakeQueueInteractions();
+        $this->travel(31)->minutes();
+        try {
+            $this->unreachableListing();
+            $fake = Prism::fake([]);
+            $job->handle(app(BenchmarkScorer::class));
+            $job->assertNotReleased();
+            $fake->assertRequest(fn (array $requests) => $this->assertCount(0, $requests));
+            $this->assertSame("Not scored: couldn't reach the provider's model list.", $lane->activities()->reorder('id', 'desc')->value('summary'));
+            $this->assertNull($lane->refresh()->score);
+            Route::middleware('web')->get('/fixtures/scoring/{run}', [BenchmarkController::class, 'runRoom']);
+            $this->get('/fixtures/scoring/'.$lane->benchmark_run_id)->assertOk()->assertInertia(fn ($page) => $page
+                ->component('Lab/RunRoom')->where('results.0.scoring_reason', "Not scored: couldn't reach the provider's model list."));
+        } finally {
+            $this->travelBack();
+        }
+    }
+
+    public function test_real_scoring_job_does_not_retry_an_operator_choice_or_missing_key(): void
+    {
+        $lane = $this->pendingLane();
+        $this->cacheModelRoster(includeOpenAI: true);
+        app(ModelPolicy::class)->allow([]);
+        $fake = Prism::fake([]);
+        $job = (new ScoreLaneJob($lane->id))->withFakeQueueInteractions();
+        $job->handle(app(BenchmarkScorer::class));
+        $job->assertNotReleased();
+        $this->assertSame('Not scored: no model is enabled for judging.', $lane->activities()->reorder('id', 'desc')->value('summary'));
+        app(ModelPolicy::class)->allow(['anthropic:claude-sonnet-5']);
+        config(['prism.providers.anthropic.api_key' => '']);
+        $missingKey = (new ScoreLaneJob($lane->id))->withFakeQueueInteractions();
+        $missingKey->handle(app(BenchmarkScorer::class));
+        $missingKey->assertNotReleased();
+        $this->assertStringContainsString('no configured API key', $lane->activities()->reorder('id', 'desc')->value('summary'));
+        $fake->assertRequest(fn (array $requests) => $this->assertCount(0, $requests));
+    }
+
+    public function test_real_scoring_job_never_retries_after_a_model_call_was_sent(): void
+    {
+        $lane = $this->pendingLane();
+        $fake = Prism::fake([TextResponseFake::make()->withText('not scoring JSON')]);
+        $job = (new ScoreLaneJob($lane->id))->withFakeQueueInteractions();
+        $job->handle(app(BenchmarkScorer::class));
+        $job->assertNotReleased();
+        $this->assertStringContainsString('No automatic inference retry', $lane->activities()->reorder('id', 'desc')->value('summary'));
+        $this->assertSame(1, $job->maxExceptions, 'A worker exception after a send must fail instead of repeating inference.');
+        $fake->assertRequest(fn (array $requests) => $this->assertCount(1, $requests));
+        $redelivered = (new ScoreLaneJob($lane->id))->withFakeQueueInteractions();
+        $redelivered->handle(app(BenchmarkScorer::class));
+        $redelivered->assertNotReleased();
+        $fake->assertRequest(fn (array $requests) => $this->assertCount(1, $requests));
+        $this->assertStringContainsString('uncertain', $lane->activities()->reorder('id', 'desc')->value('summary'));
+    }
+
+    public function test_real_scoring_job_does_not_retry_unsupported_or_unpriced_selections(): void
+    {
+        $lane = $this->pendingLane();
+        DB::table('lab_settings')->updateOrInsert(['key' => 'benchmark.allowed_models'], ['value' => json_encode(['perplexity:sonar'])]);
+        config(['prism.providers.perplexity' => ['api_key' => 'fixture-only', 'url' => 'https://refused.fixture']]);
+        $fake = Prism::fake([]);
+        $job = (new ScoreLaneJob($lane->id))->withFakeQueueInteractions();
+        $job->handle(app(BenchmarkScorer::class));
+        $job->assertNotReleased();
+        $this->assertStringContainsString('listing is unsupported', $lane->activities()->reorder('id', 'desc')->value('summary'));
+        DB::table('lab_settings')->where('key', 'benchmark.allowed_models')->update(['value' => json_encode(['anthropic:unpriced-future'])]);
+        $unpriced = (new ScoreLaneJob($lane->id))->withFakeQueueInteractions();
+        $unpriced->handle(app(BenchmarkScorer::class));
+        $unpriced->assertNotReleased();
+        $this->assertSame('Not scored: no permitted model has a checked price.', $lane->activities()->reorder('id', 'desc')->value('summary'));
+        $fake->assertRequest(fn (array $requests) => $this->assertCount(0, $requests));
+    }
+
+    public function test_worker_redelivery_after_uncertain_inference_does_not_send_again(): void
+    {
+        $lane = $this->pendingLane();
+        app(LaneActivity::class)->record($lane, 'scoring.started', 'Judging delivery started; completion is not known.');
+        $fake = Prism::fake([TextResponseFake::make()->withText('{"dimensions":[{"name":"Correctness","score":80,"justification":"traced"}]}')]);
+        $job = (new ScoreLaneJob($lane->id))->withFakeQueueInteractions();
+        $job->handle(app(BenchmarkScorer::class));
+        $job->assertNotReleased();
+        $fake->assertRequest(fn (array $requests) => $this->assertCount(0, $requests));
+        $this->assertNull($lane->refresh()->score);
+        $this->assertStringContainsString('uncertain', $lane->activities()->reorder('id', 'desc')->value('summary'));
     }
 
     public function test_both_rubric_shapes_normalise_to_weights_that_sum_to_one(): void

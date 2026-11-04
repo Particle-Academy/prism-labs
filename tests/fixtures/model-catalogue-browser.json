@@ -1,0 +1,1093 @@
+{
+    "initial": {
+        "providers": [
+            {
+                "key": "anthropic",
+                "label": "Anthropic",
+                "configured": true,
+                "status": "ready",
+                "message": null,
+                "checked_at": "2026-11-04T12:00:00+00:00",
+                "scope": null,
+                "models": [
+                    {
+                        "key": "anthropic:claude-fable-5-1",
+                        "provider": "anthropic",
+                        "provider_label": "Anthropic",
+                        "id": "claude-fable-5-1",
+                        "label": "Returned claude-fable-5-1",
+                        "created_at": null,
+                        "kind": "other",
+                        "configured": true,
+                        "price": {
+                            "input": 10,
+                            "rates": [
+                                {
+                                    "context": "Standard tokens",
+                                    "input": 10,
+                                    "output": 50,
+                                    "cache_read": 0.25,
+                                    "cache_write_5m": 12.5,
+                                    "cache_write_1h": 20
+                                }
+                            ],
+                            "currency": "USD",
+                            "unit": "million_tokens",
+                            "checked_on": "2026-11-04",
+                            "source": "https:\/\/platform.claude.com\/docs\/en\/about-claude\/pricing",
+                            "stale": false
+                        },
+                        "lifecycle": null
+                    },
+                    {
+                        "key": "anthropic:claude-opus-5",
+                        "provider": "anthropic",
+                        "provider_label": "Anthropic",
+                        "id": "claude-opus-5",
+                        "label": "Returned claude-opus-5",
+                        "created_at": null,
+                        "kind": "other",
+                        "configured": true,
+                        "price": {
+                            "input": 5,
+                            "rates": [
+                                {
+                                    "context": "Standard tokens",
+                                    "input": 5,
+                                    "output": 25,
+                                    "cache_read": 0.5,
+                                    "cache_write_5m": 6.25,
+                                    "cache_write_1h": 10
+                                }
+                            ],
+                            "currency": "USD",
+                            "unit": "million_tokens",
+                            "checked_on": "2026-11-04",
+                            "source": "https:\/\/platform.claude.com\/docs\/en\/about-claude\/pricing",
+                            "stale": false
+                        },
+                        "lifecycle": {
+                            "label": "Legacy",
+                            "checked_on": "2026-11-04",
+                            "source": "https:\/\/platform.claude.com\/docs\/en\/about-claude\/models\/overview"
+                        }
+                    },
+                    {
+                        "key": "anthropic:claude-sonnet-5",
+                        "provider": "anthropic",
+                        "provider_label": "Anthropic",
+                        "id": "claude-sonnet-5",
+                        "label": "Returned claude-sonnet-5",
+                        "created_at": null,
+                        "kind": "other",
+                        "configured": true,
+                        "price": {
+                            "input": 2,
+                            "rates": [
+                                {
+                                    "context": "Standard tokens",
+                                    "input": 2,
+                                    "output": 10,
+                                    "cache_read": 0.2,
+                                    "cache_write_5m": 2.5,
+                                    "cache_write_1h": 4
+                                }
+                            ],
+                            "currency": "USD",
+                            "unit": "million_tokens",
+                            "checked_on": "2026-11-04",
+                            "source": "https:\/\/platform.claude.com\/docs\/en\/about-claude\/pricing",
+                            "stale": false
+                        },
+                        "lifecycle": {
+                            "label": "Legacy",
+                            "checked_on": "2026-11-04",
+                            "source": "https:\/\/platform.claude.com\/docs\/en\/about-claude\/models\/overview"
+                        }
+                    },
+                    {
+                        "key": "anthropic:claude-haiku-5-5",
+                        "provider": "anthropic",
+                        "provider_label": "Anthropic",
+                        "id": "claude-haiku-5-5",
+                        "label": "Returned claude-haiku-5-5",
+                        "created_at": null,
+                        "kind": "other",
+                        "configured": true,
+                        "price": {
+                            "input": 0.1,
+                            "rates": [
+                                {
+                                    "context": "Up to 100,000 input tokens",
+                                    "input": 0.1,
+                                    "output": 0.5,
+                                    "cache_read": 0.01,
+                                    "cache_write_5m": 0.125,
+                                    "cache_write_1h": 0.2
+                                },
+                                {
+                                    "context": "Over 100,000 input tokens",
+                                    "input": 0.5,
+                                    "output": 2.5,
+                                    "cache_read": 0.05,
+                                    "cache_write_5m": 0.625,
+                                    "cache_write_1h": 1
+                                }
+                            ],
+                            "currency": "USD",
+                            "unit": "million_tokens",
+                            "checked_on": "2026-11-04",
+                            "source": "https:\/\/platform.claude.com\/docs\/en\/about-claude\/pricing",
+                            "stale": false
+                        },
+                        "lifecycle": null
+                    },
+                    {
+                        "key": "anthropic:\u003Cimg src=x onerror=window.modelsXss=true\u003E",
+                        "provider": "anthropic",
+                        "provider_label": "Anthropic",
+                        "id": "\u003Cimg src=x onerror=window.modelsXss=true\u003E",
+                        "label": "\u003Cscript\u003Ewindow.modelsXss=true\u003C\/script\u003E",
+                        "created_at": null,
+                        "kind": "other",
+                        "configured": true,
+                        "price": null,
+                        "lifecycle": null
+                    },
+                    {
+                        "key": "anthropic:future-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-",
+                        "provider": "anthropic",
+                        "provider_label": "Anthropic",
+                        "id": "future-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-",
+                        "label": "Returned future-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-",
+                        "created_at": null,
+                        "kind": "other",
+                        "configured": true,
+                        "price": null,
+                        "lifecycle": null
+                    },
+                    {
+                        "key": "anthropic:unpriced-future",
+                        "provider": "anthropic",
+                        "provider_label": "Anthropic",
+                        "id": "unpriced-future",
+                        "label": "Returned unpriced-future",
+                        "created_at": null,
+                        "kind": "other",
+                        "configured": true,
+                        "price": null,
+                        "lifecycle": null
+                    }
+                ]
+            },
+            {
+                "key": "openai",
+                "label": "OpenAI",
+                "configured": true,
+                "status": "ready",
+                "message": null,
+                "checked_at": "2026-11-04T12:00:00+00:00",
+                "scope": null,
+                "models": [
+                    {
+                        "key": "openai:gpt-4.1-mini",
+                        "provider": "openai",
+                        "provider_label": "OpenAI",
+                        "id": "gpt-4.1-mini",
+                        "label": "gpt-4.1-mini",
+                        "created_at": 1712361441,
+                        "kind": "other",
+                        "configured": true,
+                        "price": {
+                            "input": 0.4,
+                            "rates": [
+                                {
+                                    "context": "Standard text tokens",
+                                    "input": 0.4,
+                                    "output": 1.6,
+                                    "cache_read": 0.1,
+                                    "cache_write_5m": null,
+                                    "cache_write_1h": null
+                                }
+                            ],
+                            "currency": "USD",
+                            "unit": "million_tokens",
+                            "checked_on": "2026-11-04",
+                            "source": "https:\/\/developers.openai.com\/api\/docs\/models\/gpt-4.1-mini",
+                            "stale": false
+                        },
+                        "lifecycle": {
+                            "label": "Deprecated",
+                            "checked_on": "2026-11-04",
+                            "source": "https:\/\/developers.openai.com\/api\/docs\/models\/gpt-4.1-mini"
+                        }
+                    },
+                    {
+                        "key": "openai:unpriced-openai",
+                        "provider": "openai",
+                        "provider_label": "OpenAI",
+                        "id": "unpriced-openai",
+                        "label": "unpriced-openai",
+                        "created_at": 1712361441,
+                        "kind": "other",
+                        "configured": true,
+                        "price": null,
+                        "lifecycle": null
+                    }
+                ]
+            },
+            {
+                "key": "perplexity",
+                "label": "Perplexity",
+                "configured": true,
+                "status": "unsupported",
+                "message": "This provider does not support model listing in Prism.",
+                "checked_at": "2026-11-04T12:00:00+00:00",
+                "scope": null,
+                "models": []
+            },
+            {
+                "key": "replicate",
+                "label": "Replicate",
+                "configured": true,
+                "status": "ready",
+                "message": null,
+                "checked_at": "2026-11-04T12:00:00+00:00",
+                "scope": "Replicate lists a public catalogue, not your account or its private models.",
+                "models": [
+                    {
+                        "key": "replicate:someone\/public",
+                        "provider": "replicate",
+                        "provider_label": "Replicate",
+                        "id": "someone\/public",
+                        "label": "someone\/public",
+                        "created_at": null,
+                        "kind": "other",
+                        "configured": true,
+                        "price": null,
+                        "lifecycle": null
+                    }
+                ]
+            },
+            {
+                "key": "gemini",
+                "label": "Gemini",
+                "configured": false,
+                "status": "unconfigured",
+                "message": "Provider not reachable: no API key is configured.",
+                "checked_at": null,
+                "scope": null,
+                "models": []
+            },
+            {
+                "key": "groq",
+                "label": "Groq",
+                "configured": true,
+                "status": "unreachable",
+                "message": "We couldn't reach this provider. Check its configuration and try Refresh.",
+                "checked_at": "2026-11-04T12:00:00+00:00",
+                "scope": null,
+                "models": []
+            }
+        ],
+        "allowed": [
+            "anthropic:claude-sonnet-5",
+            "openai:gpt-4.1-mini"
+        ],
+        "selection": [
+            "anthropic:claude-sonnet-5",
+            "openai:gpt-4.1-mini"
+        ],
+        "unavailable": [],
+        "pricing": {
+            "checked_on": "2026-11-04",
+            "stale": false
+        }
+    },
+    "refreshed": {
+        "providers": [
+            {
+                "key": "anthropic",
+                "label": "Anthropic",
+                "configured": true,
+                "status": "ready",
+                "message": null,
+                "checked_at": "2026-11-04T12:00:00+00:00",
+                "scope": null,
+                "models": [
+                    {
+                        "key": "anthropic:claude-fable-5-1",
+                        "provider": "anthropic",
+                        "provider_label": "Anthropic",
+                        "id": "claude-fable-5-1",
+                        "label": "Returned claude-fable-5-1",
+                        "created_at": null,
+                        "kind": "other",
+                        "configured": true,
+                        "price": {
+                            "input": 10,
+                            "rates": [
+                                {
+                                    "context": "Standard tokens",
+                                    "input": 10,
+                                    "output": 50,
+                                    "cache_read": 0.25,
+                                    "cache_write_5m": 12.5,
+                                    "cache_write_1h": 20
+                                }
+                            ],
+                            "currency": "USD",
+                            "unit": "million_tokens",
+                            "checked_on": "2026-11-04",
+                            "source": "https:\/\/platform.claude.com\/docs\/en\/about-claude\/pricing",
+                            "stale": false
+                        },
+                        "lifecycle": null
+                    },
+                    {
+                        "key": "anthropic:\u003Cimg src=x onerror=window.modelsXss=true\u003E",
+                        "provider": "anthropic",
+                        "provider_label": "Anthropic",
+                        "id": "\u003Cimg src=x onerror=window.modelsXss=true\u003E",
+                        "label": "\u003Cscript\u003Ewindow.modelsXss=true\u003C\/script\u003E",
+                        "created_at": null,
+                        "kind": "other",
+                        "configured": true,
+                        "price": null,
+                        "lifecycle": null
+                    },
+                    {
+                        "key": "anthropic:brand-new-after-refresh",
+                        "provider": "anthropic",
+                        "provider_label": "Anthropic",
+                        "id": "brand-new-after-refresh",
+                        "label": "Returned brand-new-after-refresh",
+                        "created_at": null,
+                        "kind": "other",
+                        "configured": true,
+                        "price": null,
+                        "lifecycle": null
+                    },
+                    {
+                        "key": "anthropic:future-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-",
+                        "provider": "anthropic",
+                        "provider_label": "Anthropic",
+                        "id": "future-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-",
+                        "label": "Returned future-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-",
+                        "created_at": null,
+                        "kind": "other",
+                        "configured": true,
+                        "price": null,
+                        "lifecycle": null
+                    },
+                    {
+                        "key": "anthropic:unpriced-future",
+                        "provider": "anthropic",
+                        "provider_label": "Anthropic",
+                        "id": "unpriced-future",
+                        "label": "Returned unpriced-future",
+                        "created_at": null,
+                        "kind": "other",
+                        "configured": true,
+                        "price": null,
+                        "lifecycle": null
+                    }
+                ]
+            },
+            {
+                "key": "openai",
+                "label": "OpenAI",
+                "configured": true,
+                "status": "ready",
+                "message": null,
+                "checked_at": "2026-11-04T12:00:00+00:00",
+                "scope": null,
+                "models": [
+                    {
+                        "key": "openai:gpt-4.1-mini",
+                        "provider": "openai",
+                        "provider_label": "OpenAI",
+                        "id": "gpt-4.1-mini",
+                        "label": "gpt-4.1-mini",
+                        "created_at": 1712361441,
+                        "kind": "other",
+                        "configured": true,
+                        "price": {
+                            "input": 0.4,
+                            "rates": [
+                                {
+                                    "context": "Standard text tokens",
+                                    "input": 0.4,
+                                    "output": 1.6,
+                                    "cache_read": 0.1,
+                                    "cache_write_5m": null,
+                                    "cache_write_1h": null
+                                }
+                            ],
+                            "currency": "USD",
+                            "unit": "million_tokens",
+                            "checked_on": "2026-11-04",
+                            "source": "https:\/\/developers.openai.com\/api\/docs\/models\/gpt-4.1-mini",
+                            "stale": false
+                        },
+                        "lifecycle": {
+                            "label": "Deprecated",
+                            "checked_on": "2026-11-04",
+                            "source": "https:\/\/developers.openai.com\/api\/docs\/models\/gpt-4.1-mini"
+                        }
+                    },
+                    {
+                        "key": "openai:unpriced-openai",
+                        "provider": "openai",
+                        "provider_label": "OpenAI",
+                        "id": "unpriced-openai",
+                        "label": "unpriced-openai",
+                        "created_at": 1712361441,
+                        "kind": "other",
+                        "configured": true,
+                        "price": null,
+                        "lifecycle": null
+                    }
+                ]
+            },
+            {
+                "key": "perplexity",
+                "label": "Perplexity",
+                "configured": true,
+                "status": "unsupported",
+                "message": "This provider does not support model listing in Prism.",
+                "checked_at": "2026-11-04T12:00:00+00:00",
+                "scope": null,
+                "models": []
+            },
+            {
+                "key": "replicate",
+                "label": "Replicate",
+                "configured": true,
+                "status": "ready",
+                "message": null,
+                "checked_at": "2026-11-04T12:00:00+00:00",
+                "scope": "Replicate lists a public catalogue, not your account or its private models.",
+                "models": [
+                    {
+                        "key": "replicate:someone\/public",
+                        "provider": "replicate",
+                        "provider_label": "Replicate",
+                        "id": "someone\/public",
+                        "label": "someone\/public",
+                        "created_at": null,
+                        "kind": "other",
+                        "configured": true,
+                        "price": null,
+                        "lifecycle": null
+                    }
+                ]
+            },
+            {
+                "key": "gemini",
+                "label": "Gemini",
+                "configured": false,
+                "status": "unconfigured",
+                "message": "Provider not reachable: no API key is configured.",
+                "checked_at": null,
+                "scope": null,
+                "models": []
+            },
+            {
+                "key": "groq",
+                "label": "Groq",
+                "configured": true,
+                "status": "unreachable",
+                "message": "We couldn't reach this provider. Check its configuration and try Refresh.",
+                "checked_at": "2026-11-04T12:00:00+00:00",
+                "scope": null,
+                "models": []
+            }
+        ],
+        "allowed": [
+            "openai:gpt-4.1-mini"
+        ],
+        "selection": [
+            "anthropic:claude-sonnet-5",
+            "openai:gpt-4.1-mini"
+        ],
+        "unavailable": [
+            {
+                "key": "anthropic:claude-sonnet-5",
+                "provider": "anthropic",
+                "id": "claude-sonnet-5",
+                "reason": "withdrawn"
+            }
+        ],
+        "pricing": {
+            "checked_on": "2026-11-04",
+            "stale": false
+        }
+    },
+    "outage": {
+        "providers": [
+            {
+                "key": "anthropic",
+                "label": "Anthropic",
+                "configured": true,
+                "status": "unreachable",
+                "message": "We couldn't reach this provider. Check its configuration and try Refresh.",
+                "checked_at": "2026-11-04T12:00:00+00:00",
+                "scope": null,
+                "models": []
+            },
+            {
+                "key": "openai",
+                "label": "OpenAI",
+                "configured": true,
+                "status": "ready",
+                "message": null,
+                "checked_at": "2026-11-04T12:00:00+00:00",
+                "scope": null,
+                "models": [
+                    {
+                        "key": "openai:gpt-4.1-mini",
+                        "provider": "openai",
+                        "provider_label": "OpenAI",
+                        "id": "gpt-4.1-mini",
+                        "label": "gpt-4.1-mini",
+                        "created_at": 1712361441,
+                        "kind": "other",
+                        "configured": true,
+                        "price": {
+                            "input": 0.4,
+                            "rates": [
+                                {
+                                    "context": "Standard text tokens",
+                                    "input": 0.4,
+                                    "output": 1.6,
+                                    "cache_read": 0.1,
+                                    "cache_write_5m": null,
+                                    "cache_write_1h": null
+                                }
+                            ],
+                            "currency": "USD",
+                            "unit": "million_tokens",
+                            "checked_on": "2026-11-04",
+                            "source": "https:\/\/developers.openai.com\/api\/docs\/models\/gpt-4.1-mini",
+                            "stale": false
+                        },
+                        "lifecycle": {
+                            "label": "Deprecated",
+                            "checked_on": "2026-11-04",
+                            "source": "https:\/\/developers.openai.com\/api\/docs\/models\/gpt-4.1-mini"
+                        }
+                    },
+                    {
+                        "key": "openai:unpriced-openai",
+                        "provider": "openai",
+                        "provider_label": "OpenAI",
+                        "id": "unpriced-openai",
+                        "label": "unpriced-openai",
+                        "created_at": 1712361441,
+                        "kind": "other",
+                        "configured": true,
+                        "price": null,
+                        "lifecycle": null
+                    }
+                ]
+            },
+            {
+                "key": "perplexity",
+                "label": "Perplexity",
+                "configured": true,
+                "status": "unsupported",
+                "message": "This provider does not support model listing in Prism.",
+                "checked_at": "2026-11-04T12:00:00+00:00",
+                "scope": null,
+                "models": []
+            },
+            {
+                "key": "replicate",
+                "label": "Replicate",
+                "configured": true,
+                "status": "ready",
+                "message": null,
+                "checked_at": "2026-11-04T12:00:00+00:00",
+                "scope": "Replicate lists a public catalogue, not your account or its private models.",
+                "models": [
+                    {
+                        "key": "replicate:someone\/public",
+                        "provider": "replicate",
+                        "provider_label": "Replicate",
+                        "id": "someone\/public",
+                        "label": "someone\/public",
+                        "created_at": null,
+                        "kind": "other",
+                        "configured": true,
+                        "price": null,
+                        "lifecycle": null
+                    }
+                ]
+            },
+            {
+                "key": "gemini",
+                "label": "Gemini",
+                "configured": false,
+                "status": "unconfigured",
+                "message": "Provider not reachable: no API key is configured.",
+                "checked_at": null,
+                "scope": null,
+                "models": []
+            },
+            {
+                "key": "groq",
+                "label": "Groq",
+                "configured": true,
+                "status": "unreachable",
+                "message": "We couldn't reach this provider. Check its configuration and try Refresh.",
+                "checked_at": "2026-11-04T12:00:00+00:00",
+                "scope": null,
+                "models": []
+            }
+        ],
+        "allowed": [
+            "openai:gpt-4.1-mini"
+        ],
+        "selection": [
+            "anthropic:unpriced-future",
+            "openai:gpt-4.1-mini"
+        ],
+        "unavailable": [
+            {
+                "key": "anthropic:unpriced-future",
+                "provider": "anthropic",
+                "id": "unpriced-future",
+                "reason": "unavailable"
+            }
+        ],
+        "pricing": {
+            "checked_on": "2026-11-04",
+            "stale": false
+        }
+    },
+    "recovered": {
+        "providers": [
+            {
+                "key": "anthropic",
+                "label": "Anthropic",
+                "configured": true,
+                "status": "ready",
+                "message": null,
+                "checked_at": "2026-11-04T12:00:00+00:00",
+                "scope": null,
+                "models": [
+                    {
+                        "key": "anthropic:claude-fable-5-1",
+                        "provider": "anthropic",
+                        "provider_label": "Anthropic",
+                        "id": "claude-fable-5-1",
+                        "label": "Returned claude-fable-5-1",
+                        "created_at": null,
+                        "kind": "other",
+                        "configured": true,
+                        "price": {
+                            "input": 10,
+                            "rates": [
+                                {
+                                    "context": "Standard tokens",
+                                    "input": 10,
+                                    "output": 50,
+                                    "cache_read": 0.25,
+                                    "cache_write_5m": 12.5,
+                                    "cache_write_1h": 20
+                                }
+                            ],
+                            "currency": "USD",
+                            "unit": "million_tokens",
+                            "checked_on": "2026-11-04",
+                            "source": "https:\/\/platform.claude.com\/docs\/en\/about-claude\/pricing",
+                            "stale": false
+                        },
+                        "lifecycle": null
+                    },
+                    {
+                        "key": "anthropic:\u003Cimg src=x onerror=window.modelsXss=true\u003E",
+                        "provider": "anthropic",
+                        "provider_label": "Anthropic",
+                        "id": "\u003Cimg src=x onerror=window.modelsXss=true\u003E",
+                        "label": "\u003Cscript\u003Ewindow.modelsXss=true\u003C\/script\u003E",
+                        "created_at": null,
+                        "kind": "other",
+                        "configured": true,
+                        "price": null,
+                        "lifecycle": null
+                    },
+                    {
+                        "key": "anthropic:brand-new-after-refresh",
+                        "provider": "anthropic",
+                        "provider_label": "Anthropic",
+                        "id": "brand-new-after-refresh",
+                        "label": "Returned brand-new-after-refresh",
+                        "created_at": null,
+                        "kind": "other",
+                        "configured": true,
+                        "price": null,
+                        "lifecycle": null
+                    },
+                    {
+                        "key": "anthropic:future-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-",
+                        "provider": "anthropic",
+                        "provider_label": "Anthropic",
+                        "id": "future-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-",
+                        "label": "Returned future-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-",
+                        "created_at": null,
+                        "kind": "other",
+                        "configured": true,
+                        "price": null,
+                        "lifecycle": null
+                    },
+                    {
+                        "key": "anthropic:unpriced-future",
+                        "provider": "anthropic",
+                        "provider_label": "Anthropic",
+                        "id": "unpriced-future",
+                        "label": "Returned unpriced-future",
+                        "created_at": null,
+                        "kind": "other",
+                        "configured": true,
+                        "price": null,
+                        "lifecycle": null
+                    }
+                ]
+            },
+            {
+                "key": "openai",
+                "label": "OpenAI",
+                "configured": true,
+                "status": "ready",
+                "message": null,
+                "checked_at": "2026-11-04T12:00:00+00:00",
+                "scope": null,
+                "models": [
+                    {
+                        "key": "openai:gpt-4.1-mini",
+                        "provider": "openai",
+                        "provider_label": "OpenAI",
+                        "id": "gpt-4.1-mini",
+                        "label": "gpt-4.1-mini",
+                        "created_at": 1712361441,
+                        "kind": "other",
+                        "configured": true,
+                        "price": {
+                            "input": 0.4,
+                            "rates": [
+                                {
+                                    "context": "Standard text tokens",
+                                    "input": 0.4,
+                                    "output": 1.6,
+                                    "cache_read": 0.1,
+                                    "cache_write_5m": null,
+                                    "cache_write_1h": null
+                                }
+                            ],
+                            "currency": "USD",
+                            "unit": "million_tokens",
+                            "checked_on": "2026-11-04",
+                            "source": "https:\/\/developers.openai.com\/api\/docs\/models\/gpt-4.1-mini",
+                            "stale": false
+                        },
+                        "lifecycle": {
+                            "label": "Deprecated",
+                            "checked_on": "2026-11-04",
+                            "source": "https:\/\/developers.openai.com\/api\/docs\/models\/gpt-4.1-mini"
+                        }
+                    },
+                    {
+                        "key": "openai:unpriced-openai",
+                        "provider": "openai",
+                        "provider_label": "OpenAI",
+                        "id": "unpriced-openai",
+                        "label": "unpriced-openai",
+                        "created_at": 1712361441,
+                        "kind": "other",
+                        "configured": true,
+                        "price": null,
+                        "lifecycle": null
+                    }
+                ]
+            },
+            {
+                "key": "perplexity",
+                "label": "Perplexity",
+                "configured": true,
+                "status": "unsupported",
+                "message": "This provider does not support model listing in Prism.",
+                "checked_at": "2026-11-04T12:00:00+00:00",
+                "scope": null,
+                "models": []
+            },
+            {
+                "key": "replicate",
+                "label": "Replicate",
+                "configured": true,
+                "status": "ready",
+                "message": null,
+                "checked_at": "2026-11-04T12:00:00+00:00",
+                "scope": "Replicate lists a public catalogue, not your account or its private models.",
+                "models": [
+                    {
+                        "key": "replicate:someone\/public",
+                        "provider": "replicate",
+                        "provider_label": "Replicate",
+                        "id": "someone\/public",
+                        "label": "someone\/public",
+                        "created_at": null,
+                        "kind": "other",
+                        "configured": true,
+                        "price": null,
+                        "lifecycle": null
+                    }
+                ]
+            },
+            {
+                "key": "gemini",
+                "label": "Gemini",
+                "configured": false,
+                "status": "unconfigured",
+                "message": "Provider not reachable: no API key is configured.",
+                "checked_at": null,
+                "scope": null,
+                "models": []
+            },
+            {
+                "key": "groq",
+                "label": "Groq",
+                "configured": true,
+                "status": "unreachable",
+                "message": "We couldn't reach this provider. Check its configuration and try Refresh.",
+                "checked_at": "2026-11-04T12:00:00+00:00",
+                "scope": null,
+                "models": []
+            }
+        ],
+        "allowed": [
+            "anthropic:unpriced-future"
+        ],
+        "selection": [
+            "anthropic:unpriced-future"
+        ],
+        "unavailable": [],
+        "pricing": {
+            "checked_on": "2026-11-04",
+            "stale": false
+        }
+    },
+    "stale": {
+        "providers": [
+            {
+                "key": "anthropic",
+                "label": "Anthropic",
+                "configured": true,
+                "status": "ready",
+                "message": null,
+                "checked_at": "2026-12-05T12:00:00+00:00",
+                "scope": null,
+                "models": [
+                    {
+                        "key": "anthropic:claude-fable-5-1",
+                        "provider": "anthropic",
+                        "provider_label": "Anthropic",
+                        "id": "claude-fable-5-1",
+                        "label": "Returned claude-fable-5-1",
+                        "created_at": null,
+                        "kind": "other",
+                        "configured": true,
+                        "price": {
+                            "input": 10,
+                            "rates": [
+                                {
+                                    "context": "Standard tokens",
+                                    "input": 10,
+                                    "output": 50,
+                                    "cache_read": 0.25,
+                                    "cache_write_5m": 12.5,
+                                    "cache_write_1h": 20
+                                }
+                            ],
+                            "currency": "USD",
+                            "unit": "million_tokens",
+                            "checked_on": "2026-11-04",
+                            "source": "https:\/\/platform.claude.com\/docs\/en\/about-claude\/pricing",
+                            "stale": true
+                        },
+                        "lifecycle": null
+                    },
+                    {
+                        "key": "anthropic:\u003Cimg src=x onerror=window.modelsXss=true\u003E",
+                        "provider": "anthropic",
+                        "provider_label": "Anthropic",
+                        "id": "\u003Cimg src=x onerror=window.modelsXss=true\u003E",
+                        "label": "\u003Cscript\u003Ewindow.modelsXss=true\u003C\/script\u003E",
+                        "created_at": null,
+                        "kind": "other",
+                        "configured": true,
+                        "price": null,
+                        "lifecycle": null
+                    },
+                    {
+                        "key": "anthropic:brand-new-after-refresh",
+                        "provider": "anthropic",
+                        "provider_label": "Anthropic",
+                        "id": "brand-new-after-refresh",
+                        "label": "Returned brand-new-after-refresh",
+                        "created_at": null,
+                        "kind": "other",
+                        "configured": true,
+                        "price": null,
+                        "lifecycle": null
+                    },
+                    {
+                        "key": "anthropic:future-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-",
+                        "provider": "anthropic",
+                        "provider_label": "Anthropic",
+                        "id": "future-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-",
+                        "label": "Returned future-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-model-",
+                        "created_at": null,
+                        "kind": "other",
+                        "configured": true,
+                        "price": null,
+                        "lifecycle": null
+                    },
+                    {
+                        "key": "anthropic:unpriced-future",
+                        "provider": "anthropic",
+                        "provider_label": "Anthropic",
+                        "id": "unpriced-future",
+                        "label": "Returned unpriced-future",
+                        "created_at": null,
+                        "kind": "other",
+                        "configured": true,
+                        "price": null,
+                        "lifecycle": null
+                    }
+                ]
+            },
+            {
+                "key": "openai",
+                "label": "OpenAI",
+                "configured": true,
+                "status": "ready",
+                "message": null,
+                "checked_at": "2026-12-05T12:00:00+00:00",
+                "scope": null,
+                "models": [
+                    {
+                        "key": "openai:gpt-4.1-mini",
+                        "provider": "openai",
+                        "provider_label": "OpenAI",
+                        "id": "gpt-4.1-mini",
+                        "label": "gpt-4.1-mini",
+                        "created_at": 1712361441,
+                        "kind": "other",
+                        "configured": true,
+                        "price": {
+                            "input": 0.4,
+                            "rates": [
+                                {
+                                    "context": "Standard text tokens",
+                                    "input": 0.4,
+                                    "output": 1.6,
+                                    "cache_read": 0.1,
+                                    "cache_write_5m": null,
+                                    "cache_write_1h": null
+                                }
+                            ],
+                            "currency": "USD",
+                            "unit": "million_tokens",
+                            "checked_on": "2026-11-04",
+                            "source": "https:\/\/developers.openai.com\/api\/docs\/models\/gpt-4.1-mini",
+                            "stale": true
+                        },
+                        "lifecycle": {
+                            "label": "Deprecated",
+                            "checked_on": "2026-11-04",
+                            "source": "https:\/\/developers.openai.com\/api\/docs\/models\/gpt-4.1-mini"
+                        }
+                    },
+                    {
+                        "key": "openai:unpriced-openai",
+                        "provider": "openai",
+                        "provider_label": "OpenAI",
+                        "id": "unpriced-openai",
+                        "label": "unpriced-openai",
+                        "created_at": 1712361441,
+                        "kind": "other",
+                        "configured": true,
+                        "price": null,
+                        "lifecycle": null
+                    }
+                ]
+            },
+            {
+                "key": "perplexity",
+                "label": "Perplexity",
+                "configured": true,
+                "status": "unsupported",
+                "message": "This provider does not support model listing in Prism.",
+                "checked_at": "2026-12-05T12:00:00+00:00",
+                "scope": null,
+                "models": []
+            },
+            {
+                "key": "replicate",
+                "label": "Replicate",
+                "configured": true,
+                "status": "ready",
+                "message": null,
+                "checked_at": "2026-12-05T12:00:00+00:00",
+                "scope": "Replicate lists a public catalogue, not your account or its private models.",
+                "models": [
+                    {
+                        "key": "replicate:someone\/public",
+                        "provider": "replicate",
+                        "provider_label": "Replicate",
+                        "id": "someone\/public",
+                        "label": "someone\/public",
+                        "created_at": null,
+                        "kind": "other",
+                        "configured": true,
+                        "price": null,
+                        "lifecycle": null
+                    }
+                ]
+            },
+            {
+                "key": "gemini",
+                "label": "Gemini",
+                "configured": false,
+                "status": "unconfigured",
+                "message": "Provider not reachable: no API key is configured.",
+                "checked_at": null,
+                "scope": null,
+                "models": []
+            },
+            {
+                "key": "groq",
+                "label": "Groq",
+                "configured": true,
+                "status": "unreachable",
+                "message": "We couldn't reach this provider. Check its configuration and try Refresh.",
+                "checked_at": "2026-12-05T12:00:00+00:00",
+                "scope": null,
+                "models": []
+            }
+        ],
+        "allowed": [
+            "anthropic:unpriced-future"
+        ],
+        "selection": [
+            "anthropic:unpriced-future"
+        ],
+        "unavailable": [],
+        "pricing": {
+            "checked_on": "2026-11-04",
+            "stale": true
+        }
+    }
+}

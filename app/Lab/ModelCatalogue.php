@@ -4,82 +4,80 @@ declare(strict_types=1);
 
 namespace App\Lab;
 
-/**
- * The models a benchmark lane may be built from, and what each one costs to
- * run in rough terms.
- *
- * A CURATED list, not a provider query. No provider exposes "the models you
- * should be spending money on", and a benchmark that silently picks the
- * largest available model is a benchmark that bills like one. The operator
- * chooses from this list; see {@see ModelPolicy}.
- *
- * NEVER add an id that has not been verified against the provider. A retired
- * or invented id does not fail at configuration time — it fails on the first
- * request, mid-run, and reads as a result rather than a typo. That has already
- * happened twice in this workspace: `claude-sonnet-4-20250514` 404'd a whole
- * lane, and a spec asked for a provider called `google`, which Prism has never
- * had. Both were frozen into approved specs before anyone noticed.
- */
+use Illuminate\Support\Facades\Cache;
+use Prism\Prism\Exceptions\UnsupportedModelListingException;
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Models\ListModelsRequest;
+use Prism\Prism\Models\Model;
+use Throwable;
+
+/** Provider-discovered models, separate from the operator's permission to spend. */
 final class ModelCatalogue
 {
-    /**
-     * @var array<string, list<array{id: string, label: string, tier: string}>>
-     */
-    private const MODELS = [
-        'anthropic' => [
-            ['id' => 'claude-haiku-4-5', 'label' => 'Haiku 4.5', 'tier' => 'cheap'],
-            ['id' => 'claude-sonnet-5', 'label' => 'Sonnet 5', 'tier' => 'cheap'],
-            ['id' => 'claude-fable-5-1', 'label' => 'Fable 5.1', 'tier' => 'mid'],
-            ['id' => 'claude-opus-5', 'label' => 'Opus 5', 'tier' => 'expensive'],
-        ],
-        'openai' => [
-            ['id' => 'gpt-4.1-mini', 'label' => 'GPT-4.1 mini', 'tier' => 'cheap'],
-        ],
-    ];
-
-    /**
-     * What is enabled when the operator has never chosen.
-     *
-     * The cheap tier on the two providers this Lab holds keys for. A default
-     * that included the expensive tier would mean the first benchmark anyone
-     * ran cost the most it could, which is not a default anyone would pick
-     * deliberately.
-     *
-     * @var list<string>
-     */
+    /** @var list<string> */
     public const DEFAULT_ENABLED = ['anthropic:claude-sonnet-5', 'openai:gpt-4.1-mini'];
 
-    public function __construct(private readonly ProviderRegistry $providers) {}
+    public function __construct(private readonly ProviderRegistry $providers, private readonly ModelPrices $prices) {}
 
-    /**
-     * Every catalogued model, annotated with whether its provider is actually
-     * reachable. A model whose provider has no credential is SHOWN and marked,
-     * never hidden — hiding it turns "you have not set a key" into "that model
-     * does not exist".
-     *
-     * @return list<array{key: string, provider: string, provider_label: string, id: string, label: string, tier: string, configured: bool}>
-     */
-    public function all(): array
+    /** @return list<array<string, mixed>> */
+    public function providers(): array
     {
-        $rows = [];
+        $result = [];
 
-        foreach (self::MODELS as $provider => $models) {
-            $descriptor = $this->providers->find($provider);
+        foreach ($this->providers->all() as $provider) {
+            $key = $provider['key'];
+            $cacheKey = 'lab.model-listing.v1.'.$key;
 
-            foreach ($models as $model) {
-                $rows[] = [
-                    'key' => $provider.':'.$model['id'],
-                    'provider' => $provider,
-                    'provider_label' => is_array($descriptor) ? (string) ($descriptor['label'] ?? $provider) : $provider,
-                    'id' => $model['id'],
-                    'label' => $model['label'],
-                    'tier' => $model['tier'],
-                    'configured' => $this->providers->isConfigured($provider),
-                ];
+            if (! $provider['configured']) {
+                Cache::forget($cacheKey);
+                $listing = ['status' => 'unconfigured', 'models' => [], 'checked_at' => null,
+                    'message' => $provider['requiresKey'] ? 'Provider not reachable: no API key is configured.' : 'Provider not reachable: no endpoint is configured.'];
+            } else {
+                $listing = Cache::get($cacheKey);
+                if ($listing === null) {
+                    $listing = $this->discover($key);
+                    Cache::put($cacheKey, $listing, $listing['status'] === 'ready' ? 600 : 60);
+                }
             }
+
+            $models = array_map(fn (array $model): array => [
+                'key' => $key.':'.$model['id'], 'provider' => $key, 'provider_label' => $provider['label'],
+                'id' => $model['id'], 'label' => $model['name'] ?? $model['id'], 'created_at' => $model['created_at'],
+                // The listing API returns no capability classification. Never guess from IDs.
+                'kind' => 'other', 'configured' => true, 'price' => $this->prices->forModel($key, $model['id']),
+                'lifecycle' => $this->prices->lifecycleForModel($key, $model['id']),
+            ], $listing['models']);
+            usort($models, static function (array $a, array $b): int {
+                if ($a['price'] === null || $b['price'] === null) {
+                    return ($a['price'] === null) <=> ($b['price'] === null) ?: strcmp($a['id'], $b['id']);
+                }
+
+                return $b['price']['input'] <=> $a['price']['input'] ?: strcmp($a['id'], $b['id']);
+            });
+
+            $result[] = ['key' => $key, 'label' => $provider['label'], 'configured' => $provider['configured'],
+                'status' => $listing['status'], 'message' => $listing['message'], 'checked_at' => $listing['checked_at'],
+                'scope' => $key === 'replicate' ? 'Replicate lists a public catalogue, not your account or its private models.' : null,
+                'models' => $models];
         }
 
-        return $rows;
+        return $result;
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function refresh(): array
+    {
+        foreach ($this->providers->all() as $provider) {
+            Cache::forget('lab.model-listing.v1.'.$provider['key']);
+        }
+
+        return $this->providers();
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function all(): array
+    {
+        return array_merge([], ...array_column($this->providers(), 'models'));
     }
 
     /** @return list<string> */
@@ -89,21 +87,16 @@ final class ModelCatalogue
     }
 
     /**
-     * The cheapest catalogued model on a configured provider, or null when the
-     * Lab holds no usable key at all.
+     * Incidental narration/judging may use only explicitly permitted, priced models.
+     * The first quoted rate is the standard/small-context rate, not a cost estimate.
      *
-     * Used for work that is INCIDENTAL to a run rather than the subject of it —
-     * commentary, summaries. Spending benchmark money on narrating the
-     * benchmark would be a strange trade.
-     *
+     * @param  list<string>  $allowed
      * @return array{provider: string, model: string}|null
      */
-    public function cheapestConfigured(): ?array
+    public function cheapestConfigured(array $allowed): ?array
     {
-        $order = ['cheap' => 0, 'mid' => 1, 'expensive' => 2];
-        $usable = array_values(array_filter($this->all(), fn (array $row): bool => $row['configured']));
-
-        usort($usable, fn (array $a, array $b): int => ($order[$a['tier']] ?? 9) <=> ($order[$b['tier']] ?? 9));
+        $usable = array_values(array_filter($this->all(), fn (array $row): bool => $row['price'] !== null && in_array($row['key'], $allowed, true)));
+        usort($usable, fn (array $a, array $b): int => $a['price']['input'] <=> $b['price']['input'] ?: strcmp($a['key'], $b['key']));
 
         return $usable === [] ? null : ['provider' => $usable[0]['provider'], 'model' => $usable[0]['id']];
     }
@@ -111,5 +104,26 @@ final class ModelCatalogue
     public function has(string $provider, string $model): bool
     {
         return in_array($provider.':'.$model, $this->keys(), true);
+    }
+
+    /** @return array{status: string, models: list<array<string, mixed>>, checked_at: string, message: ?string} */
+    private function discover(string $provider): array
+    {
+        $checked = now()->toIso8601String();
+
+        try {
+            $request = (new ListModelsRequest)->withClientOptions(['timeout' => 8, 'connect_timeout' => 3])->withClientRetry(0);
+            $models = Prism::provider($provider)->listModels($request);
+
+            return ['status' => 'ready', 'checked_at' => $checked, 'message' => null,
+                'models' => array_map(fn (Model $model): array => ['id' => $model->id, 'name' => $model->displayName, 'created_at' => $model->createdAt], $models)];
+        } catch (UnsupportedModelListingException) {
+            return ['status' => 'unsupported', 'models' => [], 'checked_at' => $checked,
+                'message' => 'This provider does not support model listing in Prism.'];
+        } catch (Throwable) {
+            // Underlying failures may contain credentials or response bodies. No raw logs or fallback.
+            return ['status' => 'unreachable', 'models' => [], 'checked_at' => $checked,
+                'message' => "We couldn't reach this provider. Check its configuration and try Refresh."];
+        }
     }
 }
