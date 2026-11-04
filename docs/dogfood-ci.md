@@ -43,6 +43,32 @@ npm lock. These identify what passed. Path aliases in Composer are constraint
 compatibility labels, not proof of the published release installed by a user.
 These jobs exercise source checkouts, not downloaded release archives.
 
+### Model listings and prices
+
+The Models page uses provider listings through the installed Prism package,
+caches each result for ten minutes and provides an explicit refresh. Missing
+credentials, unsupported listing methods and failed requests remain visible
+as provider notices with no fallback model rows. Replicate's public catalogue
+is labelled as such. Returned names and IDs are untrusted text, never HTML or
+evidence of a model's capability. New models are disabled until selected;
+withdrawn models are removed from the effective allow-list, including defaults.
+
+Prices are dated USD list rates per million tokens, joined by exact model IDs.
+Unknown rates remain visible. Anthropic cache writes include both durations
+and Haiku's two context tiers; rates older than thirty days show a notice.
+Incidental commentary and scoring choose by numeric input price among the
+operator's permitted, priced models. Refresh does not write the saved policy.
+
+Native PHP fixtures exercise discovery, caching, privacy, pricing and policy.
+They also compare a committed browser golden with actual Laravel/Inertia props.
+After the real client/SSR build, `npm run test:models-ui` drives that production
+client in desktop and mobile Chromium against the generated props. Every
+request, including Save and Refresh, is intercepted. It checks withdrawn and
+new models, controlled Fancy inputs, prices, stale/unavailable notices,
+untrusted text and horizontal overflow, and records screenshots plus build,
+source and lock hashes. These CI controls make no provider calls and do not
+establish live account availability or inference readiness.
+
 ### First-party prerelease ranges in the local Lab
 
 The Lab is never deployed or published. Its `agent-integrations` constraint is

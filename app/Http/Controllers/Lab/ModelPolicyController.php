@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Lab;
 use App\Http\Controllers\Controller;
 use App\Lab\ModelCatalogue;
 use App\Lab\ModelPolicy;
+use App\Lab\ModelPrices;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -14,12 +15,20 @@ use Inertia\Response;
 
 final class ModelPolicyController extends Controller
 {
-    public function show(ModelCatalogue $catalogue, ModelPolicy $policy): Response
+    public function show(ModelCatalogue $catalogue, ModelPolicy $policy, ModelPrices $prices): Response
     {
         return Inertia::render('Lab/Models', [
-            'models' => $catalogue->all(),
+            'providers' => $catalogue->providers(),
             'allowed' => $policy->allowed(),
+            'pricing' => ['checked_on' => ModelPrices::CHECKED_ON, 'stale' => $prices->stale()],
         ]);
+    }
+
+    public function refresh(ModelCatalogue $catalogue): RedirectResponse
+    {
+        $catalogue->refresh();
+
+        return to_route('lab.models')->with('status', 'Model listings refreshed. Your saved selection has not changed.');
     }
 
     public function update(Request $request, ModelPolicy $policy): RedirectResponse

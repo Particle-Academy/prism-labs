@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Testing\TextResponseFake;
+use Tests\Concerns\CachesModelRoster;
 use Tests\TestCase;
 
 /**
@@ -31,6 +32,7 @@ use Tests\TestCase;
  */
 class BenchmarkCommentaryTest extends TestCase
 {
+    use CachesModelRoster;
     use RefreshDatabase;
 
     private function liveRun()
@@ -209,5 +211,6 @@ class BenchmarkCommentaryTest extends TestCase
         parent::setUp();
         Cache::flush();
         config(['prism.providers.anthropic.api_key' => 'sk-test']);
+        $this->cacheModelRoster();
     }
 }

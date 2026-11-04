@@ -6,6 +6,7 @@ namespace App\Benchmarks;
 
 use App\Lab\LabSession;
 use App\Lab\ModelCatalogue;
+use App\Lab\ModelPolicy;
 use App\Models\BenchmarkLane;
 use App\Models\BenchmarkScore;
 use Illuminate\Support\Facades\DB;
@@ -32,7 +33,7 @@ use Throwable;
  */
 final readonly class BenchmarkScorer
 {
-    public function __construct(private LabSession $sessions, private ModelCatalogue $catalogue) {}
+    public function __construct(private LabSession $sessions, private ModelCatalogue $catalogue, private ModelPolicy $modelPolicy) {}
 
     public function score(BenchmarkLane $lane): ?float
     {
@@ -59,7 +60,7 @@ final readonly class BenchmarkScorer
             return null;
         }
 
-        $model = $this->catalogue->cheapestConfigured();
+        $model = $this->catalogue->cheapestConfigured($this->modelPolicy->allowed());
 
         if ($model === null) {
             return null;

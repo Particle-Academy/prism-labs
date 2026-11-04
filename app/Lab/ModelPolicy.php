@@ -32,21 +32,14 @@ final class ModelPolicy
     {
         $stored = DB::table('lab_settings')->where('key', self::KEY)->value('value');
 
-        if (! is_string($stored)) {
-            return ModelCatalogue::DEFAULT_ENABLED;
-        }
-
-        $decoded = json_decode($stored, true);
-
-        if (! is_array($decoded)) {
-            return ModelCatalogue::DEFAULT_ENABLED;
-        }
+        $decoded = is_string($stored) ? json_decode($stored, true) : null;
+        $selected = is_array($decoded) ? array_values(array_filter($decoded, 'is_string')) : ModelCatalogue::DEFAULT_ENABLED;
 
         // Intersected with the catalogue on every read, so a model retired from
         // the catalogue stops being allowed without anyone having to remember
         // to clear the stored row.
         return array_values(array_intersect(
-            array_values(array_filter($decoded, 'is_string')),
+            $selected,
             $this->catalogue->keys(),
         ));
     }
@@ -85,6 +78,6 @@ final class ModelPolicy
     {
         return $this->catalogue->has($provider, $model)
             ? sprintf('`%s` on %s is in the catalogue but not enabled for testing. Enable it at /lab/models, or choose a model that is.', $model, $provider)
-            : sprintf('`%s` on %s is not a model this Lab knows. Add it to ModelCatalogue only after verifying the id against the provider.', $model, $provider);
+            : sprintf('`%s` on %s is not a model this Lab knows from the current provider listing. Refresh /lab/models and choose an available model.', $model, $provider);
     }
 }

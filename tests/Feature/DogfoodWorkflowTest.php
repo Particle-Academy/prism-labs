@@ -19,11 +19,13 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Route;
 use PHPUnit\Framework\Attributes\Group;
+use Tests\Concerns\CachesModelRoster;
 use Tests\TestCase;
 
 #[Group('dogfood')]
 final class DogfoodWorkflowTest extends TestCase
 {
+    use CachesModelRoster;
     use RefreshDatabase;
 
     private array $answers = [];
@@ -53,6 +55,7 @@ final class DogfoodWorkflowTest extends TestCase
             'app.key' => 'base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
         ]);
         $this->app->forgetInstance(AgentRoster::class);
+        $this->cacheModelRoster();
         Http::preventStrayRequests();
         Http::fake(function (Request $request) {
             $this->assertContains($request->url(), ['http://127.0.0.1:17411/mcp', 'http://127.0.0.1:17412/mcp'], 'Dogfood regression tests must never call a live provider.');

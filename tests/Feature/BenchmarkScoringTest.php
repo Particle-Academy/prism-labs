@@ -16,6 +16,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Group;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Testing\TextResponseFake;
+use Tests\Concerns\CachesModelRoster;
 use Tests\TestCase;
 
 /**
@@ -27,12 +28,14 @@ use Tests\TestCase;
 #[Group('dogfood')]
 class BenchmarkScoringTest extends TestCase
 {
+    use CachesModelRoster;
     use RefreshDatabase;
 
     protected function setUp(): void
     {
         parent::setUp();
         config(['prism.providers.anthropic.api_key' => 'sk-test']);
+        $this->cacheModelRoster();
     }
 
     private function scoredLane(string $judgeJson): BenchmarkLane

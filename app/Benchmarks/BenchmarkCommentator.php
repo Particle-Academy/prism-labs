@@ -6,6 +6,7 @@ namespace App\Benchmarks;
 
 use App\Lab\LabSession;
 use App\Lab\ModelCatalogue;
+use App\Lab\ModelPolicy;
 use App\Models\BenchmarkCommentary;
 use App\Models\BenchmarkLaneActivity;
 use App\Models\BenchmarkRun;
@@ -35,7 +36,7 @@ final readonly class BenchmarkCommentator
     /** How much of the previous call to show, so it does not repeat itself. */
     private const RECENT_LINES = 3;
 
-    public function __construct(private LabSession $sessions, private ModelCatalogue $catalogue) {}
+    public function __construct(private LabSession $sessions, private ModelCatalogue $catalogue, private ModelPolicy $modelPolicy) {}
 
     public function call(BenchmarkRun $run): ?BenchmarkCommentary
     {
@@ -77,7 +78,7 @@ final readonly class BenchmarkCommentator
 
         $events = $this->feed($run, $activities, $operations);
 
-        $model = $this->catalogue->cheapestConfigured();
+        $model = $this->catalogue->cheapestConfigured($this->modelPolicy->allowed());
 
         if ($model === null) {
             return null;

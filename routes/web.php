@@ -127,6 +127,7 @@ if (app()->environment('local')) {
         Route::get('/lab/threads', [ThreadController::class, 'show'])->name('lab.threads');
         Route::get('/lab/telemetry', [TelemetryController::class, 'show'])->name('lab.telemetry');
         Route::get('/lab/models', [ModelPolicyController::class, 'show'])->name('lab.models');
+        Route::post('/lab/models/refresh', [ModelPolicyController::class, 'refresh'])->middleware('throttle:5,1')->name('lab.models.refresh');
         Route::post('/lab/models', [ModelPolicyController::class, 'update'])->middleware('throttle:20,1')->name('lab.models.update');
         Route::get('/lab/benchmarks', [BenchmarkController::class, 'show'])->name('lab.benchmarks');
         Route::get('/lab/benchmarks/specs/{spec}', [BenchmarkController::class, 'specification'])->name('lab.benchmark-specs.show');
