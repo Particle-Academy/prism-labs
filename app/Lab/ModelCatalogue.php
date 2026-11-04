@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Lab;
 
 use Illuminate\Support\Facades\Cache;
+use Prism\Prism\Exceptions\ModelListingAuthenticationException;
 use Prism\Prism\Exceptions\UnsupportedModelListingException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Models\ListModelsRequest;
@@ -117,9 +118,12 @@ final class ModelCatalogue
 
             return ['status' => 'ready', 'checked_at' => $checked, 'message' => null,
                 'models' => array_map(fn (Model $model): array => ['id' => $model->id, 'name' => $model->displayName, 'created_at' => $model->createdAt], $models)];
+        } catch (ModelListingAuthenticationException) {
+            return ['status' => 'authentication_rejected', 'models' => [], 'checked_at' => $checked,
+                'message' => 'The provider rejected this API key or its access. Update its credentials or permissions in the Lab configuration, then refresh.'];
         } catch (UnsupportedModelListingException) {
             return ['status' => 'unsupported', 'models' => [], 'checked_at' => $checked,
-                'message' => 'This provider does not support model listing in Prism.'];
+                'message' => 'Model listing for this provider is not implemented in the installed Prism package.'];
         } catch (Throwable) {
             // Underlying failures may contain credentials or response bodies. No raw logs or fallback.
             return ['status' => 'unreachable', 'models' => [], 'checked_at' => $checked,

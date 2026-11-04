@@ -13,8 +13,6 @@ final class ModelPrices
 
     private const ANTHROPIC_SOURCE = 'https://platform.claude.com/docs/en/about-claude/pricing';
 
-    private const OPENAI_SOURCE = 'https://developers.openai.com/api/docs/models/gpt-4.1-mini';
-
     private const ANTHROPIC_MODELS_SOURCE = 'https://platform.claude.com/docs/en/about-claude/models/overview';
 
     /** @var list<string> Explicitly listed under Legacy models in the official overview. */
@@ -23,11 +21,23 @@ final class ModelPrices
     /** @return array{label: string, checked_on: string, source: string}|null */
     public function lifecycleForModel(string $provider, string $id): ?array
     {
+        $datedAnthropic = match ($id) {
+            'claude-opus-4-5-20251101' => ['Legacy', 'https://platform.claude.com/docs/en/models/opus-4-5/overview'],
+            'claude-sonnet-4-5', 'claude-sonnet-4-5-20250929' => ['Deprecated', 'https://platform.claude.com/docs/en/models/sonnet-4-5/overview'],
+            default => null,
+        };
+        if ($provider === 'anthropic' && $datedAnthropic !== null) {
+            return ['label' => $datedAnthropic[0], 'checked_on' => self::CHECKED_ON, 'source' => $datedAnthropic[1]];
+        }
         if ($provider === 'anthropic' && in_array($id, self::LEGACY_ANTHROPIC, true)) {
             return ['label' => 'Legacy', 'checked_on' => self::CHECKED_ON, 'source' => self::ANTHROPIC_MODELS_SOURCE];
         }
-        if ($provider === 'openai' && in_array($id, ['gpt-4.1-mini', 'gpt-4.1-mini-2025-04-14'], true)) {
-            return ['label' => 'Deprecated', 'checked_on' => self::CHECKED_ON, 'source' => self::OPENAI_SOURCE];
+        if ($provider === 'openai') {
+            $quote = $this->openAiModels()[$id] ?? null;
+            if (($quote['lifecycle'] ?? null) !== null) {
+                return ['label' => $quote['lifecycle'], 'checked_on' => self::CHECKED_ON,
+                    'source' => $quote['identity_source'] ?? $quote['source']];
+            }
         }
 
         return null;
@@ -42,9 +52,13 @@ final class ModelPrices
         'claude-opus-4-8' => [5.0, 25.0, 0.5, 6.25, 10.0],
         'claude-opus-4-7' => [5.0, 25.0, 0.5, 6.25, 10.0],
         'claude-opus-4-6' => [5.0, 25.0, 0.5, 6.25, 10.0],
+        'claude-opus-4-5' => [5.0, 25.0, 0.5, 6.25, 10.0],
+        'claude-opus-4-5-20251101' => [5.0, 25.0, 0.5, 6.25, 10.0],
         'claude-sonnet-5-5' => [2.0, 10.0, 0.1, 2.5, 4.0],
         'claude-sonnet-5' => [2.0, 10.0, 0.2, 2.5, 4.0],
         'claude-sonnet-4-6' => [3.0, 15.0, 0.3, 3.75, 6.0],
+        'claude-sonnet-4-5' => [3.0, 15.0, 0.3, 3.75, 6.0],
+        'claude-sonnet-4-5-20250929' => [3.0, 15.0, 0.3, 3.75, 6.0],
         'claude-haiku-4-5' => [1.0, 5.0, 0.1, 1.25, 2.0],
         'claude-haiku-4-5-20251001' => [1.0, 5.0, 0.1, 1.25, 2.0],
     ];
@@ -57,6 +71,8 @@ final class ModelPrices
     /** @return array<string, mixed>|null */
     public function forModel(string $provider, string $id): ?array
     {
+        $note = null;
+        $expired = false;
         if ($provider === 'anthropic' && $id === 'claude-haiku-5-5') {
             $rates = [
                 $this->rate('Up to 100,000 input tokens', [0.1, 0.5, 0.01, 0.125, 0.2]),
@@ -65,16 +81,45 @@ final class ModelPrices
             $source = self::ANTHROPIC_SOURCE;
         } elseif ($provider === 'anthropic' && isset(self::ANTHROPIC[$id])) {
             $rates = [$this->rate('Standard tokens', self::ANTHROPIC[$id])];
-            $source = self::ANTHROPIC_SOURCE;
-        } elseif ($provider === 'openai' && in_array($id, ['gpt-4.1-mini', 'gpt-4.1-mini-2025-04-14'], true)) {
-            $rates = [$this->rate('Standard text tokens', [0.4, 1.6, 0.1, null, null])];
-            $source = self::OPENAI_SOURCE;
+            $source = match ($id) {
+                'claude-opus-4-5', 'claude-opus-4-5-20251101' => 'https://platform.claude.com/docs/en/models/opus-4-5/overview',
+                'claude-sonnet-4-5', 'claude-sonnet-4-5-20250929' => 'https://platform.claude.com/docs/en/models/sonnet-4-5/overview',
+                default => self::ANTHROPIC_SOURCE,
+            };
+        } elseif ($provider === 'openai') {
+            $quote = $this->openAiModels()[$id] ?? null;
+            if ($quote === null) {
+                return null;
+            }
+            $rates = array_map(function (array $rate): array {
+                $mapped = $this->rate($rate['context'], [(float) $rate['input'], (float) $rate['output'],
+                    isset($rate['cache_read']) ? (float) $rate['cache_read'] : null, null, null]);
+                if ($rate['cache_write_30m'] !== null || $rate['cache_write_12h'] !== null) {
+                    $mapped['cache_write_30m'] = $rate['cache_write_30m'] === null ? null : (float) $rate['cache_write_30m'];
+                    $mapped['cache_write_12h'] = $rate['cache_write_12h'] === null ? null : (float) $rate['cache_write_12h'];
+                }
+
+                return $mapped;
+            }, $quote['rates']);
+            $source = count($rates) > 1 || isset($rates[0]['cache_write_30m']) || isset($rates[0]['cache_write_12h'])
+                ? $quote['source'] : ($quote['identity_source'] ?? $quote['source']);
+            $note = $quote['note'] ?? null;
+            $expired = isset($quote['expires_on']) && now()->toDateString() > $quote['expires_on'];
         } else {
             return null;
         }
 
         return ['input' => $rates[0]['input'], 'rates' => $rates, 'currency' => 'USD', 'unit' => 'million_tokens',
-            'checked_on' => self::CHECKED_ON, 'source' => $source, 'stale' => $this->stale()];
+            'checked_on' => self::CHECKED_ON, 'source' => $source, 'stale' => $this->stale() || $expired,
+            ...($note === null ? [] : ['note' => $note])];
+    }
+
+    /** @return array<string, array<string, mixed>> */
+    private function openAiModels(): array
+    {
+        static $models;
+
+        return $models ??= json_decode(file_get_contents(resource_path('data/openai-model-prices.json')), true, flags: JSON_THROW_ON_ERROR);
     }
 
     /**

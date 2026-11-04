@@ -102,6 +102,9 @@ final class ModelPolicy
     public function refusal(string $provider, string $model): string
     {
         $listing = collect($this->catalogue->providers())->firstWhere('key', $provider);
+        if (($listing['status'] ?? null) === 'authentication_rejected') {
+            return 'The provider rejected authentication or access. Your saved selection is kept. Update the Lab provider configuration before retrying.';
+        }
         if ($listing === null || $listing['status'] !== 'ready') {
             return sprintf('The model listing is unavailable for %s. Your saved selection is kept, but launches are refused until its listing is available. Check the provider configuration or Refresh /lab/models.', $listing['label'] ?? $provider);
         }

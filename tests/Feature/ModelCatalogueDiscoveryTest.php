@@ -34,6 +34,8 @@ class ModelCatalogueDiscoveryTest extends TestCase
 
     private array $unreachableProviders = [];
 
+    private array $authenticationStatuses = [];
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -54,7 +56,7 @@ class ModelCatalogueDiscoveryTest extends TestCase
         }
         $this->rosterFakeInstalled = true;
         Http::fake([
-            'https://anthropic.fixture/v1/models*' => fn () => $this->listingFailure || in_array('anthropic', $this->unreachableProviders, true) ? Http::response(['error' => 'fixture-provider-secret'], 503) : Http::response(['data' => array_map(fn (string $id): array => ['id' => $id, 'display_name' => $this->labels[$id] ?? 'Returned '.$id], $this->anthropicRoster), 'has_more' => false]),
+            'https://anthropic.fixture/v1/models*' => fn () => isset($this->authenticationStatuses['anthropic']) ? Http::response(['error' => 'fixture-provider-secret private-auth-body'], $this->authenticationStatuses['anthropic']) : ($this->listingFailure || in_array('anthropic', $this->unreachableProviders, true) ? Http::response(['error' => 'fixture-provider-secret'], 503) : Http::response(['data' => array_map(fn (string $id): array => ['id' => $id, 'display_name' => $this->labels[$id] ?? 'Returned '.$id], $this->anthropicRoster), 'has_more' => false])),
             'https://openai.fixture/v1/models*' => fn () => $this->listingFailure || in_array('openai', $this->unreachableProviders, true) ? Http::response(['error' => 'fixture-provider-secret'], 503) : Http::response(['data' => array_map(fn (string $id): array => ['id' => $id, 'created' => 1712361441], $this->openaiRoster)]),
         ]);
     }
@@ -75,6 +77,73 @@ class ModelCatalogueDiscoveryTest extends TestCase
         $this->assertSame(['provider' => 'anthropic', 'model' => 'claude-fable-5-1'], app(ModelCatalogue::class)->cheapestConfigured(['anthropic:claude-fable-5-1']));
         $this->assertNull(app(ModelCatalogue::class)->cheapestConfigured([]));
         $this->assertNull(app(ModelCatalogue::class)->cheapestConfigured(['anthropic:unpriced-future']));
+    }
+
+    public function test_authentication_rejection_has_private_actionable_copy_through_the_real_models_route(): void
+    {
+        $this->localRoutes();
+        foreach ([401, 403] as $status) {
+            Cache::flush();
+            $this->authenticationStatuses = ['anthropic' => $status];
+            $response = $this->get('/lab/models');
+            $response->assertOk()->assertInertia(fn ($page) => $page
+                ->where('providers.0.status', 'authentication_rejected')
+                ->where('providers.0.message', 'The provider rejected this API key or its access. Update its credentials or permissions in the Lab configuration, then refresh.')
+                ->where('providers.0.models', [])
+                ->where('selection', ModelCatalogue::DEFAULT_ENABLED)
+                ->where('allowed', ['openai:gpt-4.1-mini']));
+            $this->assertStringNotContainsString('fixture-provider-secret', $response->getContent());
+            $this->assertStringNotContainsString('private-auth-body', $response->getContent());
+            $this->assertStringNotContainsString('anthropic.fixture', $response->getContent());
+            $this->assertStringContainsString('rejected', app(ModelPolicy::class)->refusal('anthropic', 'claude-sonnet-5'));
+        }
+    }
+
+    public function test_expanded_openai_prices_keep_context_and_cache_durations_honest(): void
+    {
+        $price = app(ModelPrices::class)->forModel('openai', 'gpt-6.1-sol');
+        $this->assertIsArray($price);
+        $this->assertSame('https://developers.openai.com/api/docs/pricing', $price['source']);
+        $this->assertCount(2, $price['rates']);
+        $this->assertSame([2.0, 10.0, 0.1, 2.5, 5.0], array_values(array_intersect_key($price['rates'][0], array_flip(['input', 'output', 'cache_read', 'cache_write_30m', 'cache_write_12h']))));
+        $this->assertSame([4.0, 15.0, 0.2, 5.0, 10.0], array_values(array_intersect_key($price['rates'][1], array_flip(['input', 'output', 'cache_read', 'cache_write_30m', 'cache_write_12h']))));
+        $this->assertNull($price['rates'][0]['cache_write_5m']);
+        $this->assertNull($price['rates'][0]['cache_write_1h']);
+        $this->assertSame(app(ModelPrices::class)->forModel('openai', 'gpt-5')['rates'], app(ModelPrices::class)->forModel('openai', 'gpt-5-2025-08-07')['rates']);
+        $this->assertNull(app(ModelPrices::class)->forModel('openai', 'gpt-4o-2024-05-13'));
+        $this->assertNull(app(ModelPrices::class)->forModel('openai', 'gpt-5-made-up-snapshot'));
+        $this->assertNull(app(ModelPrices::class)->forModel('openai', 'gpt-image-2'));
+        $this->assertNull(app(ModelPrices::class)->forModel('openai', 'text-embedding-3-small'));
+    }
+
+    public function test_dated_anthropic_prices_and_status_use_the_exact_models_own_pages(): void
+    {
+        foreach ([
+            ['claude-opus-4-5-20251101', 5.0, 25.0, 'Legacy', 'https://platform.claude.com/docs/en/models/opus-4-5/overview'],
+            ['claude-sonnet-4-5-20250929', 3.0, 15.0, 'Deprecated', 'https://platform.claude.com/docs/en/models/sonnet-4-5/overview'],
+        ] as [$id, $input, $output, $status, $source]) {
+            $price = app(ModelPrices::class)->forModel('anthropic', $id);
+            $this->assertIsArray($price);
+            $this->assertSame($input, $price['rates'][0]['input']);
+            $this->assertSame($output, $price['rates'][0]['output']);
+            $this->assertSame($source, $price['source']);
+            $this->assertSame(['label' => $status, 'checked_on' => '2026-11-04', 'source' => $source], app(ModelPrices::class)->lifecycleForModel('anthropic', $id));
+        }
+        $this->assertSame(['anthropic:claude-sonnet-5', 'openai:gpt-4.1-mini'], ModelCatalogue::DEFAULT_ENABLED);
+    }
+
+    public function test_expanded_openai_promotional_prices_expire_before_the_monthly_review_date(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-12-01T12:00:00Z'));
+        try {
+            $price = app(ModelPrices::class)->forModel('openai', 'gpt-5.6-sol');
+            $this->assertIsArray($price);
+            $this->assertTrue($price['stale']);
+            $this->assertStringContainsString('2026-11-30', $price['note']);
+            $this->assertFalse(app(ModelPrices::class)->stale());
+        } finally {
+            $this->travelBack();
+        }
     }
 
     public function test_numeric_prices_choose_the_cheapest_eligible_model(): void
@@ -196,7 +265,7 @@ class ModelCatalogueDiscoveryTest extends TestCase
         $providers = app(ModelCatalogue::class)->providers();
         $this->assertSame('unsupported', $providers[0]['status']);
         $this->assertSame([], $providers[0]['models']);
-        $this->assertStringContainsString('does not support model listing', $providers[0]['message']);
+        $this->assertSame('Model listing for this provider is not implemented in the installed Prism package.', $providers[0]['message']);
         $this->assertStringContainsString('public catalogue', $providers[1]['scope']);
         $this->assertStringContainsString('not your account', $providers[1]['scope']);
         $this->assertSame('someone/public', $providers[1]['models'][0]['id']);
@@ -351,7 +420,28 @@ class ModelCatalogueDiscoveryTest extends TestCase
             $this->travelTo(CarbonImmutable::parse('2026-12-05T12:00:00Z'));
             $stale = $read();
             $this->assertTrue($stale['pricing']['stale']);
-            $payload = compact('initial', 'refreshed', 'outage', 'recovered', 'stale');
+            $this->travelTo(CarbonImmutable::parse('2026-11-04T12:00:00Z'));
+            // A synthetic scale roster from public price data plus invented future IDs,
+            // never the operator's live account roster.
+            $quotedIds = array_keys(json_decode(file_get_contents(resource_path('data/openai-model-prices.json')), true, flags: JSON_THROW_ON_ERROR));
+            $this->assertCount(86, $quotedIds);
+            $scaleIds = array_merge($quotedIds, array_map(fn (int $number): string => sprintf('future-synthetic-%03d', $number), range(0, 55)));
+            $configured = config('prism.providers');
+            config(['prism.providers' => array_replace(['openai' => $configured['openai']], $configured)]);
+            $this->roster(['claude-sonnet-5', 'claude-opus-4-5-20251101', 'claude-sonnet-4-5-20250929'], $scaleIds);
+            app(ModelCatalogue::class)->refresh();
+            app(ModelPolicy::class)->allow(ModelCatalogue::DEFAULT_ENABLED);
+            $scale = $read();
+            $this->assertSame('openai', $scale['providers'][0]['key']);
+            $this->assertCount(142, $scale['providers'][0]['models']);
+            $this->assertCount(86, array_filter($scale['providers'][0]['models'], fn (array $model): bool => $model['price'] !== null));
+            $this->authenticationStatuses = ['anthropic' => 401];
+            app(ModelCatalogue::class)->refresh();
+            $authentication = $read();
+            $this->assertSame('authentication_rejected', collect($authentication['providers'])->firstWhere('key', 'anthropic')['status']);
+            $this->assertSame(['openai:gpt-4.1-mini'], $authentication['allowed']);
+            $this->assertSame(ModelCatalogue::DEFAULT_ENABLED, $authentication['selection']);
+            $payload = compact('initial', 'refreshed', 'outage', 'recovered', 'stale', 'scale', 'authentication');
             $json = json_encode($payload, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_PRESERVE_ZERO_FRACTION | JSON_HEX_TAG);
             $this->assertStringNotContainsString('fixture-provider-secret', $json);
             $path = storage_path('framework/testing/model-catalogue-browser.actual.json');
