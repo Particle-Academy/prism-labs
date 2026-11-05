@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "3210b6fdc2fae426dcea2b69a141e01e",
+    "content-hash": "be2e808e9c951cf14e3fe49e88f1c75f",
     "packages": [
         {
             "name": "brick/math",
@@ -3723,7 +3723,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-mcp",
-                "reference": "65b7da4279ab34d1ae831431323e2fac314a5fea"
+                "reference": "1de314c3859628dbd04629b80d8e81dbbad67323"
             },
             "require": {
                 "ext-json": "*",
@@ -11338,8 +11338,8 @@
         {
             "package": "particle-academy/prism-mcp",
             "version": "dev-main",
-            "alias": "0.2.0",
-            "alias_normalized": "0.2.0.0"
+            "alias": "0.3.0",
+            "alias_normalized": "0.3.0.0"
         },
         {
             "package": "particle-academy/prism-opentelemetry",
