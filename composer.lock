@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "a5eb0575ae970eb990855d7494cc1e33",
+    "content-hash": "3210b6fdc2fae426dcea2b69a141e01e",
     "packages": [
         {
             "name": "brick/math",
@@ -3889,7 +3889,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-perplexity",
-                "reference": "483c762c0b7994a0e267bc77d81a7abeb05655c7"
+                "reference": "f724c224a407b3c85b1d6d0edf1f5ce20cb04036"
             },
             "require": {
                 "laravel/framework": "^12.69.0|^13.30.0",
@@ -11350,8 +11350,8 @@
         {
             "package": "particle-academy/prism-perplexity",
             "version": "dev-main",
-            "alias": "0.4.1",
-            "alias_normalized": "0.4.1.0"
+            "alias": "0.4.2",
+            "alias_normalized": "0.4.2.0"
         },
         {
             "package": "particle-academy/prism-workspace",
