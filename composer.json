@@ -94,7 +94,7 @@
         "particle-academy/prism-browser": "dev-main as 0.4.1",
         "particle-academy/prism-harness": "dev-main as 0.22.2",
         "particle-academy/prism-human-plus": "dev-main as 0.5.1",
-        "particle-academy/prism-mcp": "dev-main as 0.2.0",
+        "particle-academy/prism-mcp": "dev-main as 0.3.0",
         "particle-academy/prism-opentelemetry": "dev-main as 0.6.0",
         "particle-academy/prism-perplexity": "dev-main as 0.4.2",
         "particle-academy/prism-workspace": "dev-main as 0.3.0",
