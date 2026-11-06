@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "be2e808e9c951cf14e3fe49e88f1c75f",
+    "content-hash": "af7ddedd808fc9472c31a5e73d8f2205",
     "packages": [
         {
             "name": "brick/math",
@@ -3657,7 +3657,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-human-plus",
-                "reference": "c8413ec75fd20a588529fa915e316b24006ec0a8"
+                "reference": "6b69d530f52bf904a7ce9a337bc56678f89c69d0"
             },
             "require": {
                 "ext-curl": "*",
@@ -11332,8 +11332,8 @@
         {
             "package": "particle-academy/prism-human-plus",
             "version": "dev-main",
-            "alias": "0.5.1",
-            "alias_normalized": "0.5.1.0"
+            "alias": "0.6.0",
+            "alias_normalized": "0.6.0.0"
         },
         {
             "package": "particle-academy/prism-mcp",
