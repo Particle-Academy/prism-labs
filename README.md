@@ -69,6 +69,21 @@ uses live provider calls; live calls require the operator's explicit action.
 CI, dependency currency, the evidence loop, and required local workers are
 documented in [Dogfood evidence and CI](docs/dogfood-ci.md).
 
+The Lab owns its database name through `LAB_DB_DATABASE`. Workspace
+`DB_DATABASE` and `DB_URL` cannot select it. SQLite defaults to this app's
+`database/database.sqlite`; server adapters default to `prism_labs`. Create a
+dedicated database before migrating, and use a database account restricted to
+that database. Server host, port and credentials still use the `DB_*` fields.
+If the Sandbox uses a different name or SQLite location from the workspace
+defaults, declare `LAB_SANDBOX_DB_DATABASE` or `LAB_SANDBOX_SQLITE_DATABASE`.
+The Lab refuses a shared identity before application providers register.
+
+An old cached configuration must be removed from `bootstrap/cache/config.php`
+before the first boot with these settings, then regenerated with the dedicated
+namespace. Tests force anonymous in-memory SQLite and reject file or server
+connections, including late named and on-demand connections. Tests do not
+require a running database service.
+
 ```bash
 composer install
 npm install
