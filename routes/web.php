@@ -14,6 +14,7 @@ use App\Http\Controllers\Lab\HumanPlusFixtureController;
 use App\Http\Controllers\Lab\ModelPolicyController;
 use App\Http\Controllers\Lab\PolicyBenchmarkController;
 use App\Http\Controllers\Lab\ProviderProbeController;
+use App\Http\Controllers\Lab\SessionPreflightController;
 use App\Http\Controllers\Lab\TaskListController;
 use App\Http\Controllers\Lab\TeamController;
 use App\Http\Controllers\Lab\TelemetryController;
@@ -35,6 +36,7 @@ Route::redirect('/', '/lab');
 if (app()->environment('local')) {
     Route::middleware(EnsurePrismLabIsLocal::class)->group(function (): void {
         Route::get('/lab', CockpitController::class)->name('lab.cockpit');
+        Route::get('/lab/preflight', SessionPreflightController::class)->middleware('throttle:30,1')->name('lab.preflight');
         Route::get('/lab/provider-probes', [ProviderProbeController::class, 'show'])->name('lab.provider-probes');
         Route::post('/lab/provider-probes/research', [ProviderProbeController::class, 'research'])->middleware('throttle:6,1')->name('lab.provider-probes.research');
         Route::post('/lab/provider-probes/fetch', [ProviderProbeController::class, 'fetch'])->middleware('throttle:6,1')->name('lab.provider-probes.fetch');

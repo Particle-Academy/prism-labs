@@ -194,6 +194,9 @@ jobs:
       - name: Consensus and Benchmarks browser regressions
         run: npm run test:dogfood-ui
 
+      - name: Session readiness Home and refusal browser controls
+        run: npm run test:preflight-ui
+
       - name: Every real form — click, Enter and non-submit composition
         run: npm run test:forms
 
@@ -232,4 +235,5 @@ jobs:
             prism-labs-forms-ci.json
             prism-labs-models-ci.json
             models-browser-artifacts/
+            storage/framework/testing/preflight-browser/
           if-no-files-found: error

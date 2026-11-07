@@ -8,6 +8,7 @@
         "test:ui": "node scripts/test-provider-ui.mjs && node scripts/test-human-plus-bridge.mjs",
         "test:dogfood-ui": "node scripts/test-dogfood-ui.mjs",
         "test:models-ui": "node scripts/test-models-ui.mjs",
+        "test:preflight-ui": "node scripts/test-preflight-ui.mjs",
         "build": "vite build && vite build --ssr",
         "build:client": "vite build",
         "build:ssr": "vite build --ssr",

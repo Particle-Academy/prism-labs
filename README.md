@@ -96,6 +96,11 @@ npm run build
 Then serve it. Every provider key is optional — the Lab reports an
 unconfigured provider and names the variable to set, rather than hiding it.
 
+Home and `/lab/preflight` report queue worker heartbeats, actual database
+identity/setup, provider key presence and core's observed main checks. See
+[session preflight](docs/session-preflight.md) for the refusal states and
+verification limits. Readiness does not grant approval or launch authority.
+
 ## Local only, by construction
 
 Routes sit behind `EnsurePrismLabIsLocal`, which checks the **raw socket
