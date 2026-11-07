@@ -52,8 +52,8 @@ final class SessionPreflight
             $presence = 'unknown';
             if (is_array($config) && $provider['described']) {
                 if ($provider['requiresKey']) {
-                    $credential = $config['api_key'] ?? null;
-                    $presence = is_string($credential) && trim($credential) !== '' ? 'present' : 'missing';
+                    $present = is_string($config['api_key'] ?? null) && trim($config['api_key']) !== '';
+                    $presence = $present ? 'present' : 'missing';
                 } else {
                     $presence = 'not_required';
                 }

@@ -35,10 +35,9 @@ The report checks four prerequisites:
 Core status carries its observation time and main SHA. The file cache lasts
 five minutes by default, independently of database availability. HTTP calls
 use fixed GitHub endpoints, bounded time and response sizes, and no retries or
-redirects. `LAB_GITHUB_READ_TOKEN` is an optional server-side read token; use
-only a fine-grained token with Actions read access. Without one, public reads
-are attempted and rate-limit failures stay unavailable. No shell credentials
-are loaded. API references: [workflow runs](https://docs.github.com/en/rest/actions/workflow-runs)
+redirects. Reads are public and unauthenticated. There is no token setting or
+credential lookup. Rate-limit and other request failures remain unavailable.
+API references: [workflow runs](https://docs.github.com/en/rest/actions/workflow-runs)
 and [Git references](https://docs.github.com/en/rest/git/refs).
 
 `SessionPreflight::assertReady()` rechecks current core status and throws the

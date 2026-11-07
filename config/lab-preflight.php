@@ -7,8 +7,6 @@ return [
         'queues' => ['default', 'scoring'],
     ],
     'core_actions' => [
-        // Optional read-only token, used only against the fixed GitHub host.
-        'token' => env('LAB_GITHUB_READ_TOKEN'),
         'cache_seconds' => 300,
         'workflows' => [
             '.github/workflows/tests.yml',

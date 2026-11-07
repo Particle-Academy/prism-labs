@@ -127,10 +127,6 @@ final class CoreActionsStatus
         $request = Http::acceptJson()->withHeaders(['X-GitHub-Api-Version' => '2026-03-10', 'Cache-Control' => 'no-cache'])
             ->connectTimeout(2)->timeout(4)->withoutRedirecting()
             ->withOptions(['stream' => true, 'read_timeout' => 2]);
-        $token = config('lab-preflight.core_actions.token');
-        if (is_string($token) && trim($token) !== '') {
-            $request = $request->withToken($token);
-        }
         $response = $request->get(self::HOST.$path, $query);
         $stream = $response->toPsrResponse()->getBody();
         try {

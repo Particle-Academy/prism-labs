@@ -54,7 +54,6 @@ final class SessionPreflightTest extends TestCase
         config([
             'app.key' => 'base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
             'lab-preflight.workers.directory' => $this->directory.'/workers',
-            'lab-preflight.core_actions.token' => 'fixture-read-token-private',
             'cache.stores.file.path' => $this->directory.'/cache',
             'cache.stores.file.lock_path' => $this->directory.'/cache',
             'queue.default' => 'database',
@@ -317,6 +316,15 @@ final class SessionPreflightTest extends TestCase
         Http::assertSentCount(2);
     }
 
+    public function test_core_actions_reads_are_public_even_with_an_obsolete_token_setting(): void
+    {
+        $this->assertArrayNotHasKey('token', config('lab-preflight.core_actions'));
+        config(['lab-preflight.core_actions.token' => 'synthetic-obsolete-token-never-send']);
+        $this->assertTrue($this->app->make(CoreActionsStatus::class)->check()['ready']);
+        Http::assertSentCount(2);
+        Http::assertNotSent(fn (Request $request) => $request->hasHeader('Authorization'));
+    }
+
     public static function failedCoreRuns(): array
     {
         return [
@@ -453,9 +461,39 @@ final class SessionPreflightTest extends TestCase
         $this->assertSame('missing', $rows['openai']['presence']);
         $this->assertSame('not_required', $rows['ollama']['presence']);
         $encoded = json_encode($report, JSON_THROW_ON_ERROR);
-        foreach (['fixture-provider-key-private', 'fixture-read-token-private', 'private-url-canary', 'api_key', 'signature', 'fixture-only-preflight-key'] as $canary) {
+        foreach (['fixture-provider-key-private', 'private-url-canary', 'api_key', 'signature', 'fixture-only-preflight-key'] as $canary) {
             $this->assertStringNotContainsString($canary, $encoded);
         }
+    }
+
+    public function test_provider_key_sentinel_is_absent_from_each_output_surface(): void
+    {
+        $sentinel = 'sk-test-SENTINEL-123';
+        config([
+            'prism.providers.anthropic.api_key' => $sentinel,
+            'logging.default' => 'preflight_fixture',
+            'logging.channels.preflight_fixture' => ['driver' => 'single', 'path' => $this->directory.'/preflight.log', 'level' => 'debug'],
+        ]);
+        Log::forgetChannel('preflight_fixture');
+        Log::channel('preflight_fixture')->info('preflight-fixture-log-control');
+        $this->idle();
+        $json = $this->getJson('/lab/preflight')->assertOk()->assertJsonPath('ready', true);
+        $this->assertStringNotContainsString($sentinel, $json->getContent());
+
+        $home = $this->get('/lab')->assertOk();
+        $this->assertStringContainsString('text/html', $home->headers->get('Content-Type'));
+        $this->assertStringNotContainsString($sentinel, $home->getContent());
+
+        $cacheFiles = (new Filesystem)->allFiles($this->directory.'/cache');
+        $this->assertNotEmpty($cacheFiles, 'A real file cache entry must have been written.');
+        $this->assertLessThan(8, count($cacheFiles));
+        $cache = implode('', array_map(static fn ($file): string => file_get_contents($file->getPathname()), $cacheFiles));
+        $this->assertStringContainsString('checked_at', $cache);
+        $this->assertStringNotContainsString($sentinel, $cache);
+
+        $logs = file_get_contents($this->directory.'/preflight.log');
+        $this->assertStringContainsString('preflight-fixture-log-control', $logs);
+        $this->assertStringNotContainsString($sentinel, $logs);
     }
 
     public static function malformedCredentials(): array
