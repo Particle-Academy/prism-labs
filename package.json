@@ -30,7 +30,7 @@
         "vite": "^8.2.2"
     },
     "dependencies": {
-        "@inertiajs/react": "^3.7.0",
+        "@inertiajs/react": "^3.11.0",
         "@particle-academy/agent-integrations": ">=0.58.0 <1.0.0",
         "@particle-academy/fancy-app-update": "^0.7.1",
         "@particle-academy/fancy-code": "^0.16.0",
