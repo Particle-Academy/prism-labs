@@ -43,6 +43,7 @@ try{
   });
   const revealProvider=async key=>{
    const provider=page.locator(`[data-model-provider="${key}"]`),toggle=provider.locator(`[data-model-provider-toggle="${key}"]`);
+   await provider.getByRole('heading',{level:2}).waitFor();
    if(await toggle.count()&&await toggle.getAttribute('aria-expanded')==='false')await toggle.click();
    if(active.providers.find(p=>p.key===key)?.models.length)await provider.locator('[data-react-fancy-accordion-content]').waitFor();
   };
