@@ -90,7 +90,7 @@
         "open-telemetry/exporter-otlp": "^1.0",
         "open-telemetry/sdk": "^1.0",
         "particle-academy/fancy-flow-php": "0.66.0",
-        "particle-academy/prism": "dev-main as 0.147.0",
+        "particle-academy/prism": "dev-main as 0.147.1",
         "particle-academy/prism-browser": "dev-main as 0.4.1",
         "particle-academy/prism-harness": "dev-main as 0.23.1",
         "particle-academy/prism-human-plus": "dev-main as 0.6.0",
