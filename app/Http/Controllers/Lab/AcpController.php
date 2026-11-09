@@ -4,13 +4,18 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Lab;
 
+use App\Acp\AcpWork;
 use App\Http\Controllers\Controller;
 use App\Jobs\RunAcpTurnJob;
 use App\Lab\InstalledVersions;
+use App\Lab\PaidRunContext;
+use App\Lab\PaidRunNotAuthorised;
+use App\Lab\PaidWorkRegistry;
 use App\Models\AcpTurn;
 use Composer\InstalledVersions as ComposerVersions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -57,14 +62,28 @@ final class AcpController extends Controller
             }
         }
 
-        $turn = AcpTurn::query()->create([
-            'status' => AcpTurn::QUEUED,
-            'prompt' => $input['prompt'],
-            'provider' => $provider,
-            'model' => $input['model'] ?? null,
-            'resume_session_id' => $resume,
-        ]);
-        RunAcpTurnJob::dispatch($turn->id);
+        $intent = app(PaidRunContext::class)->authorizedRun(['acp.send']);
+        $approved = $intent->payload['acp'] ?? [];
+        $model = $input['model'] ?? config('acp.'.$provider.'.model');
+        if ($intent->acp_host_claimed_at !== null || $input['prompt'] !== ($intent->payload['input']['prompt'] ?? null)
+            || $provider !== ($approved['provider'] ?? null) || $model !== ($approved['model'] ?? null)
+            || $resume !== ($approved['resume_session_id'] ?? null)) {
+            throw new PaidRunNotAuthorised;
+        }
+        $turn = DB::transaction(function () use ($intent, $input, $provider, $model, $resume): AcpTurn {
+            if (AcpTurn::query()->where('approved_run_id', $intent->id)->exists()) {
+                throw new PaidRunNotAuthorised;
+            }
+            $turn = AcpTurn::query()->create([
+                'status' => AcpTurn::QUEUED, 'prompt' => $input['prompt'], 'provider' => $provider,
+                'model' => $model, 'resume_session_id' => $resume, 'approved_run_id' => $intent->id,
+            ]);
+            $work = app(PaidWorkRegistry::class)->bind('acp.turn', $turn->id, AcpWork::payload($turn));
+            $turn->forceFill(['paid_work_id' => $work->id])->save();
+            RunAcpTurnJob::dispatch($turn->id, $work->id)->afterCommit();
+
+            return $turn;
+        });
 
         return response()->json($turn->toPayload(), 202);
     }

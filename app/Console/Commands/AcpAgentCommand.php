@@ -4,9 +4,17 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Acp\ApprovedDriver;
+use App\Acp\ApprovedPrompt;
 use App\Acp\ConversationCodexTransport;
+use App\Lab\PaidRunNotAuthorised;
+use App\Lab\RunAuthority;
+use App\Lab\RunScopeFactory;
+use App\Lab\SessionNotReady;
 use Illuminate\Console\Command;
+use Illuminate\Validation\ValidationException;
 use Prism\Acp\Agent\AcpAgent;
+use Prism\Acp\Agent\AgentDriver;
 use Prism\Acp\Agent\DriverEvents;
 use Prism\Acp\Agent\Stdio;
 use Prism\Acp\Claude\ClaudeDriver;
@@ -25,7 +33,7 @@ use Prism\Acp\JsonRpc\JsonRpcPeer;
  */
 final class AcpAgentCommand extends Command
 {
-    protected $signature = 'lab:acp-agent {--provider=claude : claude or codex}';
+    protected $signature = 'lab:acp-agent {--provider=claude : claude or codex} {--approved-run= : Exact owner-approved single-turn GO reference}';
 
     protected $description = 'Serve a Claude or Codex ACP agent with the Lab conversation policy';
 
@@ -37,6 +45,19 @@ final class AcpAgentCommand extends Command
 
             return self::INVALID;
         }
+        $id = $this->option('approved-run');
+        if (! app()->environment('local') || ! is_string($id) || strlen($id) !== 36) {
+            $this->error('paid_call_not_authorised: Supply --approved-run with the owner\'s exact approved GO.');
+
+            return self::FAILURE;
+        }
+        try {
+            $approval = ApprovedPrompt::acquire($id, $provider, app(RunAuthority::class), app(RunScopeFactory::class));
+        } catch (PaidRunNotAuthorised|SessionNotReady|ValidationException $failure) {
+            $this->error('paid_call_not_authorised: The exact approved ACP turn is unavailable or session preflight refused it.');
+
+            return self::FAILURE;
+        }
         $workspace = (string) config('acp.workspace');
         if (! is_dir($workspace)) {
             mkdir($workspace, 0700, true);
@@ -45,7 +66,7 @@ final class AcpAgentCommand extends Command
             cwd: $workspace,
             binary: (string) config('acp.codex.binary'),
             binaryArgs: [...array_values(array_map('strval', (array) config('acp.codex.binary_args'))), ...ConversationCodexTransport::arguments()],
-            model: trim((string) config('acp.codex.model')) === '' ? null : (string) config('acp.codex.model'),
+            model: $approval->model,
             approvalPolicy: 'untrusted',
             sandbox: 'read-only',
         ) : new ClaudeDriverOptions(
@@ -54,17 +75,21 @@ final class AcpAgentCommand extends Command
             binaryArgs: array_values(array_map('strval', (array) config('acp.claude.binary_args'))),
             permissionMode: 'dontAsk',
             permissionPrompts: ['*'],
-            model: (string) config('acp.claude.model'),
+            model: $approval->model,
             disallowedTools: ['Bash', 'Write', 'Edit', 'MultiEdit', 'NotebookEdit', 'WebFetch', 'WebSearch', 'KillShell'],
         );
         $stderr = fopen('php://stderr', 'w');
 
         $served = Stdio::serve(Stdio::stdin(), STDOUT, fn (JsonRpcPeer $peer) => new AcpAgent(
             peer: $peer,
-            driverFactory: fn (array $session, DriverEvents $events) => $base instanceof CodexDriverOptions
-                ? new CodexDriver($base->forSession($session), $events,
+            driverFactory: function (array $session, DriverEvents $events) use ($base, $approval): AgentDriver {
+                $approval->claimSession($session);
+                $driver = $base instanceof CodexDriverOptions ? new CodexDriver($base->forSession($session), $events,
                     fn (CodexTransportOptions $options, CodexTransportHandlers $handlers) => new ConversationCodexTransport($options, $handlers))
-                : new ClaudeDriver($base->forSession($session), $events),
+                    : new ClaudeDriver($base->forSession($session), $events);
+
+                return new ApprovedDriver($driver, $approval);
+            },
             driverCapabilities: $provider === 'codex' ? CodexDriver::CAPABILITIES : [...ClaudeDriver::CAPABILITIES, 'permissionRequests' => true],
             agentInfo: ['name' => 'prism-labs', 'title' => 'Prism Lab ACP agent (PHP)', 'version' => '1'],
             onStderr: fn (string $session, string $line) => $stderr && fwrite($stderr, "[{$session}] {$line}\n"),

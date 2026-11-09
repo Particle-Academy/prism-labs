@@ -23,6 +23,7 @@ final readonly class AgentReadiness
                 $tools === null => 'The agent answered status but its tool list could not be read.',
                 ($data['agent_stale'] ?? null) !== false => 'The agent is stale or could not prove that it loaded the current code. Restart it after building the port.',
                 ($data['provider_available'] ?? null) !== true => 'The configured provider is unavailable in this port.',
+                ($data['paid_call_refusal'] ?? null) === 'paid_call_not_authorised' => LanguageAgent::PAID_AUTHORITY_UNAVAILABLE,
                 ($data['can_reason'] ?? null) !== true => 'The agent has no provider credentials configured.',
                 default => null,
             };

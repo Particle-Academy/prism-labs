@@ -2,6 +2,7 @@ import { Head } from '@inertiajs/react';
 import { useCallback, useState } from 'react';
 import { KineticFooter, KineticNav } from '../../components/kinetic';
 import { LabNav, labBlurb } from '../../components/lab-nav';
+import { paidFetch } from '../../lib/paid-run';
 
 type Step = { did: string; got: string; ok: boolean; record: string | null };
 
@@ -64,9 +65,10 @@ function csrf(): string {
 }
 
 async function post(url: string): Promise<Record<string, unknown>> {
-    const response = await fetch(url, {
+    const response = await (url === '/lab/tasks/agent' ? paidFetch : fetch)(url, {
         method: 'POST',
         headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf() },
+        body: JSON.stringify({}),
     });
     const body = await response.json();
     if (!response.ok) throw new Error(typeof body.message === 'string' ? body.message : `the probe returned ${response.status}`);

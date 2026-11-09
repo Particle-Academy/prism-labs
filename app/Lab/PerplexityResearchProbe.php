@@ -15,6 +15,7 @@ final class PerplexityResearchProbe
     /** @return array<string, mixed> */
     public function run(PrismTestCase $case): array
     {
+        app(DirectPaidAuthority::class)->testCase($case);
         $started = hrtime(true);
         $result = ['id' => $case->id, 'provider' => $case->provider, 'model' => $case->model, 'feature' => $case->feature, 'passed' => false, 'verdict' => 'UNMEASURED', 'metrics' => [], 'error' => null, 'diagnostics' => null];
         if (! app()->environment('local')) {

@@ -52,6 +52,7 @@ export function LabTopbar({ current }: { current: string }) {
                         <Link key={href} href={href} className={current === href ? 'is-active' : ''}>{label}</Link>
                     ))}
                     <Link href="/lab/diagnostics" className={current === '/lab/diagnostics' ? 'is-active' : ''}>Diagnostics</Link>
+                    <a href="/lab/owner" className={current === '/lab/owner' ? 'is-active' : ''}>Owner</a>
                 </nav>
                 <div className="lab-live"><i /> telemetry live</div>
             </header>;

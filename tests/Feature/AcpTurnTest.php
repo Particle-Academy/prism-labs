@@ -11,6 +11,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
+use Tests\Concerns\ApprovesLabRuns;
+use Tests\Concerns\NativeAcpTurnFixture;
 use Tests\TestCase;
 
 /**
@@ -18,29 +20,30 @@ use Tests\TestCase;
  * to it. Consumer-owned Claude and Codex CLI fixtures speak native frames through the same environment variables
  * a person would set. No model requests or real tools run.
  *
- * The controller is called directly, as the Lab's other tests do: its routes exist only in the local environment.
+ * Native hosts share only an owned file SQLite/cache and use genuine synthetic
+ * owner/approval/GO/work references. Parent-only validation stays in memory.
  */
 final class AcpTurnTest extends TestCase
 {
+    use ApprovesLabRuns;
     use RefreshDatabase;
 
     protected function setUp(): void
     {
         parent::setUp();
-        // Release archives intentionally exclude package tests: the consumer owns its fake CLI.
-        $fake = base_path('tests/fixtures/acp/fake-claude.php');
-        foreach (['LAB_ACP_CLAUDE_BINARY' => PHP_BINARY, 'LAB_ACP_CLAUDE_ARGS' => str_replace('\\', '/', $fake), 'LAB_ACP_MODEL' => 'haiku',
-            'LAB_ACP_CODEX_BINARY' => PHP_BINARY, 'LAB_ACP_CODEX_ARGS' => str_replace('\\', '/', base_path('tests/fixtures/acp/fake-codex.php'))] as $name => $value) {
-            putenv("{$name}={$value}");
-        }
+        $this->prepareLabAuthority();
+        config(['acp.claude.model' => 'haiku', 'acp.codex.model' => 'fixture-model',
+            'acp.claude.binary' => PHP_BINARY, 'acp.claude.binary_args' => [base_path('tests/fixtures/acp/fake-claude.php')],
+            'acp.codex.binary' => PHP_BINARY, 'acp.codex.binary_args' => [base_path('tests/fixtures/acp/fake-codex.php')]]);
     }
 
-    protected function tearDown(): void
+    private function nativeFixture(string $provider, string $variant = 'normal'): NativeAcpTurnFixture
     {
-        foreach (['LAB_ACP_CLAUDE_BINARY', 'LAB_ACP_CLAUDE_ARGS', 'LAB_ACP_MODEL', 'LAB_ACP_CODEX_BINARY', 'LAB_ACP_CODEX_ARGS', 'LAB_ACP_SESSION_SECONDS'] as $name) {
-            putenv($name);
-        }
-        parent::tearDown();
+        $fixture = new NativeAcpTurnFixture($this, $provider, $variant);
+        $this->beforeApplicationDestroyed(fn () => $fixture->close());
+        $fixture->prepare();
+
+        return $fixture;
     }
 
     public function test_a_turn_runs_through_the_php_agent_and_its_tree_is_gone_afterwards(): void
@@ -48,9 +51,7 @@ final class AcpTurnTest extends TestCase
         if (PHP_OS_FAMILY !== 'Windows') {
             $this->markTestSkipped('this ACP preview runs providers on Windows only');
         }
-        $turn = AcpTurn::query()->create(['status' => AcpTurn::QUEUED, 'prompt' => 'hello', 'model' => 'haiku']);
-        (new RunAcpTurnJob($turn->id))->handle();
-        $turn->refresh();
+        $turn = $this->nativeFixture('claude')->turn('hello');
 
         $text = collect($turn->updates)->where('sessionUpdate', 'agent_message_chunk')->map(fn (array $u) => $u['content']['text'])->implode('');
         $this->assertSame(AcpTurn::FINISHED, $turn->status, (string) $turn->error);
@@ -69,18 +70,11 @@ final class AcpTurnTest extends TestCase
         if (PHP_OS_FAMILY !== 'Windows') {
             $this->markTestSkipped('this ACP preview runs providers on Windows only');
         }
-        $first = AcpTurn::query()->create(['status' => AcpTurn::QUEUED, 'prompt' => 'one']);
-        (new RunAcpTurnJob($first->id))->handle();
-        Queue::fake();
-
-        $response = app(AcpController::class)->send(Request::create('/lab/acp', 'POST', ['prompt' => 'two', 'continue' => $first->id]));
-        $this->assertSame(202, $response->getStatusCode());
-        $second = AcpTurn::query()->where('prompt', 'two')->sole();
+        $fixture = $this->nativeFixture('claude');
+        $first = $fixture->turn('one');
+        $second = $fixture->turn('two');
+        $this->assertNotSame($first->id, $second->id);
         $this->assertSame('9adbc891-a558-48e0-93b0-460d6500ead8', $second->resume_session_id);
-        Queue::assertPushed(RunAcpTurnJob::class);
-
-        (new RunAcpTurnJob($second->id))->handle();
-        $second->refresh();
         $this->assertSame(AcpTurn::FINISHED, $second->status, (string) $second->error);
         $this->assertArrayHasKey('session/load', $second->handshake);
     }
@@ -102,9 +96,7 @@ final class AcpTurnTest extends TestCase
         if (PHP_OS_FAMILY !== 'Windows') {
             $this->markTestSkipped('this ACP preview runs providers on Windows only');
         }
-        $turn = AcpTurn::query()->create(['status' => AcpTurn::QUEUED, 'prompt' => 'hook FutureTool']);
-        (new RunAcpTurnJob($turn->id))->handle();
-        $turn->refresh();
+        $turn = $this->nativeFixture('claude')->turn('hook');
         $text = collect($turn->updates)->where('sessionUpdate', 'agent_message_chunk')->map(fn (array $update) => $update['content']['text'])->implode('');
         $hook = json_decode($text, true, flags: JSON_THROW_ON_ERROR);
         $this->assertSame(AcpTurn::FINISHED, $turn->status, (string) $turn->error);
@@ -129,26 +121,16 @@ final class AcpTurnTest extends TestCase
         if (PHP_OS_FAMILY !== 'Windows') {
             $this->markTestSkipped('native ACP process containment is Windows-only');
         }
-        $first = AcpTurn::query()->create(['status' => AcpTurn::QUEUED, 'provider' => 'codex', 'prompt' => 'one', 'model' => 'fixture-model']);
-        (new RunAcpTurnJob($first->id))->handle();
-        $first->refresh();
+        $fixture = $this->nativeFixture('codex', 'slow-history');
+        $first = $fixture->turn('one');
         $this->assertSame(AcpTurn::FINISHED, $first->status, (string) $first->error);
         $this->assertSame('418fb379-86dc-456a-ac17-ab1df70f7216', $first->cli_session_id);
         $this->assertSame('echo: one', $this->answer($first->updates));
         $this->assertTrue($first->process['stop']['verified']);
         $this->assertSame(0, $first->process['stop']['survivors']);
 
-        Queue::fake();
-        $response = app(AcpController::class)->send(Request::create('/lab/acp', 'POST', [
-            'provider' => 'codex', 'prompt' => 'two', 'continue' => $first->id, 'model' => 'fixture-model',
-        ]));
-        $this->assertSame(202, $response->getStatusCode());
-        $second = AcpTurn::query()->where('prompt', 'two')->sole();
-        putenv('LAB_ACP_CODEX_ARGS='.str_replace('\\', '/', base_path('tests/fixtures/acp/fake-codex.php')).' --fixture-slow-history');
-        putenv('LAB_ACP_SESSION_SECONDS=2');
-        config(['acp.session_seconds' => 2]);
-        (new RunAcpTurnJob($second->id))->handle();
-        $second->refresh();
+        $second = $fixture->turn('two');
+        $this->assertSame($first->cli_session_id, $second->resume_session_id);
         $this->assertSame(AcpTurn::FINISHED, $second->status, (string) $second->error);
         $this->assertSame('codex', $second->toPayload()['provider']);
         $this->assertSame('echo: two', $this->answer($second->updates));
@@ -163,9 +145,7 @@ final class AcpTurnTest extends TestCase
         if (PHP_OS_FAMILY !== 'Windows') {
             $this->markTestSkipped('native ACP process containment is Windows-only');
         }
-        $turn = AcpTurn::query()->create(['status' => AcpTurn::QUEUED, 'provider' => 'codex', 'prompt' => 'approval']);
-        (new RunAcpTurnJob($turn->id))->handle();
-        $turn->refresh();
+        $turn = $this->nativeFixture('codex')->turn('approval');
         $this->assertSame(AcpTurn::FINISHED, $turn->status, (string) $turn->error);
         $this->assertSame('permission denied', $this->answer($turn->updates));
         $this->assertTrue($turn->process['stop']['verified']);
@@ -177,10 +157,7 @@ final class AcpTurnTest extends TestCase
         if (PHP_OS_FAMILY !== 'Windows') {
             $this->markTestSkipped('native ACP process containment is Windows-only');
         }
-        putenv('LAB_ACP_CODEX_ARGS='.str_replace('\\', '/', base_path('tests/fixtures/acp/fake-codex.php')).' --fixture-invalid-config');
-        $turn = AcpTurn::query()->create(['status' => AcpTurn::QUEUED, 'provider' => 'codex', 'prompt' => 'must refuse']);
-        (new RunAcpTurnJob($turn->id))->handle();
-        $turn->refresh();
+        $turn = $this->nativeFixture('codex', 'invalid-config')->turn('invalid-config');
         $this->assertSame(AcpTurn::FAILED, $turn->status);
         $this->assertStringNotContainsString('dummy-sensitive-config', json_encode($turn->toPayload()));
         $this->assertTrue($turn->process['stop']['verified']);
@@ -209,7 +186,8 @@ final class AcpTurnTest extends TestCase
             $this->assertArrayHasKey('provider', $error->errors());
         }
         Queue::assertNothingPushed();
-        $response = app(AcpController::class)->send(Request::create('/lab/acp', 'POST', ['prompt' => 'default']));
+        $response = $this->withApprovedLabRun('acp.send', ['prompt' => 'default'],
+            fn () => app(AcpController::class)->send(Request::create('/lab/acp', 'POST', ['prompt' => 'default'])));
         $this->assertSame('claude', $response->getData(true)['provider']);
         Queue::assertPushed(RunAcpTurnJob::class, 1);
     }

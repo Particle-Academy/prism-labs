@@ -6,6 +6,7 @@ namespace App\Team;
 
 use App\Benchmarks\BenchmarkDesigner;
 use App\Integrity\FactChecker;
+use App\Lab\PaidRunContext;
 use App\Learnings\LearningStore;
 use App\Learnings\Severity;
 use App\Prompts\PromptFile;
@@ -40,6 +41,7 @@ final class Coordinator
      */
     public function ask(string $question): array
     {
+        app(PaidRunContext::class)->requireInput(['team.ask'], ['question' => $question]);
         $response = Prism::text()
             ->using(
                 (string) config('team.coordinator.provider'),

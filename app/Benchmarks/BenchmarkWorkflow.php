@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Benchmarks;
 
+use App\Lab\PaidWorkRegistry;
 use App\Models\BenchmarkLane;
 use App\Models\BenchmarkRun;
 use FancyFlow\Laravel\FancyFlowManager;
@@ -16,9 +17,20 @@ final readonly class BenchmarkWorkflow
 
     public function dispatch(BenchmarkRun $run): void
     {
+        BenchmarkWork::assertRun($run);
+        app(PaidWorkRegistry::class)->produce($run->paid_work_id, 'benchmark.run', $run->id, BenchmarkWork::runPayload($run),
+            fn () => $this->dispatchApproved($run));
+    }
+
+    private function dispatchApproved(BenchmarkRun $run): void
+    {
         $lanes = BenchmarkLane::query()->where('benchmark_run_id', $run->id)->orderBy('ordinal')->get();
         $firstWorkflowId = null;
 
+        // Validate every target before provisioning or dispatching even one.
+        foreach ($lanes as $lane) {
+            app(PaidWorkRegistry::class)->checkProducer($lane->paid_work_id, 'benchmark.lane', $lane->id, BenchmarkWork::lanePayload($lane));
+        }
         foreach ($lanes as $lane) {
             $path = $this->workspaces->provision($lane);
             $this->activity->record($lane, 'lane.queued', 'Lane queued and isolated workspace provisioned.', ['workspace' => $path]);
@@ -26,7 +38,7 @@ final readonly class BenchmarkWorkflow
                 id: 'lane-'.$lane->ordinal,
                 type: '@prism-lab/benchmark_lane',
                 label: ucfirst($lane->language).' benchmark lane',
-                config: ['lane_id' => $lane->id],
+                config: ['lane_id' => $lane->id, 'paid_work_id' => $lane->paid_work_id],
                 outputs: [],
             );
             $workflow = $this->flow->dispatch(new FlowGraph([$node]), maxConcurrent: 1);

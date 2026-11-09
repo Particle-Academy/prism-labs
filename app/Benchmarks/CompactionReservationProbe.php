@@ -53,6 +53,8 @@ final class CompactionReservationProbe
         bool $reserve = true,
         int $rounds = 14,
     ): array {
+        app(CompactionAuthority::class)->require('reservation', ['model' => $model, 'max_steps' => $maxSteps,
+            'trigger' => $trigger, 'keep' => $keep, 'reserve' => $reserve, 'rounds' => $rounds]);
         // Counted inside the tool bodies, the only place that can report
         // EXECUTION rather than intent. A reserved tool that ran leaves its
         // evidence here and nowhere else.
@@ -116,6 +118,7 @@ final class CompactionReservationProbe
         )];
 
         for ($round = 0; $round < $rounds; $round++) {
+            app(CompactionAuthority::class)->check('reservation');
             try {
                 $response = Prism::text()
                     ->using(Provider::Anthropic, $model)

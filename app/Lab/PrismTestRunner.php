@@ -18,6 +18,7 @@ final class PrismTestRunner
     /** @return array<string, mixed> */
     public function run(PrismTestCase $case): array
     {
+        app(DirectPaidAuthority::class)->testCase($case);
         if ($case->feature === 'deep_research') {
             return app(PerplexityResearchProbe::class)->run($case);
         }

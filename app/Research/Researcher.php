@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Research;
 
+use App\Lab\DirectPaidAuthority;
 use App\Lab\RunDiagnostics;
 use Prism\Perplexity\Perplexity as PerplexityProvider;
 use Prism\Prism\Enums\Provider;
@@ -39,6 +40,7 @@ final class Researcher
      */
     public function search(string $query, int $max = 6): array
     {
+        app(DirectPaidAuthority::class)->research($query, $max);
         try {
             /** @var PerplexityProvider $perplexity */
             $perplexity = $this->manager->resolve('perplexity');
@@ -77,6 +79,7 @@ final class Researcher
      */
     public function ask(string $question): array
     {
+        app(DirectPaidAuthority::class)->research($question);
         try {
             $response = Prism::text()
                 ->using(Provider::Perplexity, (string) config('team.research.model'))

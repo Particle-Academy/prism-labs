@@ -6,13 +6,18 @@ namespace App\Http\Controllers\Lab;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\RunOverseerTurnJob;
+use App\Lab\LabConversation;
 use App\Lab\LabSession;
+use App\Lab\PaidRunContext;
+use App\Lab\PaidRunNotAuthorised;
+use App\Lab\PaidWorkRegistry;
 use App\Models\BenchmarkSpec;
 use App\Models\OverseerTurn;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Prism\Harness\Voice\VoiceExchange;
-use Prism\Prism\ValueObjects\Media\Audio;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Throwable;
@@ -85,7 +90,7 @@ final class AgentConversationController extends Controller
      * If the Lab ever has concurrent operators, this is one of the places to
      * revisit. `LabSession` says plainly that it does not.
      */
-    public function voice(Request $request, LabSession $sessions, VoiceExchange $voice): JsonResponse
+    public function voice(Request $request, LabSession $sessions): JsonResponse
     {
         $input = $request->validate([
             // Base64 rather than a multipart upload because the recorder hands
@@ -104,32 +109,24 @@ final class AgentConversationController extends Controller
             'mime' => ['required', 'string', 'in:audio/webm,audio/ogg,audio/mp4,audio/mpeg,audio/wav,audio/x-wav,audio/m4a'],
         ]);
 
-        $session = $sessions->resolve($request)
-            ->usingProvider((string) config('team.coordinator.provider'))
-            ->usingModel((string) config('team.coordinator.model'))
-            ->usingMode('chat');
-
         try {
-            $reply = $voice->exchange($session, Audio::fromBase64($input['audio'], $input['mime']));
+            $reply = app(LabConversation::class)->voice($input['audio'], $input['mime']);
+            $session = $sessions->resolve($request);
 
             return response()->json([
                 ...$reply->toArray(),
                 'run' => $session->run(),
                 'drafts' => $this->drafts(),
             ]);
+        } catch (PaidRunNotAuthorised $failure) {
+            throw $failure;
         } catch (Throwable $failure) {
-            // THIS REPORT CAN CARRY THE RECORDING, and the Lab is the right
-            // place to say so out loud rather than the wrong place to pretend
-            // otherwise. Under `zend.exception_ignore_args=0` the trace holds
-            // VoiceExchange's frames, whose argument is the Audio — see the
-            // Voice section of prism-harness's README, which measures exactly
-            // which frames those are and why the package cannot close it.
-            //
-            // The Lab is never deployed and its `.env` is not production, so
-            // the exposure here is a developer's own voice on a developer's own
-            // machine. An application that IS deployed sets the ini to 1 or
-            // scrubs the Audio class in its reporter. Both are the operator's.
-            report($failure);
+            // Exception objects/traces can retain the recording. Keep only its
+            // kind; a failing logger must not mask the existing fixed response.
+            try {
+                Log::warning('Lab voice turn failed.', ['failure' => $failure::class]);
+            } catch (Throwable) {
+            }
 
             return response()->json([
                 'message' => 'The Overseer could not complete that spoken turn. Your conversation is preserved; try again when the provider is available.',
@@ -159,13 +156,19 @@ final class AgentConversationController extends Controller
     public function send(Request $request): JsonResponse
     {
         $input = $request->validate(['message' => ['required', 'string', 'max:30000']]);
+        $intent = app(PaidRunContext::class)->authorizedRun(['agent.send']);
+        $turn = DB::transaction(function () use ($input, $intent): OverseerTurn {
+            $turn = OverseerTurn::query()->create([
+                'status' => OverseerTurn::QUEUED, 'prompt' => $input['message'], 'approved_run_id' => $intent->id,
+            ]);
+            $work = app(PaidWorkRegistry::class)->bind('overseer.turn', $turn->id,
+                ['prompt' => $turn->prompt, 'approved_run_id' => $turn->approved_run_id]);
+            $turn->forceFill(['paid_work_id' => $work->id])->save();
 
-        $turn = OverseerTurn::query()->create([
-            'status' => OverseerTurn::QUEUED,
-            'prompt' => $input['message'],
-        ]);
+            return $turn;
+        });
 
-        RunOverseerTurnJob::dispatch($turn->id);
+        RunOverseerTurnJob::dispatch($turn->id, $turn->paid_work_id)->afterCommit();
 
         return response()->json([
             ...$turn->toStatusPayload(),

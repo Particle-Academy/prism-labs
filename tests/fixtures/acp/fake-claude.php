@@ -138,6 +138,13 @@ while (($line = fgets(STDIN)) !== false) {
 
         continue;
     }
+    if ($said === 'env-canaries') {
+        $probe = require __DIR__.'/env-canaries.php';
+        $text($turn, $probe());
+        $result();
+
+        continue;
+    }
     $text($turn, "echo: {$said}");
     $result();
 }

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { LabShell } from '../../components/lab-shell';
+import { paidFetch } from '../../lib/paid-run';
 import { RunDiagnosticsView, type RunDiagnostics } from '../../components/run-diagnostics';
 import { CacheEvidence, FetchResultView, type CacheResult, type FetchResult } from '../../components/provider-probe-results';
 
@@ -7,7 +8,7 @@ type ResearchResult = { ok: boolean; reason?: string; answer?: string; diagnosti
 
 async function postProbe<T>(path: string, data: unknown): Promise<T> {
     const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
-    const response = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': csrf }, body: JSON.stringify(data) });
+    const response = await (path === '/lab/provider-probes/fetch' ? fetch : paidFetch)(path, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': csrf }, body: JSON.stringify(data) });
     const body = await response.json();
     if (!response.ok) throw new Error(body.message ?? 'Probe could not run.');
     return body;

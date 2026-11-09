@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Benchmarks\SummaryLossProbe;
+use App\Lab\PaidRunContext;
+use App\Lab\PaidWorkRegistry;
 use App\Models\CompactionProbeRun;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -40,7 +42,25 @@ final class RunSummaryLossProbe implements ShouldQueue
      */
     public int $timeout = 1700;
 
+    public ?string $approvedRunId = null;
+
+    public ?string $paidWorkId = null;
+
+    public function __construct(?string $approvedRunId = null, ?string $paidWorkId = null)
+    {
+        $this->approvedRunId = $approvedRunId;
+        $this->paidWorkId = $paidWorkId;
+    }
+
     public function handle(SummaryLossProbe $probe): void
+    {
+        app(PaidWorkRegistry::class)->run($this->paidWorkId, 'compaction.summary-loss', $this->approvedRunId ?? '', [], function () use ($probe): void {
+            app(PaidRunContext::class)->requireActions(['benchmarks.summary-loss', 'cli.compaction-summary-loss']);
+            $this->executeApproved($probe);
+        });
+    }
+
+    private function executeApproved(SummaryLossProbe $probe): void
     {
         $result = $probe->run();
         $with = $result['with_recall'];

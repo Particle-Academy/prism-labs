@@ -12,8 +12,10 @@ use App\Http\Controllers\Lab\ConsensusController;
 use App\Http\Controllers\Lab\EvidenceController;
 use App\Http\Controllers\Lab\HumanPlusFixtureController;
 use App\Http\Controllers\Lab\ModelPolicyController;
+use App\Http\Controllers\Lab\OwnerSessionController;
 use App\Http\Controllers\Lab\PolicyBenchmarkController;
 use App\Http\Controllers\Lab\ProviderProbeController;
+use App\Http\Controllers\Lab\RunIntentController;
 use App\Http\Controllers\Lab\SessionPreflightController;
 use App\Http\Controllers\Lab\TaskListController;
 use App\Http\Controllers\Lab\TeamController;
@@ -21,6 +23,8 @@ use App\Http\Controllers\Lab\TelemetryController;
 use App\Http\Controllers\Lab\TestSuiteController;
 use App\Http\Controllers\Lab\ThreadController;
 use App\Http\Middleware\EnsurePrismLabIsLocal;
+use App\Http\Middleware\RequireApprovedRun;
+use App\Http\Middleware\RequireLabOwner;
 use Illuminate\Support\Facades\Route;
 
 // Everything here is the Lab. There is no public surface to separate it from,
@@ -35,23 +39,33 @@ Route::redirect('/', '/lab');
 
 if (app()->environment('local')) {
     Route::middleware(EnsurePrismLabIsLocal::class)->group(function (): void {
+        Route::get('/lab/owner', [OwnerSessionController::class, 'show'])->name('lab.owner');
+        Route::post('/lab/owner/login', [OwnerSessionController::class, 'login'])->name('lab.owner.login');
+        Route::post('/lab/owner/logout', [OwnerSessionController::class, 'logout'])->name('lab.owner.logout');
+        Route::middleware(RequireLabOwner::class)->group(function (): void {
+            Route::get('/lab/run-intents', [RunIntentController::class, 'index'])->middleware('throttle:60,1')->name('lab.run-intents.index');
+            Route::post('/lab/run-intents', [RunIntentController::class, 'store'])->middleware('throttle:20,1')->name('lab.run-intents.store');
+            Route::post('/lab/run-intents/{intent}/approve', [RunIntentController::class, 'approve'])->name('lab.run-intents.approve');
+            Route::post('/lab/run-intents/{intent}/go', [RunIntentController::class, 'go'])->name('lab.run-intents.go');
+            Route::post('/lab/run-intents/{intent}/revoke', [RunIntentController::class, 'revoke'])->name('lab.run-intents.revoke');
+        });
         Route::get('/lab', CockpitController::class)->name('lab.cockpit');
         Route::get('/lab/preflight', SessionPreflightController::class)->middleware('throttle:30,1')->name('lab.preflight');
         Route::get('/lab/provider-probes', [ProviderProbeController::class, 'show'])->name('lab.provider-probes');
-        Route::post('/lab/provider-probes/research', [ProviderProbeController::class, 'research'])->middleware('throttle:6,1')->name('lab.provider-probes.research');
+        Route::post('/lab/provider-probes/research', [ProviderProbeController::class, 'research'])->middleware([RequireApprovedRun::class, 'throttle:6,1'])->name('lab.provider-probes.research');
         Route::post('/lab/provider-probes/fetch', [ProviderProbeController::class, 'fetch'])->middleware('throttle:6,1')->name('lab.provider-probes.fetch');
-        Route::post('/lab/provider-probes/cache', [ProviderProbeController::class, 'cache'])->middleware('throttle:3,1')->name('lab.provider-probes.cache');
+        Route::post('/lab/provider-probes/cache', [ProviderProbeController::class, 'cache'])->middleware([RequireApprovedRun::class, 'throttle:3,1'])->name('lab.provider-probes.cache');
         Route::inertia('/lab/diagnostics', 'Lab/Diagnostics')->name('lab.diagnostics');
         Route::get('/lab/consensus', [ConsensusController::class, 'show'])->name('lab.consensus');
-        Route::post('/lab/consensus', [ConsensusController::class, 'store'])->middleware('throttle:6,1')->name('lab.consensus.store');
-        Route::post('/lab/consensus/{run}/review', [ConsensusController::class, 'review'])->middleware('throttle:10,1')->name('lab.consensus.review');
+        Route::post('/lab/consensus', [ConsensusController::class, 'store'])->middleware([RequireApprovedRun::class, 'throttle:6,1'])->name('lab.consensus.store');
+        Route::post('/lab/consensus/{run}/review', [ConsensusController::class, 'review'])->middleware([RequireLabOwner::class, 'throttle:10,1'])->name('lab.consensus.review');
         // Closing a run nobody will synthesise is a real outcome, not the
         // absence of one — and it is the outcome that files the 0L saying the
         // agent calls were spent and nothing was concluded from them.
-        Route::post('/lab/consensus/{run}/abandon', [ConsensusController::class, 'abandon'])->middleware('throttle:10,1')->name('lab.consensus.abandon');
+        Route::post('/lab/consensus/{run}/abandon', [ConsensusController::class, 'abandon'])->middleware([RequireLabOwner::class, 'throttle:10,1'])->name('lab.consensus.abandon');
         Route::get('/lab/evidence', [EvidenceController::class, 'show'])->name('lab.evidence');
-        Route::post('/lab/evidence/send', [EvidenceController::class, 'send'])->middleware('throttle:10,1')->name('lab.evidence.send');
-        Route::post('/lab/evidence/close', [EvidenceController::class, 'close'])->middleware('throttle:30,1')->name('lab.evidence.close');
+        Route::post('/lab/evidence/send', [EvidenceController::class, 'send'])->middleware([RequireApprovedRun::class, 'throttle:10,1'])->name('lab.evidence.send');
+        Route::post('/lab/evidence/close', [EvidenceController::class, 'close'])->middleware([RequireLabOwner::class, 'throttle:30,1'])->name('lab.evidence.close');
         // The team board. The roster is fetched separately from the page render
         // because probing means one network call per addressable lane, and a
         // lane that is down would otherwise hold the whole page behind its
@@ -77,11 +91,11 @@ if (app()->environment('local')) {
         // there is worth reading, and that survives exactly as long as they stay
         // rare.
         Route::post('/lab/team/nudge', [TeamController::class, 'nudge'])
-            ->middleware('throttle:6,1')
+            ->middleware([RequireApprovedRun::class, 'throttle:6,1'])
             ->name('lab.team.nudge');
 
         Route::post('/lab/team/ask', [TeamController::class, 'ask'])
-            ->middleware('throttle:20,1')
+            ->middleware([RequireApprovedRun::class, 'throttle:20,1'])
             ->name('lab.team.ask');
 
         // Agent task lists, dogfooded. Two routes because they are two
@@ -91,46 +105,46 @@ if (app()->environment('local')) {
         // refresh.
         Route::get('/lab/tasks', [TaskListController::class, 'show'])->name('lab.tasks');
         Route::post('/lab/tasks/probe', [TaskListController::class, 'probe'])->middleware('throttle:20,1')->name('lab.tasks.probe');
-        Route::post('/lab/tasks/agent', [TaskListController::class, 'agent'])->middleware('throttle:6,1')->name('lab.tasks.agent');
+        Route::post('/lab/tasks/agent', [TaskListController::class, 'agent'])->middleware([RequireApprovedRun::class, 'throttle:6,1'])->name('lab.tasks.agent');
 
         // One agent turn for an EXTERNAL policy-adherence benchmark to drive.
         // The benchmark owns the conversation, the environment and the score;
         // this owns only "what does Prism do next". No throttle: a benchmark
         // run is hundreds of turns back to back, and rate-limiting it would
         // measure our middleware rather than the agent.
-        Route::post('/lab/benchmarks/policy-turn', [PolicyBenchmarkController::class, 'turn'])->name('lab.benchmarks.policy-turn');
+        Route::post('/lab/benchmarks/policy-turn', [PolicyBenchmarkController::class, 'turn'])->middleware(RequireApprovedRun::class)->name('lab.benchmarks.policy-turn');
 
         Route::get('/lab/chat', [ChatController::class, 'show'])->name('lab.chat');
-        Route::post('/lab/chat', [ChatController::class, 'run'])->middleware('throttle:10,1')->name('lab.chat.run');
+        Route::post('/lab/chat', [ChatController::class, 'run'])->middleware([RequireApprovedRun::class, 'throttle:10,1'])->name('lab.chat.run');
         Route::get('/lab/agent', [AgentConversationController::class, 'show'])->name('lab.agent.show');
-        Route::post('/lab/agent', [AgentConversationController::class, 'send'])->middleware('throttle:20,1')->name('lab.agent.send');
+        Route::post('/lab/agent', [AgentConversationController::class, 'send'])->middleware([RequireApprovedRun::class, 'throttle:20,1'])->name('lab.agent.send');
         // Polled while a turn runs, so its throttle is far higher than the
         // others and its handler is one primary-key read. The turn itself is on
         // a queue; this is only how the answer is collected.
         Route::get('/lab/agent/turn/{turn}', [AgentConversationController::class, 'turn'])->middleware('throttle:240,1')->name('lab.agent.turn');
-        Route::post('/lab/agent/clear', [AgentConversationController::class, 'clear'])->middleware('throttle:20,1')->name('lab.agent.clear');
+        Route::post('/lab/agent/clear', [AgentConversationController::class, 'clear'])->middleware([RequireLabOwner::class, 'throttle:20,1'])->name('lab.agent.clear');
         // A spoken turn. Throttled harder than a typed one because it costs
         // three provider calls rather than one — transcribe, answer, speak.
-        Route::post('/lab/agent/voice', [AgentConversationController::class, 'voice'])->middleware('throttle:10,1')->name('lab.agent.voice');
+        Route::post('/lab/agent/voice', [AgentConversationController::class, 'voice'])->middleware([RequireApprovedRun::class, 'throttle:10,1'])->name('lab.agent.voice');
         // The PHP ACP agent (particle-academy/prism-acp), driven by the Lab as an
         // ACP client. The turn runs on a queue, as the Overseer's does; the page
         // polls the row the job writes.
         Route::get('/lab/acp', [AcpController::class, 'show'])->name('lab.acp');
-        Route::post('/lab/acp', [AcpController::class, 'send'])->middleware('throttle:10,1')->name('lab.acp.send');
+        Route::post('/lab/acp', [AcpController::class, 'send'])->middleware([RequireApprovedRun::class, 'throttle:10,1'])->name('lab.acp.send');
         Route::get('/lab/acp/turn/{turn}', [AcpController::class, 'turn'])->middleware('throttle:240,1')->name('lab.acp.turn');
         Route::get('/lab/capabilities', [CapabilityController::class, 'status'])->name('lab.capabilities');
         Route::get('/lab/human-plus-fixture', [HumanPlusFixtureController::class, 'show'])->name('lab.human-plus-fixture');
-        Route::post('/lab/capabilities/browser', [CapabilityController::class, 'openBrowser'])->middleware('throttle:10,1')->name('lab.capabilities.browser.open');
-        Route::delete('/lab/capabilities/browser', [CapabilityController::class, 'closeBrowser'])->middleware('throttle:10,1')->name('lab.capabilities.browser.close');
-        Route::post('/lab/capabilities/human-plus', [CapabilityController::class, 'attachHumanPlus'])->middleware('throttle:10,1')->name('lab.capabilities.human-plus.attach');
-        Route::delete('/lab/capabilities/human-plus', [CapabilityController::class, 'detachHumanPlus'])->middleware('throttle:10,1')->name('lab.capabilities.human-plus.detach');
+        Route::post('/lab/capabilities/browser', [CapabilityController::class, 'openBrowser'])->middleware([RequireLabOwner::class, 'throttle:10,1'])->name('lab.capabilities.browser.open');
+        Route::delete('/lab/capabilities/browser', [CapabilityController::class, 'closeBrowser'])->middleware([RequireLabOwner::class, 'throttle:10,1'])->name('lab.capabilities.browser.close');
+        Route::post('/lab/capabilities/human-plus', [CapabilityController::class, 'attachHumanPlus'])->middleware([RequireLabOwner::class, 'throttle:10,1'])->name('lab.capabilities.human-plus.attach');
+        Route::delete('/lab/capabilities/human-plus', [CapabilityController::class, 'detachHumanPlus'])->middleware([RequireLabOwner::class, 'throttle:10,1'])->name('lab.capabilities.human-plus.detach');
         Route::get('/lab/tests', [TestSuiteController::class, 'show'])->name('lab.tests');
-        Route::post('/lab/tests', [TestSuiteController::class, 'run'])->middleware('throttle:10,1')->name('lab.tests.run');
+        Route::post('/lab/tests', [TestSuiteController::class, 'run'])->middleware([RequireApprovedRun::class, 'throttle:10,1'])->name('lab.tests.run');
         Route::get('/lab/threads', [ThreadController::class, 'show'])->name('lab.threads');
         Route::get('/lab/telemetry', [TelemetryController::class, 'show'])->name('lab.telemetry');
         Route::get('/lab/models', [ModelPolicyController::class, 'show'])->name('lab.models');
         Route::post('/lab/models/refresh', [ModelPolicyController::class, 'refresh'])->middleware('throttle:5,1')->name('lab.models.refresh');
-        Route::post('/lab/models', [ModelPolicyController::class, 'update'])->middleware('throttle:20,1')->name('lab.models.update');
+        Route::post('/lab/models', [ModelPolicyController::class, 'update'])->middleware([RequireLabOwner::class, 'throttle:20,1'])->name('lab.models.update');
         Route::get('/lab/benchmarks', [BenchmarkController::class, 'show'])->name('lab.benchmarks');
         Route::get('/lab/benchmarks/specs/{spec}', [BenchmarkController::class, 'specification'])->name('lab.benchmark-specs.show');
         Route::get('/lab/benchmarks/runs/{run}', [BenchmarkController::class, 'runRoom'])->name('lab.benchmark-runs.show');
@@ -139,16 +153,16 @@ if (app()->environment('local')) {
         Route::get('/lab/benchmarks/runs/{run}/lanes/{lane}/media', [BenchmarkController::class, 'laneMedia'])->name('lab.benchmark-lanes.media');
         Route::post('/lab/benchmarks', [BenchmarkController::class, 'store'])->middleware('throttle:10,1')->name('lab.benchmarks.store');
         Route::post('/lab/benchmarks/{spec}/request-approval', [BenchmarkController::class, 'requestApproval'])->middleware('throttle:10,1')->name('lab.benchmarks.request-approval');
-        Route::post('/lab/benchmarks/{spec}/approve', [BenchmarkController::class, 'approve'])->middleware('throttle:10,1')->name('lab.benchmarks.approve');
-        Route::post('/lab/benchmarks/{spec}/launch', [BenchmarkController::class, 'launch'])->middleware('throttle:3,1')->name('lab.benchmarks.launch');
+        Route::post('/lab/benchmarks/{spec}/approve', [BenchmarkController::class, 'approve'])->middleware([RequireLabOwner::class, 'throttle:10,1'])->name('lab.benchmarks.approve');
+        Route::post('/lab/benchmarks/{spec}/launch', [BenchmarkController::class, 'launch'])->middleware([RequireApprovedRun::class, 'throttle:3,1'])->name('lab.benchmarks.launch');
         Route::post('/lab/benchmarks/runs/{run}/stop', [BenchmarkController::class, 'stop'])
-            ->middleware('throttle:6,1')
+            ->middleware([RequireLabOwner::class, 'throttle:6,1'])
             ->name('lab.benchmark-runs.stop');
         Route::delete('/lab/benchmarks/runs/{run}', [BenchmarkController::class, 'destroy'])
-            ->middleware('throttle:12,1')
+            ->middleware([RequireLabOwner::class, 'throttle:12,1'])
             ->name('lab.benchmark-runs.destroy');
         Route::delete('/lab/benchmarks/runs', [BenchmarkController::class, 'clear'])
-            ->middleware('throttle:6,1')
+            ->middleware([RequireLabOwner::class, 'throttle:6,1'])
             ->name('lab.benchmark-runs.clear');
         Route::get('/lab/benchmarks/export', [BenchmarkController::class, 'export'])->name('lab.benchmarks.export');
 
@@ -157,21 +171,21 @@ if (app()->environment('local')) {
         // real multi-round agent loop against a live provider -- which is the
         // only way compaction actually happens.
         Route::post('/lab/benchmarks/compaction-probe', [CompactionProbeController::class, 'store'])
-            ->middleware('throttle:3,1')
+            ->middleware([RequireApprovedRun::class, 'throttle:3,1'])
             ->name('lab.benchmarks.compaction-probe');
 
         // The other half: is an evicted turn still reachable? Throttled harder
         // because it drives roughly twenty live turns per press -- two arms of
         // ten -- and both arms are required for the result to mean anything.
         Route::post('/lab/benchmarks/compaction-recall', [CompactionProbeController::class, 'recall'])
-            ->middleware('throttle:2,1')
+            ->middleware([RequireApprovedRun::class, 'throttle:2,1'])
             ->name('lab.benchmarks.compaction-recall');
 
         // And the harder half of that half: what does a SUMMARY lose? Same
         // twenty turns, plus a summarising model call on every compacting turn
         // in both arms, so it is the most expensive press on the page.
         Route::post('/lab/benchmarks/summary-loss', [CompactionProbeController::class, 'summaryLoss'])
-            ->middleware('throttle:2,1')
+            ->middleware([RequireApprovedRun::class, 'throttle:2,1'])
             ->name('lab.benchmarks.summary-loss');
     });
 }

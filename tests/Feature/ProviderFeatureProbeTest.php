@@ -4,17 +4,23 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Prism\Prism\Support\HostResolver;
+use Tests\Concerns\ApprovesLabRuns;
 use Tests\TestCase;
 
 class ProviderFeatureProbeTest extends TestCase
 {
+    use ApprovesLabRuns;
+    use RefreshDatabase;
+
     protected function setUp(): void
     {
         parent::setUp();
+        $this->prepareLabAuthority();
         $this->app->detectEnvironment(fn () => 'local');
         Route::middleware('web')->group(base_path('routes/web.php'));
         $this->withSession(['_token' => 'fixture-csrf'])->withHeader('X-CSRF-TOKEN', 'fixture-csrf');
@@ -75,15 +81,16 @@ class ProviderFeatureProbeTest extends TestCase
         Http::fake(['api.anthropic.com/*' => Http::sequence()
             ->push($this->anthropicBody(2048, 0))
             ->push($this->anthropicBody(0, 2048))]);
-        $this->postJson('/lab/provider-probes/cache', [
+        $this->postApprovedLabRun('/lab/provider-probes/cache', 'provider.cache', [
             'model' => 'claude-sonnet-5', 'prefix' => 'Stable reference', 'question' => 'First question', 'follow_up' => 'Second question',
         ])->assertOk()->assertJsonPath('ok', true)
             ->assertJsonPath('runs.0.usage.cache_write_input_tokens', 2048)
             ->assertJsonPath('runs.0.usage.cache_read_input_tokens', 0)
             ->assertJsonPath('runs.1.usage.cache_write_input_tokens', 0)
             ->assertJsonPath('runs.1.usage.cache_read_input_tokens', 2048);
-        Http::assertSentCount(2);
-        foreach (Http::recorded() as $index => [$request]) {
+        $providerRequests = Http::recorded(fn ($request) => parse_url($request->url(), PHP_URL_HOST) === 'api.anthropic.com')->values();
+        $this->assertCount(2, $providerRequests);
+        foreach ($providerRequests as $index => [$request]) {
             $messages = $request['messages'];
             $this->assertSame('Stable reference', $messages[0]['content'][0]['text']);
             $this->assertSame(['type' => 'ephemeral'], $messages[0]['content'][0]['cache_control']);
@@ -96,7 +103,7 @@ class ProviderFeatureProbeTest extends TestCase
     public function test_zero_cache_counts_are_not_claimed_as_a_hit(): void
     {
         Http::fake(['api.anthropic.com/*' => Http::response($this->anthropicBody(0, 0))]);
-        $this->postJson('/lab/provider-probes/cache', ['model' => 'claude-sonnet-5', 'prefix' => 'Short prefix', 'question' => 'One', 'follow_up' => 'Two'])
+        $this->postApprovedLabRun('/lab/provider-probes/cache', 'provider.cache', ['model' => 'claude-sonnet-5', 'prefix' => 'Short prefix', 'question' => 'One', 'follow_up' => 'Two'])
             ->assertOk()->assertJsonPath('runs.1.usage.cache_read_input_tokens', 0);
     }
 
@@ -104,18 +111,18 @@ class ProviderFeatureProbeTest extends TestCase
     {
         Http::fake(['api.anthropic.com/*' => Http::sequence()->push($this->anthropicBody(2048, 0))
             ->push(['type' => 'error', 'error' => ['type' => 'invalid_request_error', 'message' => 'Fixture failure']], 400)]);
-        $this->postJson('/lab/provider-probes/cache', ['model' => 'claude-sonnet-5', 'prefix' => 'Reference', 'question' => 'One', 'follow_up' => 'Two'])
+        $this->postApprovedLabRun('/lab/provider-probes/cache', 'provider.cache', ['model' => 'claude-sonnet-5', 'prefix' => 'Reference', 'question' => 'One', 'follow_up' => 'Two'])
             ->assertOk()->assertJsonPath('ok', false)->assertJsonCount(1, 'runs')->assertJsonPath('runs.0.usage.cache_write_input_tokens', 2048);
     }
 
     public function test_probe_inputs_and_local_boundary_prevent_requests(): void
     {
-        $this->postJson('/lab/provider-probes/cache', ['model' => 'model'])->assertUnprocessable();
+        $this->postApprovedLabRun('/lab/provider-probes/cache', 'provider.cache', ['model' => 'model'])->assertUnprocessable();
         $this->postJson('/lab/provider-probes/fetch', ['url' => str_repeat('x', 2049)])->assertUnprocessable();
         foreach (['fetch', 'cache'] as $probe) {
             $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.8'])->postJson('/lab/provider-probes/'.$probe, [])->assertNotFound();
         }
-        Http::assertNothingSent();
+        $this->assertOnlyAuthorityReadinessRequests();
     }
 
     public function test_probe_keeps_csrf_protection(): void

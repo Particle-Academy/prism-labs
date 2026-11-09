@@ -8,6 +8,9 @@ use App\Lab\LabSession;
 use App\Lab\ModelCatalogue;
 use App\Lab\ModelPolicy;
 use App\Lab\ModelPrices;
+use App\Lab\PaidRunContext;
+use App\Lab\PaidRunNotAuthorised;
+use App\Lab\SessionNotReady;
 use App\Models\BenchmarkLane;
 use App\Models\BenchmarkScore;
 use Illuminate\Support\Facades\DB;
@@ -29,7 +32,8 @@ use Throwable;
  * author, not a check" — and a judge that could write the workspace it is
  * judging is the same defect wearing a different hat.
  *
- * Never throws. An unscored lane is a gap; a lane whose RESULT was lost because
+ * Provider failures do not throw. Missing authority refuses before inference.
+ * An unscored lane is a gap; a lane whose RESULT was lost because
  * its judge failed is corruption.
  */
 final readonly class BenchmarkScorer
@@ -38,8 +42,15 @@ final readonly class BenchmarkScorer
 
     public function score(BenchmarkLane $lane): ScoringResult
     {
+        if ($lane->score !== null) {
+            return new ScoringResult((float) $lane->score);
+        }
+        BenchmarkWork::assertRun($lane->benchmarkRun);
+        app(PaidRunContext::class)->authorizedWork('benchmark.score', $lane->id, BenchmarkWork::scorePayload($lane));
         try {
             return $this->judge($lane);
+        } catch (PaidRunNotAuthorised|SessionNotReady $refusal) {
+            throw $refusal;
         } catch (Throwable $failure) {
             report($failure);
 
@@ -75,6 +86,8 @@ final readonly class BenchmarkScorer
         }
 
         // Persist before send: a worker crash must not turn a listing retry into repeated inference.
+        BenchmarkWork::assertRun($lane->benchmarkRun);
+        app(PaidRunContext::class)->requireWork('benchmark.score', $lane->id, BenchmarkWork::scorePayload($lane));
         app(LaneActivity::class)->record($lane, 'scoring.started', 'Judging attempt started; no completed score yet. An uncertain delivery will not be automatically repeated.');
         $response = $this->sessions->resolveScope('scoring:'.$lane->id)
             ->usingMode('scoring')

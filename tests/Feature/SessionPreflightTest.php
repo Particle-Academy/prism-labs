@@ -22,6 +22,7 @@ use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Queue\Events\Looping;
 use Illuminate\Queue\Events\WorkerStopping;
+use Illuminate\Queue\Jobs\DatabaseJob;
 use Illuminate\Queue\Jobs\SyncJob;
 use Illuminate\Queue\WorkerOptions;
 use Illuminate\Support\Facades\Bus;
@@ -100,6 +101,31 @@ final class SessionPreflightTest extends TestCase
         Event::dispatch(new Looping('database', 'default,scoring', new WorkerOptions(timeout: 60)));
 
         return $this->app->make(WorkerHeartbeats::class);
+    }
+
+    public static function nativeTimeouts(): array
+    {
+        return [
+            'integer' => [60, true], 'CLI decimal' => ['60', true], 'long CLI decimal' => ['1800', true],
+            'maximum' => ['3600', true], 'above maximum' => ['3601', false], 'zero string' => ['0', false],
+            'zero integer' => [0, false], 'negative' => ['-1', false], 'float' => [60.5, false],
+            'decimal point' => ['60.0', false], 'scientific' => ['6e1', false], 'leading space' => [' 60', false],
+            'trailing space' => ['60 ', false], 'plus sign' => ['+60', false], 'missing' => [null, false],
+            'boolean' => [true, false], 'array' => [[], false], 'unbounded' => [str_repeat('9', 100), false],
+        ];
+    }
+
+    #[DataProvider('nativeTimeouts')]
+    public function test_native_worker_options_accept_bounded_cli_decimals_and_refuse_malformed_timeouts(mixed $timeout, bool $expected): void
+    {
+        config(['queue.connections.database.retry_after' => 4001]);
+        Event::dispatch(new Looping('database', 'default,scoring', new WorkerOptions(timeout: $timeout)));
+        $worker = app(WorkerHeartbeats::class);
+        $this->assertSame($expected, $worker->check()['ready']);
+        if ($expected) {
+            $record = json_decode(file_get_contents(glob($this->directory.'/workers/*.json')[0]), true, flags: JSON_THROW_ON_ERROR);
+            $this->assertSame((int) $timeout, $record['timeout']);
+        }
     }
 
     private function responses(array $bodies, int $status = 200): void
@@ -192,6 +218,106 @@ final class SessionPreflightTest extends TestCase
         $this->assertTrue($first->check()['ready']);
         $second->stopping(new WorkerStopping);
         $this->assertFalse($first->check()['ready']);
+    }
+
+    public function test_execution_preflight_accepts_only_this_native_job_without_adding_launch_capacity(): void
+    {
+        $worker = $this->idle();
+        $this->assertFalse($worker->checkForExecution()['ready']);
+        $job = $this->nativeDatabaseJob();
+        Event::dispatch(new JobProcessing('database', $job));
+        $this->assertFalse($worker->check()['ready']);
+        $execution = $worker->checkForExecution();
+        $this->assertTrue($execution['ready'], json_encode([
+            'report' => $execution, 'job_queue' => $job->getQueue(),
+            'execution_queue' => (new \ReflectionProperty($worker, 'executingQueue'))->getValue($worker),
+            'has_worker_identity' => (new \ReflectionProperty($worker, 'worker'))->getValue($worker) !== null,
+        ], JSON_THROW_ON_ERROR));
+        $this->assertSame([['queue' => 'default', 'status' => 'executing']], $execution['queues']);
+        app(SessionPreflight::class)->assertReadyForExecution();
+        Event::dispatch(new JobProcessed('database', $job));
+        $this->assertFalse($worker->checkForExecution()['ready']);
+        $this->assertTrue($worker->check()['ready']);
+    }
+
+    public function test_another_busy_worker_or_an_idle_record_cannot_claim_this_process_is_executing(): void
+    {
+        $worker = $this->idle();
+        $other = new WorkerHeartbeats(new Filesystem);
+        $other->looping(new Looping('database', 'default,scoring', new WorkerOptions(timeout: 60)));
+        $other->processing(new JobProcessing('database', $this->nativeDatabaseJob()));
+        $this->assertFalse($worker->checkForExecution()['ready']);
+        $this->assertTrue($other->checkForExecution()['ready']);
+        $this->assertTrue($worker->check()['ready']);
+    }
+
+    public function test_native_execution_still_requires_its_own_valid_signed_record(): void
+    {
+        $worker = $this->idle();
+        Event::dispatch(new JobProcessing('database', $this->nativeDatabaseJob()));
+        $file = (new Filesystem)->files($this->directory.'/workers')[0]->getPathname();
+        $record = json_decode(file_get_contents($file), true, flags: JSON_THROW_ON_ERROR);
+        $record['signature'] = str_repeat('0', 64);
+        file_put_contents($file, json_encode($record, JSON_THROW_ON_ERROR));
+        $other = new WorkerHeartbeats(new Filesystem);
+        $other->looping(new Looping('database', 'default,scoring', new WorkerOptions(timeout: 60)));
+        $this->assertTrue($worker->check()['ready']);
+        $this->assertFalse($worker->checkForExecution()['ready']);
+    }
+
+    public function test_a_failed_busy_write_cannot_relabel_a_previous_idle_record_as_execution(): void
+    {
+        $files = \Mockery::mock(Filesystem::class)->makePartial();
+        $worker = new WorkerHeartbeats($files);
+        $worker->looping(new Looping('database', 'default,scoring', new WorkerOptions(timeout: 60)));
+        $files->shouldReceive('replace')->once()->andThrow(new RuntimeException('synthetic busy write failure'));
+        $worker->processing(new JobProcessing('database', $this->nativeDatabaseJob()));
+        $this->assertFalse($worker->checkForExecution()['ready']);
+    }
+
+    public function test_a_stopped_or_expired_native_job_cannot_keep_execution_authority(): void
+    {
+        $worker = $this->idle();
+        Event::dispatch(new JobProcessing('database', $this->nativeDatabaseJob()));
+        $this->assertTrue($worker->checkForExecution()['ready']);
+        $this->travel(61)->seconds();
+        $this->assertFalse($worker->checkForExecution()['ready']);
+        Event::dispatch(new WorkerStopping);
+        $this->assertFalse($worker->checkForExecution()['ready']);
+    }
+
+    public function test_a_sync_job_cannot_claim_a_database_worker_queue_by_its_constructor_label(): void
+    {
+        $worker = $this->idle();
+        Event::dispatch(new JobProcessing('database', new SyncJob($this->app, '{}', 'database', 'default')));
+        $this->assertFalse($worker->checkForExecution()['ready']);
+    }
+
+    public function test_throwing_queue_metadata_never_masks_native_processing_and_cannot_supply_authority(): void
+    {
+        $worker = $this->idle();
+        $job = new class($this->app, '{}', 'database', 'default') extends SyncJob
+        {
+            public function getQueue()
+            {
+                throw new RuntimeException('synthetic queue metadata failure');
+            }
+        };
+        Event::dispatch(new JobProcessing('database', $job));
+        $this->assertFalse($worker->checkForExecution()['ready']);
+        $this->assertSame('busy', $worker->check()['queues'][0]['status']);
+    }
+
+    private function nativeDatabaseJob(): DatabaseJob
+    {
+        // Reserve from Laravel's actual database queue in this SQLite memory
+        // fixture; the synthetic event-only payload is never fired.
+        $queue = $this->app['queue']->connection('database');
+        $queue->pushRaw('{"job":"owned-event-only","data":{}}', 'default');
+        $job = $queue->pop('default');
+        $this->assertInstanceOf(DatabaseJob::class, $job);
+
+        return $job;
     }
 
     public function test_stale_heartbeat_and_future_timestamp_are_not_available(): void

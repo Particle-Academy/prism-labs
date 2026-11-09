@@ -1,6 +1,7 @@
 import { Link, router } from '@inertiajs/react';
 import { ContentRenderer, Drawer, PromptInput, type PromptAttachment } from '@particle-academy/react-fancy';
 import { useEffect, useRef, useState } from 'react';
+import { paidFetch } from '../lib/paid-run';
 
 type Message = { id: string; role: 'user' | 'assistant'; content: string };
 type Draft = { id: string; name: string; revision: number; status: string; digest: string; archetype: string; surface_mode: string };
@@ -141,7 +142,7 @@ export function OverseerChat({ compact = false }: { compact?: boolean }) {
                 reader.readAsDataURL(blob);
             });
 
-            const response = await fetch('/lab/agent/voice', {
+            const response = await paidFetch('/lab/agent/voice', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': csrf },
                 body: JSON.stringify({ audio: encoded, mime: (blob.type || 'audio/webm').split(';')[0] }),
@@ -198,7 +199,7 @@ export function OverseerChat({ compact = false }: { compact?: boolean }) {
             // because it can call other agents and run whole suites, and this
             // site serves one request at a time — holding the worker for that
             // is what used to wedge the Lab until someone restarted it.
-            const response = await fetch('/lab/agent', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': csrf }, body: JSON.stringify({ message: content }) });
+            const response = await paidFetch('/lab/agent', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': csrf }, body: JSON.stringify({ message: content }) });
             const accepted = await response.json();
             if (!response.ok) throw new Error(accepted.message ?? 'The Overseer could not answer.');
             if (accepted.drafts) setDrafts(accepted.drafts);

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Lab;
 
+use App\Models\User;
 use Prism\Browser\BrowserManager;
 use Prism\Browser\Tools\BrowserToolset;
 use Prism\Harness\Sessions\Session;
@@ -25,6 +26,10 @@ final readonly class CapabilityManager
 
     public function openBrowser(Session $session): array
     {
+        $this->requireOwnerSession($session);
+        if (config('capabilities.browser.enabled') !== true) {
+            throw new PaidRunNotAuthorised;
+        }
         $existing = $session->capability('browser');
         if (is_string($existing['id'] ?? null)) {
             return $existing;
@@ -38,6 +43,10 @@ final readonly class CapabilityManager
 
     public function attachHumanPlus(Session $session, SurfaceInvitation $invitation): array
     {
+        $this->requireOwnerSession($session);
+        if (config('capabilities.human_plus.enabled') !== true) {
+            throw new PaidRunNotAuthorised;
+        }
         $attachment = $this->humanPlus->attach($session->key(), $invitation, new Participant('prism-lab', 'Prism Lab', '#8b5cf6'));
         $this->humanPlus->tools($session->key(), $attachment->id);
         $state = ['id' => $attachment->id, 'state' => $attachment->state->value, 'surface' => $invitation->surfaceId, 'application' => $invitation->application];
@@ -51,11 +60,11 @@ final readonly class CapabilityManager
     {
         $tools = [];
         $browser = $session->capability('browser');
-        if (is_string($browser['id'] ?? null)) {
+        if (config('capabilities.browser.enabled') === true && is_string($browser['id'] ?? null)) {
             $tools = [...$tools, ...$this->browserTools->forAttachment($session->key(), $browser['id'])];
         }
         $surface = $session->capability('human_plus');
-        if (is_string($surface['id'] ?? null)) {
+        if (config('capabilities.human_plus.enabled') === true && is_string($surface['id'] ?? null)) {
             $tools = [...$tools, ...$this->humanPlusTools->forAttachment(
                 $session->key(), $surface['id'], config('capabilities.human_plus.approval_tools', []),
             )];
@@ -76,6 +85,7 @@ final readonly class CapabilityManager
 
     public function closeBrowser(Session $session): void
     {
+        $this->requireOwnerSession($session);
         $state = $session->capability('browser');
         if (is_string($state['id'] ?? null)) {
             $this->browser->close($session->key(), $state['id']);
@@ -85,11 +95,23 @@ final readonly class CapabilityManager
 
     public function detachHumanPlus(Session $session): void
     {
+        $this->requireOwnerSession($session);
         $state = $session->capability('human_plus');
         if (is_string($state['id'] ?? null)) {
             $this->humanPlus->detach($session->key(), $state['id']);
         }
         $session->forgetCapability('human_plus');
+    }
+
+    private function requireOwnerSession(Session $session): void
+    {
+        $owner = app(OwnerIdentity::class)->requireOwner();
+        $participant = $session->participant();
+        $actor = $session->actor();
+        if (! $participant instanceof User || $participant->id !== $owner->id
+            || ! $actor instanceof User || $actor->id !== $owner->id || $session->scope() !== 'lab:agent') {
+            throw new PaidRunNotAuthorised;
+        }
     }
 
     private function refreshBrowser(Session $session): ?array

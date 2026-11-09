@@ -6,6 +6,7 @@ declare(strict_types=1);
 $thread = '418fb379-86dc-456a-ac17-ab1df70f7216';
 $turn = 'fixture-turn';
 $approval = null;
+$waitingForInterrupt = false;
 $emit = static function (array $frame): void {
     fwrite(STDOUT, json_encode($frame, JSON_THROW_ON_ERROR)."\n");
     fflush(STDOUT);
@@ -64,13 +65,24 @@ while (($line = fgets(STDIN)) !== false) {
             break;
     }
     $emit(['jsonrpc' => '2.0', 'id' => $frame['id'], 'result' => $result]);
+    if ($method === 'turn/interrupt' && $waitingForInterrupt) {
+        $waitingForInterrupt = false;
+        $emit(['jsonrpc' => '2.0', 'method' => 'turn/completed', 'params' => ['threadId' => $thread, 'turn' => ['id' => $turn, 'status' => 'interrupted']]]);
+    }
     if ($method === 'turn/start') {
         $prompt = implode(' ', array_column($frame['params']['input'] ?? [], 'text'));
         $emit(['jsonrpc' => '2.0', 'method' => 'turn/started', 'params' => ['threadId' => $thread, 'turn' => ['id' => $turn]]]);
-        if ($prompt === 'approval') {
+        if ($prompt === 'slow') {
+            $waitingForInterrupt = true;
+        } elseif ($prompt === 'exit') {
+            exit(3);
+        } elseif ($prompt === 'approval') {
             $approval = 'native-permission';
             $emit(['jsonrpc' => '2.0', 'id' => $approval, 'method' => 'item/commandExecution/requestApproval',
                 'params' => ['threadId' => $thread, 'turnId' => $turn, 'itemId' => 'future-command', 'command' => 'owned fixture, never executed', 'cwd' => getcwd()]]);
+        } elseif ($prompt === 'env-canaries') {
+            $probe = require __DIR__.'/env-canaries.php';
+            $finish($probe());
         } else {
             $finish('echo: '.$prompt);
         }

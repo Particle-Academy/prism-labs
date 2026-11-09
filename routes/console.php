@@ -1,5 +1,6 @@
 <?php
 
+use App\Lab\ApprovedCliRun;
 use App\Lab\BenchmarkStore;
 use App\Lab\PrismTestRegistry;
 use App\Lab\PrismTestRunner;
@@ -12,7 +13,7 @@ use Illuminate\Support\Facades\Schedule;
 // Requires the scheduler cron (`php artisan schedule:run`) and GITHUB_TOKEN.
 Schedule::command('gamification:backfill')->dailyAt('05:00')->withoutOverlapping();
 
-Artisan::command('lab:test {cases?* : Case IDs; omit to run all non-costly cases} {--include-costly}', function (PrismTestRegistry $registry, PrismTestRunner $runner, BenchmarkStore $benchmarks): int {
+Artisan::command('lab:test {cases?* : Case IDs; omit to run all non-costly cases} {--include-costly} {--approved-run= : Exact owner-approved GO reference}', function (PrismTestRegistry $registry, PrismTestRunner $runner, BenchmarkStore $benchmarks): int {
     abort_unless(app()->environment('local'), 404);
     $requested = collect($this->argument('cases'));
     $cases = $requested->isEmpty() ? $registry->all() : $requested->map(fn (string $id) => $registry->find($id));
@@ -24,20 +25,24 @@ Artisan::command('lab:test {cases?* : Case IDs; omit to run all non-costly cases
         return self::FAILURE;
     }
 
-    $failed = false;
-    $results = [];
-    foreach ($cases as $case) {
-        $this->line("Running {$case->id}...");
-        $result = $runner->run($case);
-        $results[] = $result;
-        $failed = $failed || ! $result['passed'];
-        $this->{$result['passed'] ? 'info' : 'error'}(($result['passed'] ? 'PASS' : 'FAIL')." {$case->id} ({$result['latency_ms']} ms)".($result['error'] ? ": {$result['error']}" : ''));
-    }
+    return app(ApprovedCliRun::class)->run($this, 'cli.tests.run', [
+        'cases' => $cases->map(fn ($case): string => $case->id)->values()->all(), 'include_costly' => (bool) $this->option('include-costly'),
+    ], function () use ($cases, $runner, $benchmarks): int {
+        $failed = false;
+        $results = [];
+        foreach ($cases as $case) {
+            $this->line("Running {$case->id}...");
+            $result = $runner->run($case);
+            $results[] = $result;
+            $failed = $failed || ! $result['passed'];
+            $this->{$result['passed'] ? 'info' : 'error'}(($result['passed'] ? 'PASS' : 'FAIL')." {$case->id} ({$result['latency_ms']} ms)".($result['error'] ? ": {$result['error']}" : ''));
+        }
 
-    // Feed the benchmark history so /lab/benchmarks can compare over time.
-    $benchmarks->record($results);
+        // Feed the benchmark history so /lab/benchmarks can compare over time.
+        $benchmarks->record($results);
 
-    return $failed ? self::FAILURE : self::SUCCESS;
+        return $failed ? self::FAILURE : self::SUCCESS;
+    });
 })->purpose('Run real Prism provider×feature telemetry checks');
 
 Artisan::command('inspire', function () {

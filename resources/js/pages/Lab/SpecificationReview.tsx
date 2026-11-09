@@ -1,5 +1,7 @@
-import { Link } from '@inertiajs/react';
+import { Link, router } from '@inertiajs/react';
+import { useState } from 'react';
 import { LabShell } from '../../components/lab-shell';
+import { requestPaidRun } from '../../lib/paid-run';
 
 type Lane = { language: string; harness: string; provider: string; model: string };
 type RubricDimension = { name?: string; weight?: number; criteria?: string };
@@ -23,7 +25,26 @@ export default function SpecificationReview({ spec }: { spec: Spec }) {
 function Section({ title, children }: { title: string; children: React.ReactNode }) { return <section><h2>{title}</h2>{children}</section>; }
 function Meta({ label, value }: { label: string; value: string }) { return <div><small>{label}</small><b>{value}</b></div>; }
 function LaneRow({ lane }: { lane: Lane }) { return <><span>{lane.language}</span><span>{lane.harness}</span><span>{lane.provider}</span><span>{lane.model}</span></>; }
-function SpecAction({ spec }: { spec: Spec }) { const action = spec.status === 'draft' ? 'request-approval' : spec.status === 'awaiting_approval' ? 'approve' : spec.status === 'approved' ? 'launch' : null; const label = spec.status === 'draft' ? 'Request freeze review' : spec.status === 'awaiting_approval' ? 'Approve frozen spec' : spec.status === 'approved' ? 'Launch all lanes' : null; return action && label ? <Link as="button" method="post" href={`/lab/benchmarks/${spec.id}/${action}`} className="k-btn k-btn--grad">{label}</Link> : null; }
+function SpecAction({ spec }: { spec: Spec }) {
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const action = spec.status === 'draft' ? 'request-approval' : spec.status === 'awaiting_approval' ? 'approve' : spec.status === 'approved' ? 'launch' : null;
+    const label = spec.status === 'draft' ? 'Request freeze review' : spec.status === 'awaiting_approval' ? 'Approve frozen spec' : spec.status === 'approved' ? 'Launch all lanes' : null;
+    if (!action || !label) return null;
+    const path = `/lab/benchmarks/${spec.id}/${action}`;
+    async function launch() {
+        setBusy(true); setError(null);
+        try {
+            const id = await requestPaidRun(path, {});
+            router.post(path, {}, { headers: { 'X-Lab-Run-Id': id }, onFinish: () => setBusy(false) });
+        } catch (failure) { setError(failure instanceof Error ? failure.message : 'The run was not launched.'); setBusy(false); }
+    }
+    return <div data-agent-off-limits={action === 'request-approval' ? undefined : 'consent'}>
+        {action === 'launch' ? <button type="button" className="k-btn k-btn--grad" disabled={busy} onClick={() => { void launch(); }}>{label}</button>
+            : <Link as="button" method="post" href={path} className="k-btn k-btn--grad">{label}</Link>}
+        {error && <p role="alert">{error}</p>}
+    </div>;
+}
 
 function rubricDimensions(rubric: Record<string, unknown>): Array<{ name: string; weight: number; criteria?: string }> {
     if (Array.isArray(rubric.dimensions)) {

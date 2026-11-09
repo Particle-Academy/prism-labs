@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Acp;
 
+use App\Lab\PaidRunContext;
+use App\Lab\PaidRunNotAuthorised;
+use App\Models\AcpTurn;
 use Prism\Acp\Async\Deferred;
 use Prism\Acp\Async\Loop;
-use Prism\Acp\Env\ChildEnv;
 use Prism\Acp\JsonRpc\JsonRpcPeer;
 use Prism\Acp\Ndjson\NdjsonFramer;
 use Prism\Acp\Process\Provider;
@@ -41,15 +43,20 @@ final class AcpClient
      * @param  \Closure(mixed): void  $onUpdate  each `session/update` notification's params
      * @param  \Closure(mixed): mixed  $onPermission  answers `session/request_permission`
      */
-    public function __construct(\Closure $onUpdate, \Closure $onPermission, string $provider = 'claude')
+    public function __construct(\Closure $onUpdate, \Closure $onPermission, string $provider = 'claude', ?string $turnId = null)
     {
         if (! in_array($provider, ['claude', 'codex'], true)) {
             throw new \InvalidArgumentException('Unsupported ACP provider');
         }
+        $turn = $turnId === null ? null : AcpTurn::query()->find($turnId);
+        if (! $turn instanceof AcpTurn || $turn->status !== AcpTurn::RUNNING || $turn->provider !== $provider) {
+            throw new PaidRunNotAuthorised;
+        }
+        $intent = app(PaidRunContext::class)->requireWork('acp.turn', $turn->id, AcpWork::payload($turn));
         $this->loop = new Loop;
         $this->framer = new NdjsonFramer;
-        $env = ChildEnv::build(getenv(), ['CLAUDE_CONFIG_DIR', 'CODEX_HOME', 'CODEX_CONFIG_DIR', 'XDG_CONFIG_HOME', 'LAB_ACP_CLAUDE_BINARY', 'LAB_ACP_CLAUDE_ARGS', 'LAB_ACP_MODEL', 'LAB_ACP_CODEX_BINARY', 'LAB_ACP_CODEX_ARGS', 'LAB_ACP_CODEX_MODEL', 'LAB_ACP_SESSION_SECONDS', 'APP_ENV'])->env;
-        $process = Provider::launch(PHP_BINARY, ['artisan', 'lab:acp-agent', '--provider='.$provider], base_path(), $env);
+        $env = HostEnvironment::build(getenv());
+        $process = Provider::launch(PHP_BINARY, ['artisan', 'lab:acp-agent', '--provider='.$provider, '--approved-run='.$intent->id], base_path(), $env);
 
         $this->peer = new JsonRpcPeer(
             send: fn (mixed $message) => $process->write(NdjsonFramer::encodeLine($message)),

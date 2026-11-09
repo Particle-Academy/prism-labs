@@ -6,12 +6,16 @@ namespace App\Benchmarks;
 
 use App\Jobs\ScoreLaneJob;
 use App\Lab\LabSession;
+use App\Lab\PaidRunContext;
+use App\Lab\PaidRunNotAuthorised;
+use App\Lab\PaidWorkRegistry;
 use App\Models\BenchmarkLane;
 use App\Models\BenchmarkRun;
 use App\Models\BenchmarkSpec;
 use App\Team\AgentRoster;
 use App\Team\LanguageAgent;
 use FancyFlow\Contracts\NodeExecutor;
+use FancyFlow\Laravel\Models\WorkflowRun;
 use FancyFlow\Runtime\ExecutionContext;
 use FancyFlow\Runtime\RunEvent;
 use Prism\Harness\AgentResponse;
@@ -41,8 +45,30 @@ final readonly class BenchmarkLaneExecutor implements NodeExecutor
         if ($run->status === 'cancelled') {
             throw new \LogicException('Benchmark fuse is tripped; this lane may not start.');
         }
+        if ($lane->status !== 'queued') {
+            return ['lane_id' => $lane->id, 'ok' => $lane->status === 'completed', 'status' => $lane->status];
+        }
+        $workId = $ctx->option('paid_work_id');
+        if (! is_string($workId) || $workId !== $lane->paid_work_id || $ctx->run === null
+            || $ctx->node->id !== 'lane-'.$lane->ordinal
+            || ! WorkflowRun::query()->whereKey($lane->workflow_run_id)->where('run_key', $ctx->run->runKey)->exists()) {
+            throw new PaidRunNotAuthorised;
+        }
+
+        return app(PaidWorkRegistry::class)->run($workId, 'benchmark.lane', $lane->id, BenchmarkWork::lanePayload($lane),
+            fn () => $this->executeApproved($ctx, $lane, $run));
+    }
+
+    private function executeApproved(ExecutionContext $ctx, BenchmarkLane $lane, BenchmarkRun $run): array
+    {
+        BenchmarkWork::assertRun($run);
+        app(PaidRunContext::class)->requireWork('benchmark.lane', $lane->id, BenchmarkWork::lanePayload($lane));
         $spec = BenchmarkSpec::query()->findOrFail($run->benchmark_spec_id);
-        $lane->forceFill(['status' => 'running', 'started_at' => now()])->save();
+        $claimed = BenchmarkLane::query()->whereKey($lane->id)->where('status', 'queued')->update(['status' => 'running', 'started_at' => now(), 'updated_at' => now()]);
+        if ($claimed !== 1) {
+            return ['lane_id' => $lane->id, 'ok' => false, 'status' => $lane->refresh()->status];
+        }
+        $lane->refresh();
         $this->activity->record($lane, 'lane.started', sprintf('%s agent started.', $lane->language), ['provider' => $lane->provider, 'model' => $lane->model]);
         $ctx->emit(RunEvent::log('info', sprintf('%s lane started', $lane->language), $ctx->node->id));
 
@@ -76,6 +102,8 @@ final readonly class BenchmarkLaneExecutor implements NodeExecutor
     /** @return array<string, mixed> */
     private function run(BenchmarkLane $lane, BenchmarkSpec $spec): array
     {
+        BenchmarkWork::assertRun($lane->benchmarkRun);
+        app(PaidRunContext::class)->requireWork('benchmark.lane', $lane->id, BenchmarkWork::lanePayload($lane));
         $payload = ['spec_digest' => $spec->digest, 'specification' => $spec->specification, 'rubric' => $spec->rubric, 'budgets' => $spec->budgets, 'surface_mode' => $spec->surface_mode, 'workspace_path' => $lane->workspace_path];
         $this->activity->record($lane, 'agent.request', 'Frozen benchmark specification sent to the lane agent.', ['workspace' => $lane->workspace_path]);
         if ($lane->language === 'php') {
@@ -207,6 +235,7 @@ final readonly class BenchmarkLaneExecutor implements NodeExecutor
         // is dispatched here rather than done here, because it is a model call
         // and this method runs inside the lane's own job — a judge running in
         // line would extend the lane it is judging.
-        ScoreLaneJob::dispatch($lane->id);
+        $work = BenchmarkWork::bindScore($lane);
+        ScoreLaneJob::dispatch($lane->id, $work->id)->afterCommit();
     }
 }

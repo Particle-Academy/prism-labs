@@ -7,8 +7,10 @@ namespace App\Http\Controllers\Lab;
 use App\Http\Controllers\Controller;
 use App\Lab\CapabilityManager;
 use App\Lab\LabSession;
+use App\Lab\PaidRunNotAuthorised;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Prism\HumanPlus\Data\SurfaceInvitation;
 use Throwable;
 
@@ -23,8 +25,13 @@ final class CapabilityController extends Controller
     {
         try {
             return response()->json(['browser' => $capabilities->openBrowser($sessions->resolve($request))]);
+        } catch (PaidRunNotAuthorised $failure) {
+            throw $failure;
         } catch (Throwable $failure) {
-            report($failure);
+            try {
+                Log::warning('Lab browser attachment failed.', ['failure' => $failure::class]);
+            } catch (Throwable) {
+            }
 
             return response()->json(['message' => 'The local browser service is unavailable. Run php artisan prism-browser:serve and check its token configuration.'], 502);
         }
@@ -50,8 +57,13 @@ final class CapabilityController extends Controller
             ));
 
             return response()->json(['human_plus' => $surface]);
+        } catch (PaidRunNotAuthorised $failure) {
+            throw $failure;
         } catch (Throwable $failure) {
-            report($failure);
+            try {
+                Log::warning('Lab Human+ attachment failed.', ['failure' => $failure::class]);
+            } catch (Throwable) {
+            }
 
             return response()->json(['message' => 'The Human+ surface refused the invitation or did not match local trust policy.'], 502);
         }
