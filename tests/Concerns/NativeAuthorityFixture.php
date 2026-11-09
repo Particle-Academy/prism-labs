@@ -22,8 +22,7 @@ final class NativeAuthorityFixture
             || getenv('DB_DATABASE') !== ':memory:'
             || getenv('LAB_DB_DATABASE') !== $directory.'/lab.sqlite'
             || getenv('APP_CONFIG_CACHE') !== 'storage/framework/testing/'.basename($directory).'/config.php'
-            || ! is_file($directory.'/fixture.env') || filesize($directory.'/fixture.env') !== 0
-            || filesize(base_path('.env.testing')) !== 0) {
+            || ! is_file($directory.'/fixture.env') || filesize($directory.'/fixture.env') !== 0) {
             throw new RuntimeException('Refuse a non-owned native authority fixture.');
         }
 

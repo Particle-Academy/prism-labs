@@ -79,7 +79,7 @@ final class NativeAcpTurnFixture
             }
             usleep(50000);
         } while (microtime(true) < $deadline);
-        $this->test->fail('The owned native idle worker never became available.');
+        $this->test->fail('The owned native idle worker never became available. '.$this->diagnostic($this->idle));
     }
 
     public static function directory(string $directory): string

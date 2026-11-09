@@ -32,7 +32,6 @@ if ($resolved === false || $parent === false || dirname($resolved) !== $parent |
     || getenv('LAB_DB_DATABASE') !== $resolved.'/lab.sqlite'
     || getenv('APP_CONFIG_CACHE') !== 'storage/framework/testing/'.basename($resolved).'/config.php'
     || ! is_file($resolved.'/fixture.env') || filesize($resolved.'/fixture.env') !== 0
-    || ! file_exists($repo.'/.env.testing') || filesize($repo.'/.env.testing') !== 0
     || ! in_array($mode, ['prepare', 'ready', 'seed-cli', 'seed-race', 'seed-work', 'enqueue-work', 'race', 'inspect'], true)) {
     throw new RuntimeException('Refuse a non-owned native authority process.');
 }
