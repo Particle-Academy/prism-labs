@@ -22,6 +22,8 @@ final class NativeAcpTurnFixture
 
     private bool $closed = false;
 
+    private bool $preparationFailed = false;
+
     public function __construct(private readonly TestCase $test, private readonly string $provider, string $variant = 'normal')
     {
         $test->assertContains($provider, ['claude', 'codex']);
@@ -79,6 +81,7 @@ final class NativeAcpTurnFixture
             }
             usleep(50000);
         } while (microtime(true) < $deadline);
+        $this->preparationFailed = true;
         $this->test->fail('The owned native idle worker never became available. '.$this->diagnostic($this->idle));
     }
 
@@ -144,6 +147,19 @@ final class NativeAcpTurnFixture
                 $this->test->assertSame([], glob($this->path.'/workers/*.json') ?: [], 'Native stop must remove its own heartbeat.');
             }
         } finally {
+            if ($this->preparationFailed && $this->idle !== null) {
+                $booted = [];
+                foreach (glob($this->path.'/worker-boot-*.json') ?: [] as $file) {
+                    $row = json_decode(file_get_contents($file), true);
+                    if (is_array($row) && is_numeric($row['at'] ?? null)) {
+                        $booted[] = ['pid' => $row['pid'] ?? null, 'boot_seconds' => $row['at'] - $this->idle['started_at'],
+                            'sqlite' => $row['sqlite'] ?? null, 'loop_listener' => $row['loop_listener'] ?? null];
+                    }
+                }
+                // Only closed synthetic child data; never dump environment or config.
+                fwrite(STDERR, 'Contained ACP startup observation: '.json_encode(['booted' => $booted], JSON_THROW_ON_ERROR)
+                    .' '.$this->diagnostic($this->idle).PHP_EOL);
+            }
             foreach ($this->processes as $process) {
                 if (is_resource($process)) {
                     if (proc_get_status($process)['running']) {
@@ -175,13 +191,14 @@ final class NativeAcpTurnFixture
             $this->test->assertFileExists($this->path.'/config.php');
         }
         $pipes = [];
+        $startedAt = microtime(true);
         $process = proc_open([PHP_BINARY, '-d', 'opcache.enable_cli=0', ...$arguments],
             [['file', PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null', 'r'], ['file', $stdout, 'w'], ['file', $stderr, 'w']],
             $pipes, base_path(), $this->environment, ['bypass_shell' => true]);
         $this->test->assertIsResource($process);
         $this->processes[] = $process;
 
-        return ['process' => $process, 'stdout' => $stdout, 'stderr' => $stderr];
+        return ['process' => $process, 'stdout' => $stdout, 'stderr' => $stderr, 'started_at' => $startedAt];
     }
 
     private function finish(array &$child, int $seconds): int

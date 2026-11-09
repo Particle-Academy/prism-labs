@@ -128,7 +128,12 @@ final class NativeRunAuthorityProcessTest extends TestCase
         $results = [];
         foreach ($children as &$child) {
             $this->assertSame(0, $this->finish($child, 20), file_get_contents($child['stderr']));
-            $results[] = json_decode(trim(file_get_contents($child['stdout'])), true, flags: JSON_THROW_ON_ERROR);
+            try {
+                $results[] = json_decode(trim(file_get_contents($child['stdout'])), true, flags: JSON_THROW_ON_ERROR);
+            } catch (\JsonException) {
+                $this->fail('A contained claim process did not return exact JSON: '
+                    .mb_substr(file_get_contents($child['stdout']).file_get_contents($child['stderr']), 0, 3000));
+            }
         }
         unset($child);
         $this->assertCount(2, array_unique(array_column($results, 'pid')));

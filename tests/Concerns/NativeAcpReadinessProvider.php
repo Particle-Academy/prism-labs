@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Concerns;
 
+use Illuminate\Queue\Events\Looping;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\ServiceProvider;
@@ -55,6 +56,15 @@ final class NativeAcpReadinessProvider extends ServiceProvider
 
     public function boot(): void
     {
+        if (in_array('queue:work', $_SERVER['argv'] ?? [], true)) {
+            $directory = $this->fixtureDirectory();
+            file_put_contents($directory.'/worker-boot-'.getmypid().'.json', json_encode([
+                'at' => microtime(true), 'pid' => getmypid(),
+                'sqlite' => app('db')->connection()->getDriverName() === 'sqlite'
+                    && app('db')->connection()->getDatabaseName() === $directory.'/lab.sqlite',
+                'loop_listener' => app('events')->hasListeners(Looping::class),
+            ], JSON_THROW_ON_ERROR), LOCK_EX);
+        }
         Http::preventStrayRequests();
         Http::fake([
             'https://api.github.com/repos/Particle-Academy/prism/git/ref/heads/main' => fn () => Http::response([
