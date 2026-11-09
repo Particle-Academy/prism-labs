@@ -56,7 +56,7 @@ if ($mode === 'prepare') {
     app(Kernel::class)->call('migrate', ['--force' => true]);
     $owner = User::factory()->create(['name' => 'Owned native authority owner', 'email' => 'native-authority@example.invalid']);
     config(['app.env' => 'local', 'app.debug' => false, 'lab_authority.owner_user_id' => $owner->id,
-        'app.providers' => [...config('app.providers'), NativeAuthorityProvider::class],
+        'app.providers' => [NativeAuthorityProvider::class, ...config('app.providers')],
         'queue.default' => 'database', 'queue.connections.database.retry_after' => 1900,
         'cache.default' => 'file', 'cache.stores.file.path' => $directory.'/cache', 'cache.stores.file.lock_path' => $directory.'/cache',
         'logging.channels.single.path' => $directory.'/framework.log', 'logging.default' => 'single',
@@ -154,6 +154,9 @@ if ($case === 'cap') {
     Auth::guard('web')->setUser(User::query()->findOrFail(config('lab_authority.owner_user_id')));
 }
 NativeAuthorityFixture::barrier($directory, $case);
+if ($case === 'cap' && getenv('G246_AUTHORITY_OBSERVATION_TAG') === 'race-1') {
+    NativeAuthorityFixture::waitForCapObservation($directory, 'cap-first-read');
+}
 try {
     match ($case) {
         'launch' => $authority->consume($id, $scope),

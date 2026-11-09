@@ -46,7 +46,7 @@ if ($mode === 'prepare') {
     $owner = User::factory()->create(['name' => 'Synthetic ACP fixture owner', 'email' => 'native-acp@example.invalid']);
     requireNativeAcp($owner->id === 1, 'Unexpected fixture owner ID.');
     config(['app.env' => 'local', 'app.debug' => false, 'lab_authority.owner_user_id' => $owner->id,
-        'app.providers' => [...config('app.providers'), NativeAcpReadinessProvider::class],
+        'app.providers' => [NativeAcpReadinessProvider::class, ...config('app.providers')],
         'cache.default' => 'file', 'cache.stores.file.path' => $directory.'/cache', 'cache.stores.file.lock_path' => $directory.'/cache',
         'logging.channels.single.path' => $directory.'/framework.log',
         'database.connections.sqlite.password' => 'synthetic-host-db-password',

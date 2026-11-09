@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Lab\PaidRunNotAuthorised;
 use App\Lab\RunAuthority;
 use App\Lab\RunScope;
@@ -14,6 +15,7 @@ use App\Models\User;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
+use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Queue\Events\Looping;
 use Illuminate\Queue\WorkerOptions;
 use Illuminate\Support\Facades\Auth;
@@ -245,11 +247,16 @@ final class OwnerAllocationVisibilityTest extends TestCase
     public function test_owner_page_exposes_the_same_private_allocation_snapshot_only_to_the_owner(): void
     {
         $intent = $this->ready('1.25');
-        $this->get('/lab/owner', ['X-Inertia' => 'true'])->assertOk()
+        $headers = ['X-Inertia' => 'true'];
+        $version = app(HandleInertiaRequests::class)->version(HttpRequest::create('/lab/owner'));
+        if ($version !== null) {
+            $headers['X-Inertia-Version'] = $version;
+        }
+        $this->get('/lab/owner', $headers)->assertOk()
             ->assertJsonPath('props.allocations.allocated_microusd', 1_250_000)
             ->assertJsonPath('props.allocations.intents.0.id', $intent->id);
         Auth::guard('web')->logout();
-        $response = $this->get('/lab/owner', ['X-Inertia' => 'true'])->assertOk()->assertJsonPath('props.allocations', null);
+        $response = $this->get('/lab/owner', $headers)->assertOk()->assertJsonPath('props.allocations', null);
         $this->assertStringNotContainsString($intent->id, $response->getContent());
         Http::assertNothingSent();
     }

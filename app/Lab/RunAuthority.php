@@ -207,9 +207,17 @@ final readonly class RunAuthority
     private function locked(string $id, Closure $operation): LabRunIntent
     {
         $this->require(Str::isUuid($id) && strtolower($id) === $id);
+        $sessionId = LabRunIntent::query()->whereKey($id)->value('authority_session_id');
 
-        return DB::transaction(function () use ($id, $operation): LabRunIntent {
-            $sessionId = LabRunIntent::query()->whereKey($id)->value('authority_session_id');
+        return DB::transaction(function () use ($id, $sessionId, $operation): LabRunIntent {
+            if (DB::connection()->getDriverName() === 'sqlite') {
+                // SQLite ignores FOR UPDATE. Acquire its writer reservation
+                // before reading a snapshot that a competing GO could change.
+                // This leaves allocation and timestamps untouched; native
+                // transaction rollback/retries and the conditional write stay.
+                DB::table('lab_authority_sessions')->where('id', $sessionId)
+                    ->update(['allocated_microusd' => DB::raw('allocated_microusd')]);
+            }
             $session = LabAuthoritySession::query()->whereKey($sessionId)->lockForUpdate()->first();
             $intent = LabRunIntent::query()->whereKey($id)->lockForUpdate()->first();
             $this->require($session instanceof LabAuthoritySession && $intent instanceof LabRunIntent

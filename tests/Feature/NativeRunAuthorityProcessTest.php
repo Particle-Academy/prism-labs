@@ -35,6 +35,10 @@ final class NativeRunAuthorityProcessTest extends TestCase
         touch($this->directory.'/lab.sqlite');
         $result = $this->fixture('prepare', 'prepare');
         $this->assertSame(['prepared' => true, 'owner' => 1], $result);
+        // Compile this final cached provider list before concurrent workers and
+        // readiness probes can both replace the same Windows service manifest.
+        $this->assertFalse($this->fixture('warm-before-workers', 'ready')['ready']);
+        $this->assertSame(0, $this->observation('warm-before-workers')['calls']);
     }
 
     protected function tearDown(): void

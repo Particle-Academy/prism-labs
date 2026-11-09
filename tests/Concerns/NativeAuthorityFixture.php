@@ -9,6 +9,22 @@ use RuntimeException;
 /** Test-only native process boundary: never accept an operational database. */
 final class NativeAuthorityFixture
 {
+    public static function waitForCapObservation(string $directory, string $marker): void
+    {
+        self::directory($directory);
+        if (! in_array($marker, ['cap-first-read', 'cap-writer-requested', 'cap-first-finished'], true)) {
+            throw new RuntimeException('Unknown native cap observation.');
+        }
+        $deadline = microtime(true) + 5;
+        do {
+            if (is_file($directory.'/'.$marker)) {
+                return;
+            }
+            usleep(1000);
+        } while (microtime(true) < $deadline);
+        throw new RuntimeException('Native cap peer did not reach its observation.');
+    }
+
     public static function directory(string $candidate): string
     {
         $directory = realpath($candidate);

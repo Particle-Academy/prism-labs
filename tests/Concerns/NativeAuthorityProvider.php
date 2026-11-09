@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Concerns;
 
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\ServiceProvider;
 use OpenTelemetry\API\Trace\NoopTracer;
@@ -23,6 +24,17 @@ final class NativeAuthorityProvider extends ServiceProvider
         if (! app()->configurationIsCached() || realpath(app()->getCachedConfigPath()) !== realpath($directory.'/config.php')) {
             throw new RuntimeException('Native command must load its owned cache before environment discovery.');
         }
+        // Resource discovery is outside this synthetic fixture. In particular,
+        // the Windows host detector launches PowerShell to read MachineGuid.
+        putenv('OTEL_PHP_DETECTORS=none');
+        $_ENV['OTEL_PHP_DETECTORS'] = $_SERVER['OTEL_PHP_DETECTORS'] = 'none';
+        $this->app->booting(function (): void {
+            $this->closeExporter();
+        });
+    }
+
+    private function closeExporter(): void
+    {
         // Local boot creates a real OTLP exporter. Close it before providers
         // boot or any synthetic generation can emit a span; keep the native
         // application ledger and business authority, with no operational I/O.
@@ -47,6 +59,34 @@ final class NativeAuthorityProvider extends ServiceProvider
         $tag = getenv('G246_AUTHORITY_OBSERVATION_TAG');
         if (! is_string($tag) || preg_match('/^[a-z0-9-]{1,64}$/D', $tag) !== 1) {
             throw new RuntimeException('Refuse an unbound native observation.');
+        }
+        if (($_SERVER['argv'][2] ?? null) === 'race' && ($_SERVER['argv'][3] ?? null) === 'cap') {
+            if ($tag === 'race-0') {
+                register_shutdown_function(static fn () => file_put_contents($directory.'/cap-first-finished', 'done', LOCK_EX));
+                $held = false;
+                DB::listen(function ($query) use (&$held, $directory): void {
+                    if (! $held && str_starts_with(strtolower($query->sql), 'select') && str_contains($query->sql, 'lab_authority_sessions')) {
+                        $held = true;
+                        file_put_contents($directory.'/cap-first-read', 'ready', LOCK_EX);
+                        NativeAuthorityFixture::waitForCapObservation($directory, 'cap-writer-requested');
+                        usleep(200000); // Let the peer enter the actual native write.
+                    }
+                });
+            } elseif ($tag === 'race-1') {
+                $announced = false;
+                DB::beforeExecuting(function ($query) use (&$announced, $directory): void {
+                    if (! $announced && str_starts_with(strtolower($query), 'update') && str_contains($query, 'lab_authority_sessions')) {
+                        $announced = true;
+                        file_put_contents($directory.'/cap-writer-requested', 'ready', LOCK_EX);
+                    }
+                });
+                DB::listen(function ($query) use ($directory): void {
+                    if (str_starts_with(strtolower($query->sql), 'update') && str_contains($query->sql, 'lab_authority_sessions')
+                        && ($query->bindings[0] ?? null) === 3000000) {
+                        NativeAuthorityFixture::waitForCapObservation($directory, 'cap-first-finished');
+                    }
+                });
+            }
         }
         Http::preventStrayRequests();
         Http::fake([

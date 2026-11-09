@@ -21,6 +21,15 @@ final class NativeAcpReadinessProvider extends ServiceProvider
         if (! app()->configurationIsCached() || realpath(app()->getCachedConfigPath()) !== realpath($directory.'/config.php')) {
             throw new \RuntimeException('Native ACP fixture must load its owned configuration cache.');
         }
+        putenv('OTEL_PHP_DETECTORS=none');
+        $_ENV['OTEL_PHP_DETECTORS'] = $_SERVER['OTEL_PHP_DETECTORS'] = 'none';
+        $this->app->booting(function (): void {
+            $this->closeExporter();
+        });
+    }
+
+    private function closeExporter(): void
+    {
         // Local application registration constructs an OTLP exporter. Close
         // it before provider boot or any synthetic native work can emit spans.
         if ($this->app->bound(TracerProvider::class)) {
