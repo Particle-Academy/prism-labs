@@ -200,6 +200,21 @@ jobs:
       - name: Every real form — click, Enter and non-submit composition
         run: npm run test:forms
 
+      - name: Owner approval, native agent fences and denied paid requests
+        run: node scripts/test-owner-authority-ui.mjs storage/framework/testing/owner-authority-browser
+
+      - name: Owner login, session change and approval recovery
+        run: node scripts/test-owner-authority-ui.mjs storage/framework/testing/owner-login-browser from-login
+
+      - name: Exact delegated report and terminal approval
+        run: node scripts/test-owner-authority-ui.mjs storage/framework/testing/owner-delegated-browser delegated-only
+
+      - name: Frozen conversation, model and voice approval
+        run: node scripts/test-owner-authority-ui.mjs storage/framework/testing/owner-conversation-browser conversation-only
+
+      - name: Owner allocation, pagination and cancellation fences
+        run: node scripts/test-owner-allocations-ui.mjs storage/framework/testing/owner-allocations-browser
+
       - name: Install the committed isolated renderer without lifecycle scripts
         run: npm ci --prefix tools/remotion-runtime --ignore-scripts
 
@@ -236,4 +251,9 @@ jobs:
             prism-labs-models-ci.json
             models-browser-artifacts/
             storage/framework/testing/preflight-browser/
+            storage/framework/testing/owner-authority-browser/
+            storage/framework/testing/owner-login-browser/
+            storage/framework/testing/owner-delegated-browser/
+            storage/framework/testing/owner-conversation-browser/
+            storage/framework/testing/owner-allocations-browser/
           if-no-files-found: error

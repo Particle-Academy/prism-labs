@@ -9,6 +9,7 @@ use App\Lab\ModelCatalogue;
 use App\Lab\ModelPolicy;
 use App\Lab\ModelPrices;
 use App\Models\BenchmarkSpec;
+use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
@@ -49,6 +50,14 @@ class ModelCatalogueDiscoveryTest extends TestCase
         ]]);
         $this->roster();
         DB::table('lab_settings')->insert(['key' => 'benchmark.allowed_models', 'value' => json_encode(self::SAVED_LEGACY, JSON_THROW_ON_ERROR), 'created_at' => now(), 'updated_at' => now()]);
+    }
+
+    private function authenticateFixtureOwner(): void
+    {
+        $this->assertSame(':memory:', app('db')->connection()->getDatabaseName());
+        $owner = User::factory()->create();
+        config(['lab_authority.owner_user_id' => $owner->id]);
+        $this->actingAs($owner, 'web');
     }
 
     private function roster(array $anthropic = ['claude-sonnet-5', 'claude-fable-5-1', 'claude-opus-5', 'claude-haiku-5-5', 'unpriced-future'], array $openai = ['gpt-4.1-mini', 'unpriced-openai']): void
@@ -303,6 +312,7 @@ class ModelCatalogueDiscoveryTest extends TestCase
 
     public function test_refresh_and_save_remain_distinct_actions(): void
     {
+        $this->authenticateFixtureOwner();
         $this->localRoutes();
         $this->post('/lab/models', ['allowed' => ['anthropic:claude-sonnet-5']])->assertRedirect('/lab/models');
         $this->roster(['claude-sonnet-5', 'newly-discovered'], []);
@@ -315,6 +325,7 @@ class ModelCatalogueDiscoveryTest extends TestCase
 
     public function test_post_during_an_outage_or_missing_key_preserves_that_providers_saved_choice_after_recovery(): void
     {
+        $this->authenticateFixtureOwner();
         $this->localRoutes();
         $this->post('/lab/models', ['allowed' => self::SAVED_LEGACY])->assertRedirect('/lab/models');
         $this->listingFailure = true;
@@ -346,6 +357,7 @@ class ModelCatalogueDiscoveryTest extends TestCase
 
     public function test_withdrawn_choice_stays_visible_disabled_until_the_operator_removes_it(): void
     {
+        $this->authenticateFixtureOwner();
         $this->localRoutes();
         $this->post('/lab/models', ['allowed' => ['anthropic:claude-sonnet-5']])->assertRedirect('/lab/models');
         $this->roster(['replacement'], []);
@@ -360,6 +372,7 @@ class ModelCatalogueDiscoveryTest extends TestCase
 
     public function test_a_returned_long_model_id_can_be_explicitly_saved(): void
     {
+        $this->authenticateFixtureOwner();
         $this->localRoutes();
         $key = 'anthropic:future-'.str_repeat('model-', 80);
         $this->roster([substr($key, strlen('anthropic:'))], []);
@@ -382,6 +395,7 @@ class ModelCatalogueDiscoveryTest extends TestCase
 
     public function test_browser_fixture_matches_the_native_listing_and_inertia_pipeline(): void
     {
+        $this->authenticateFixtureOwner();
         $this->localRoutes();
         $this->travelTo(CarbonImmutable::parse('2026-11-04T12:00:00Z'));
         try {

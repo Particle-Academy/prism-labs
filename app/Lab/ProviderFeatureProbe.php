@@ -33,6 +33,9 @@ final class ProviderFeatureProbe
     /** @return array<string, mixed> */
     public function cache(string $model, string $prefix, string $question, string $followUp): array
     {
+        app(PaidRunContext::class)->requireInput(['provider.cache'], [
+            'model' => $model, 'prefix' => $prefix, 'question' => $question, 'follow_up' => $followUp,
+        ]);
         $runs = [];
         foreach ([$question, $followUp] as $prompt) {
             try {

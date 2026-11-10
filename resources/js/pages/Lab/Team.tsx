@@ -3,12 +3,15 @@ import { Head } from '@inertiajs/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { KineticFooter, KineticNav } from '../../components/kinetic';
 import { LabNav, labBlurb } from '../../components/lab-nav';
+import { paidFetch } from '../../lib/paid-run';
 
 type Reported = {
     port_version?: string | null;
     provider?: string | null;
     model?: string | null;
     can_reason?: boolean;
+    provider_key_present?: boolean;
+    paid_call_refusal?: string;
     /** False when the lane is pointed at a provider its port does not implement. */
     provider_available?: boolean;
     provider_count?: number;
@@ -116,9 +119,16 @@ function MemberCard({ member }: { member: Member }) {
                     {member.reported?.port_version ?? '—'}
                 </dd>
 
-                <dt style={{ color: 'var(--k-ink-4)' }}>Reasons</dt>
+                <dt style={{ color: 'var(--k-ink-4)' }}>Paid reasoning</dt>
                 <dd style={{ color: 'var(--k-ink-2)' }}>
-                    {member.reported?.can_reason === true ? 'yes' : member.reported?.can_reason === false ? 'no key' : '—'}
+                    {member.reported?.paid_call_refusal === 'paid_call_not_authorised'
+                        ? 'Paid agent calls need run authority, not yet available.'
+                        : member.reported?.can_reason === true ? 'available' : member.reported?.can_reason === false ? 'unavailable' : '—'}
+                </dd>
+
+                <dt style={{ color: 'var(--k-ink-4)' }}>Provider key</dt>
+                <dd style={{ color: 'var(--k-ink-2)' }}>
+                    {member.reported?.provider_key_present === true ? 'present' : member.reported?.provider_key_present === false ? 'absent' : 'unknown'}
                 </dd>
 
                 {member.reported?.model && (
@@ -181,7 +191,7 @@ function LearningCard({ learning }: { learning: Learning }) {
         setSent(null);
 
         try {
-            const response = await fetch('/lab/team/nudge', {
+            const response = await paidFetch('/lab/team/nudge', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -718,7 +728,7 @@ export default function Team({
         setTurns(current => [...current, { who: 'you', text: asked }]);
 
         try {
-            const response = await fetch('/lab/team/ask', {
+            const response = await paidFetch('/lab/team/ask', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

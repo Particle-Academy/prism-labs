@@ -3,6 +3,7 @@ import { setupFancyApp } from '@particle-academy/fancy-inertia';
 import { Toast } from '@particle-academy/react-fancy';
 import type { ComponentType, ReactNode } from 'react';
 import '@particle-academy/react-fancy/styles.css';
+import { PaidRunApproval } from './components/paid-run-approval';
 
 const appName = import.meta.env.VITE_APP_NAME ?? 'Fancy';
 
@@ -13,7 +14,7 @@ const appName = import.meta.env.VITE_APP_NAME ?? 'Fancy';
  * realtime server-state invalidation.
  */
 const providers = (outlet: ReactNode): ReactNode => (
-    <Toast.Provider position="bottom-right">{outlet}</Toast.Provider>
+    <Toast.Provider position="bottom-right"><PaidRunApproval>{outlet}</PaidRunApproval></Toast.Provider>
 );
 
 createInertiaApp({

@@ -6,8 +6,11 @@ namespace Tests\Feature;
 
 use App\Benchmarks\BenchmarkDesigner;
 use App\Benchmarks\LaneWorkspace;
+use App\Lab\ModelPolicy;
 use App\Models\BenchmarkLane;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
+use Tests\Concerns\ApprovesBenchmarks;
 use Tests\TestCase;
 
 /**
@@ -28,7 +31,16 @@ use Tests\TestCase;
  */
 class ArtifactMeasurementTest extends TestCase
 {
+    use ApprovesBenchmarks;
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->prepareBenchmarkAuthority();
+        app(ModelPolicy::class)->allow(['anthropic:claude-sonnet-5']);
+        Queue::fake();
+    }
 
     private function lane(): BenchmarkLane
     {
@@ -39,8 +51,9 @@ class ArtifactMeasurementTest extends TestCase
             [['language' => 'php', 'harness' => 'cli', 'provider' => 'anthropic', 'model' => 'claude-sonnet-5']],
             ['steps' => 8],
         );
-        $designer->approve($designer->requestApproval($spec));
-        $run = $designer->launch($spec);
+        $run = $this->dispatchApprovedDraft($spec);
+        // Reading and writing this owned artifact is free mechanical owner work.
+        $this->actingAs($this->authorityFixtureOwner, 'web');
 
         return BenchmarkLane::query()->where('benchmark_run_id', $run->id)->firstOrFail();
     }

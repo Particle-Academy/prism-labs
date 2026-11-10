@@ -98,6 +98,8 @@ final class CompactionRecallProbe
         ?string $summariseWith = null,
         int $summaryWords = 200,
     ): array {
+        app(CompactionAuthority::class)->require('recall', ['model' => $model, 'keep' => $keep, 'padding' => $padding,
+            'summarise_with' => $summariseWith, 'summary_words' => $summaryWords]);
         $withRecall = $this->attempt($model, $keep, $padding, true, $summariseWith, $summaryWords);
         $withoutRecall = $this->attempt($model, $keep, $padding, false, $summariseWith, $summaryWords);
 
@@ -171,6 +173,7 @@ final class CompactionRecallProbe
 
         try {
             // Turn one carries the fact.
+            app(CompactionAuthority::class)->check('recall');
             $session->send(
                 'Please note this for later: our reference for the disputed charge is '
                 .self::SECRET.'. Just acknowledge it, briefly.'
@@ -203,6 +206,7 @@ final class CompactionRecallProbe
             // using the tool at all. A distractor placed inside the kept window
             // does not test recall, it suppresses it.
             foreach (array_slice($topics, 0, $padding) as $topic) {
+                app(CompactionAuthority::class)->check('recall');
                 $session->send($topic);
             }
 
@@ -215,6 +219,7 @@ final class CompactionRecallProbe
             // first run of this probe reported RECALL FAILED with the fact
             // sitting in the table. The control arm names nothing, which is
             // what makes it a control.
+            app(CompactionAuthority::class)->check('recall');
             $response = $session->send(
                 'Earlier in this conversation I gave you a reference for a disputed '
                 .'charge. It has almost certainly dropped out of your context by now. '

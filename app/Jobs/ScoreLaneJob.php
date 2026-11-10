@@ -5,8 +5,13 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Benchmarks\BenchmarkScorer;
+use App\Benchmarks\BenchmarkWork;
 use App\Benchmarks\LaneActivity;
+use App\Lab\PaidRunNotAuthorised;
+use App\Lab\PaidWorkRegistry;
+use App\Lab\SessionNotReady;
 use App\Models\BenchmarkLane;
+use App\Models\LabPaidWork;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
@@ -32,8 +37,11 @@ final class ScoreLaneJob implements ShouldQueue
 
     public int $timeout = 180;
 
-    public function __construct(public readonly string $laneId)
+    public ?string $paidWorkId = null;
+
+    public function __construct(public readonly string $laneId, ?string $paidWorkId = null)
     {
+        $this->paidWorkId = $paidWorkId;
         $this->onQueue('scoring');
         $this->listingRetryDeadline = now()->addMinutes(30)->getTimestamp();
     }
@@ -58,7 +66,18 @@ final class ScoreLaneJob implements ShouldQueue
             return;
         }
 
-        $result = $scorer->score($lane);
+        try {
+            $result = app(PaidWorkRegistry::class)->run($this->paidWorkId, 'benchmark.score', $lane->id, BenchmarkWork::scorePayload($lane),
+                fn () => $scorer->score($lane));
+        } catch (PaidRunNotAuthorised|SessionNotReady) {
+            $claimed = is_string($this->paidWorkId) && LabPaidWork::query()->whereKey($this->paidWorkId)
+                ->where('kind', 'benchmark.score')->where('work_key', $lane->id)->whereNotNull('claimed_at')->exists();
+            app(LaneActivity::class)->record($lane, 'scoring.unavailable', $claimed
+                ? 'Not scored: previous judging delivery is uncertain. No automatic inference retry.'
+                : 'Not scored: approved run authority or current session readiness is unavailable. No inference was started.');
+
+            return;
+        }
         $activity = app(LaneActivity::class);
         // Jobs queued before this field existed get a bounded window on first execution.
         $this->listingRetryDeadline ??= now()->addMinutes(30)->getTimestamp();

@@ -2,6 +2,7 @@ import { Head } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import { KineticFooter, KineticNav } from '../../components/kinetic';
 import { LabNav, labBlurb } from '../../components/lab-nav';
+import { paidFetch } from '../../lib/paid-run';
 
 type Update = Record<string, unknown> & { sessionUpdate: string };
 type Provider = 'claude' | 'codex';
@@ -124,7 +125,7 @@ export default function Acp({ version, turns: initial, model: defaultModel, mode
         setBusy(true);
         try {
             const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
-            const response = await fetch('/lab/acp', {
+            const response = await paidFetch('/lab/acp', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': csrf },
                 body: JSON.stringify({ prompt, provider, model: model || null, continue: continuing?.id ?? null }),

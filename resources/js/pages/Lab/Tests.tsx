@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { KineticFooter, KineticNav } from '../../components/kinetic';
 import { LabNav, labBlurb } from '../../components/lab-nav';
 import { RunDiagnosticsView, type RunDiagnostics } from '../../components/run-diagnostics';
+import { paidFetch } from '../../lib/paid-run';
 
 type TestCase = { id: string; provider: string; model: string; feature: string; label: string; costly: boolean };
 type Result = { id: string; provider: string; feature: string; passed: boolean; verdict?: string; note?: string; latency_ms: number; metrics: Record<string, unknown>; error: string | null; diagnostics: RunDiagnostics | null; phoenix_url?: string };
@@ -18,7 +19,7 @@ export default function Tests({ version, cases, availability, phoenixUrl }: { ve
         setRunning(true); setError(null); setResults([]);
         try {
             const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
-            const response = await fetch('/lab/tests', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': csrf }, body: JSON.stringify({ cases: selected }) });
+            const response = await paidFetch('/lab/tests', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': csrf }, body: JSON.stringify({ cases: selected }) });
             const body = await response.json(); if (!response.ok) throw new Error(body.message ?? 'Suite failed.'); setResults(body.results);
         } catch (reason) { setError(reason instanceof Error ? reason.message : 'Suite failed.'); } finally { setRunning(false); }
     }

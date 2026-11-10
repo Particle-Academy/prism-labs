@@ -25,7 +25,7 @@ return [
     ],
 
     // The agent works in this directory and nowhere else the Lab chose: a sandbox, not the repository.
-    'workspace' => storage_path('app/acp-workspace'),
+    'workspace' => env('LAB_ACP_WORKSPACE', storage_path('app/acp-workspace')),
 
     // A turn that runs longer than this is cancelled, then the agent is stopped.
     'turn_seconds' => (int) env('LAB_ACP_TURN_SECONDS', 300),

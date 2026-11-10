@@ -43,6 +43,38 @@ npm lock. These identify what passed. Path aliases in Composer are constraint
 compatibility labels, not proof of the published release installed by a user.
 These jobs exercise source checkouts, not downloaded release archives.
 
+### Human approval and native work authority
+
+The owner is an existing human account selected by `LAB_OWNER_USER_ID`; there
+is no account-provisioning fallback. Signing in identifies that person and
+grants no spending permission. Each paid action requires a frozen request,
+explicit approval and GO, followed by a one-time launch and bound business
+work. The logical $5 allocation survives logout and cookie rotation. This
+allocation is permission accounting, not enforcement of a provider invoice
+limit. Revoking unused GO releases that reservation; a consumed run retains
+its allocation. Paid remote agent requests remain refused where the remote
+authority contract is not implemented.
+
+Both frontend lanes run the real approval, login, delegated-report,
+conversation and allocation controls in an intercepted Chromium fixture.
+They exercise denied and accepted synthetic requests, exact frozen inputs,
+one-time references and the installed native agent consent/payment fences.
+The form suite retains click, Enter and non-submit controls, completing all
+three approval phases before any paid POST. Browser fixtures model an owner
+session; native authentication, CSRF, database claims and competing workers
+are tested separately in PHP. No browser fixture establishes live provider
+or remote agent acceptance.
+
+PHPUnit forces SQLite in both environment and server variables. The permanent
+database reach-guard suite refuses non-test connections before PDO. Native
+multi-process ACP tests use a marked, throwaway SQLite file shared only by
+their own hosts and workers, with an explicit minimal child environment and
+an empty private dotenv. They verify the actual database identity before
+migration or work. They never use the Lab/Sandbox workspace Postgres database.
+Native process fixtures close the local telemetry exporter before boot and
+generation, verify its closure in each child, and clean up only their marked
+owned paths.
+
 ### Model listings and prices
 
 The Models page uses provider listings through the installed Prism package,

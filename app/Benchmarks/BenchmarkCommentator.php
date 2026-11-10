@@ -7,6 +7,9 @@ namespace App\Benchmarks;
 use App\Lab\LabSession;
 use App\Lab\ModelCatalogue;
 use App\Lab\ModelPolicy;
+use App\Lab\PaidRunContext;
+use App\Lab\PaidRunNotAuthorised;
+use App\Lab\SessionNotReady;
 use App\Models\BenchmarkCommentary;
 use App\Models\BenchmarkLaneActivity;
 use App\Models\BenchmarkRun;
@@ -24,7 +27,8 @@ use Throwable;
  * length of the run — commentary queued behind it would arrive after the thing
  * it was meant to narrate had finished.
  *
- * Never throws. Commentary is decoration on a run; a run that completes with a
+ * Provider failures do not throw; missing authority refuses before inference.
+ * Commentary is decoration on a run; a run that completes with a
  * silent ticker is a worse experience, and a run that FAILS because its
  * narrator did is an absurdity.
  */
@@ -38,10 +42,15 @@ final readonly class BenchmarkCommentator
 
     public function __construct(private LabSession $sessions, private ModelCatalogue $catalogue, private ModelPolicy $modelPolicy) {}
 
-    public function call(BenchmarkRun $run): ?BenchmarkCommentary
+    public function call(BenchmarkRun $run, int $sequence = 1): ?BenchmarkCommentary
     {
+        BenchmarkWork::assertRun($run);
+        app(PaidRunContext::class)->authorizedWork('benchmark.commentary', BenchmarkWork::commentaryKey($run->id, $sequence),
+            BenchmarkWork::commentaryPayload($run->id, $sequence));
         try {
-            return $this->generate($run);
+            return $this->generate($run, $sequence);
+        } catch (PaidRunNotAuthorised|SessionNotReady $refusal) {
+            throw $refusal;
         } catch (Throwable $failure) {
             report($failure);
 
@@ -49,7 +58,7 @@ final readonly class BenchmarkCommentator
         }
     }
 
-    private function generate(BenchmarkRun $run): ?BenchmarkCommentary
+    private function generate(BenchmarkRun $run, int $sequence): ?BenchmarkCommentary
     {
         $laneIds = $run->lanes()->pluck('id');
         $marks = BenchmarkCommentary::query()->where('benchmark_run_id', $run->id);
@@ -84,6 +93,9 @@ final readonly class BenchmarkCommentator
             return null;
         }
 
+        BenchmarkWork::assertRun($run);
+        app(PaidRunContext::class)->requireWork('benchmark.commentary', BenchmarkWork::commentaryKey($run->id, $sequence),
+            BenchmarkWork::commentaryPayload($run->id, $sequence));
         $response = $this->sessions->resolveScope('commentary:'.$run->id)
             ->usingMode('commentary')
             ->usingProvider($model['provider'])

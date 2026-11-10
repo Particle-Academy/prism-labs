@@ -17,6 +17,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Schema;
+use Tests\Concerns\ApprovesLabRuns;
 use Tests\TestCase;
 
 /**
@@ -40,6 +41,7 @@ use Tests\TestCase;
  */
 final class ConsensusLearningTest extends TestCase
 {
+    use ApprovesLabRuns;
     use RefreshDatabase;
 
     private string $dir;
@@ -161,7 +163,8 @@ final class ConsensusLearningTest extends TestCase
         // listening on 127.0.0.1 while the suite runs.
         $this->silenceEveryAgent();
 
-        $run = app(ConsensusCoordinator::class)->collect('Is the opentelemetry port comparable yet?');
+        $run = $this->withApprovedLabRun('consensus.collect', ['question' => 'Is the opentelemetry port comparable yet?'],
+            fn () => app(ConsensusCoordinator::class)->collect('Is the opentelemetry port comparable yet?'));
 
         $this->assertNotNull($run->learning_ref);
         $learning = Learning::query()->where('ref', $run->learning_ref)->firstOrFail();
@@ -180,7 +183,8 @@ final class ConsensusLearningTest extends TestCase
         // guard the same dead run would file a second 0L the moment a human
         // opened it and typed anything.
         $this->silenceEveryAgent();
-        $run = app(ConsensusCoordinator::class)->collect('Is the opentelemetry port comparable yet?');
+        $run = $this->withApprovedLabRun('consensus.collect', ['question' => 'Is the opentelemetry port comparable yet?'],
+            fn () => app(ConsensusCoordinator::class)->collect('Is the opentelemetry port comparable yet?'));
         $first = $run->learning_ref;
 
         $reviewed = app(ConsensusCoordinator::class)->review($run, 'Both lanes were down; nothing was learned about the port.');

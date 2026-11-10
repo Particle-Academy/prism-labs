@@ -17,7 +17,7 @@ final class BenchmarkSpec extends Model
     {
         return [
             'specification' => 'array', 'rubric' => 'array', 'lane_matrix' => 'array', 'budgets' => 'array',
-            'approved_at' => 'datetime',
+            'approved_at' => 'datetime', 'approved_by' => 'integer',
         ];
     }
 }

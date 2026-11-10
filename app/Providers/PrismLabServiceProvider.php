@@ -11,7 +11,8 @@ use App\Context\TableEvictionSink;
 use App\Docs\DocsLibrary;
 use App\Docs\DocsToolset;
 use App\Lab\CapabilityManager;
-use App\Lab\LabSession;
+use App\Lab\LabConversation;
+use App\Lab\PaidRunNotAuthorised;
 use App\Telemetry\PrismTelemetrySubscriber;
 use FancyFlow\ExecutorRegistry;
 use FancyFlow\NodeKindRegistry;
@@ -66,6 +67,33 @@ final class PrismLabServiceProvider extends ServiceProvider
         $this->app['config']->set('prism.telemetry.capture_content', false);
         $this->app['config']->set('prism-opentelemetry.enabled', true);
 
+        $this->bindLocalServices();
+
+        $endpoint = (string) env('PHOENIX_OTLP_ENDPOINT', 'http://localhost:6006/v1/traces');
+        $project = (string) env('PHOENIX_PROJECT', 'prism-lab');
+
+        $resource = ResourceInfoFactory::defaultResource()->merge(ResourceInfo::create(Attributes::create([
+            'service.name' => $project,
+            'openinference.project.name' => $project,
+        ])));
+
+        $transport = (new OtlpHttpTransportFactory)->create($endpoint, 'application/x-protobuf');
+        $exporter = new SpanExporter($transport);
+        $processor = new BatchSpanProcessor($exporter, SystemClock::create());
+        $tracerProvider = new TracerProvider($processor, null, $resource);
+
+        Globals::registerInitializer(
+            fn (Configurator $configurator): Configurator => $configurator->withTracerProvider($tracerProvider)
+        );
+
+        $this->app->instance(TracerProvider::class, $tracerProvider);
+        $this->app->terminating(static fn (): bool => $tracerProvider->shutdown());
+        $this->app->register(PrismOpenTelemetryServiceProvider::class);
+    }
+
+    /** Register the actual service factories without creating a telemetry exporter. */
+    public function bindLocalServices(): void
+    {
         $this->app->singleton(TrustPolicy::class, fn (): TrustPolicy => TrustPolicy::allowing(config('capabilities.human_plus.allowed_tools', [])));
         $this->app->singleton(RelayTransport::class, function (): RelayTransport {
             $unverified = (bool) config('capabilities.human_plus.allow_unverified_egress', false);
@@ -89,40 +117,19 @@ final class PrismLabServiceProvider extends ServiceProvider
             $app->make(TrustPolicy::class), $app->make(ResultGuard::class),
         ));
 
-        $endpoint = (string) env('PHOENIX_OTLP_ENDPOINT', 'http://localhost:6006/v1/traces');
-        $project = (string) env('PHOENIX_PROJECT', 'prism-lab');
-
-        $resource = ResourceInfoFactory::defaultResource()->merge(ResourceInfo::create(Attributes::create([
-            'service.name' => $project,
-            'openinference.project.name' => $project,
-        ])));
-
-        $transport = (new OtlpHttpTransportFactory)->create($endpoint, 'application/x-protobuf');
-        $exporter = new SpanExporter($transport);
-        $processor = new BatchSpanProcessor($exporter, SystemClock::create());
-        $tracerProvider = new TracerProvider($processor, null, $resource);
-
-        Globals::registerInitializer(
-            fn (Configurator $configurator): Configurator => $configurator->withTracerProvider($tracerProvider)
-        );
-
-        $this->app->instance(TracerProvider::class, $tracerProvider);
-        $this->app->terminating(static fn (): bool => $tracerProvider->shutdown());
-        $this->app->register(PrismOpenTelemetryServiceProvider::class);
-
         $this->bindDocs();
         $this->bindContextRecovery();
 
         // Built from config rather than autowired, so the Lab's voice models
         // are a setting rather than two constructor defaults in a package.
-        $this->app->singleton(VoiceExchange::class, function ($app): VoiceExchange {
-            $voice = (array) $app['config']->get('team.voice', []);
-            $provider = Provider::from((string) ($voice['provider'] ?? 'openai'));
+        $this->app->bind(VoiceExchange::class, function ($app): VoiceExchange {
+            $voice = LabConversation::voiceSettings();
+            $provider = Provider::from($voice['provider']);
 
             return new VoiceExchange(
-                transcribeModel: (string) ($voice['transcribe_model'] ?? 'whisper-1'),
-                speakModel: (string) ($voice['speak_model'] ?? 'tts-1'),
-                voice: (string) ($voice['voice'] ?? 'alloy'),
+                transcribeModel: $voice['transcribe_model'],
+                speakModel: $voice['speak_model'],
+                voice: $voice['voice'],
                 transcribeProvider: $provider,
                 speakProvider: $provider,
             );
@@ -205,7 +212,11 @@ final class PrismLabServiceProvider extends ServiceProvider
         ]));
         $this->app->make(ExecutorRegistry::class)->bind(
             '@prism-lab/harness_agent',
-            new HarnessAgentExecutor(fn (string $scope) => $this->app->make(LabSession::class)->resolveScope($scope)),
+            // No approved producer binds generic Flow nodes to a reviewed
+            // prompt/mode/model/tools and native workflow identity. A scope
+            // string or another action's GO cannot grant that authority.
+            // Admitted benchmark lanes use their separate bound executor below.
+            new HarnessAgentExecutor(static fn (string $scope) => throw new PaidRunNotAuthorised),
         );
         $this->app->make(NodeKindRegistry::class)->register(NodeKind::fromArray([
             'name' => '@prism-lab/benchmark_lane',
@@ -214,6 +225,7 @@ final class PrismLabServiceProvider extends ServiceProvider
             'description' => 'Executes one frozen parity benchmark lane and records bounded proof.',
             'configSchema' => [
                 ['type' => 'text', 'key' => 'lane_id', 'label' => 'Benchmark lane', 'required' => true],
+                ['type' => 'text', 'key' => 'paid_work_id', 'label' => 'Approved work reference', 'required' => true],
             ],
             'sideEffects' => 'unsafe-to-replay',
         ]));

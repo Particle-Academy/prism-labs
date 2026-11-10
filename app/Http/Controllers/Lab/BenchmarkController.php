@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Lab;
 use App\Benchmarks\BenchmarkDesigner;
 use App\Benchmarks\BenchmarkFuse;
 use App\Benchmarks\BenchmarkPreflight;
+use App\Benchmarks\BenchmarkWork;
 use App\Benchmarks\BenchmarkWorkflow;
 use App\Benchmarks\LaneWorkspace;
 use App\Http\Controllers\Controller;
@@ -383,7 +384,8 @@ final class BenchmarkController extends Controller
         // Start the broadcast with the run, not with the first viewer. The job
         // keeps its own cadence from here and stops itself when the run
         // settles, so a run nobody watched is still narrated afterwards.
-        CallTheRunJob::dispatch($run->id)->delay(now()->addSeconds(5));
+        $commentary = BenchmarkWork::bindCommentary($run, 1);
+        CallTheRunJob::dispatch($run->id, $commentary->id)->delay(now()->addSeconds(5))->afterCommit();
 
         return to_route('lab.benchmark-runs.show', $run);
     }

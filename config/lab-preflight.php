@@ -2,7 +2,7 @@
 
 return [
     'workers' => [
-        'directory' => storage_path('framework/lab-worker-heartbeats'),
+        'directory' => env('LAB_WORKER_HEARTBEATS_DIRECTORY', storage_path('framework/lab-worker-heartbeats')),
         'fresh_seconds' => 30,
         'queues' => ['default', 'scoring'],
     ],

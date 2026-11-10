@@ -2,6 +2,7 @@ import { Link, router } from '@inertiajs/react';
 import { useState } from 'react';
 import { AgentReadiness } from '../../components/agent-readiness';
 import { LabShell } from '../../components/lab-shell';
+import { requestPaidRun } from '../../lib/paid-run';
 
 type Spec = { id: string; name: string; revision: number; status: string; digest: string; archetype: string; surface_mode: string; lane_matrix: unknown[] };
 type Run = { id: string; status: string; learning_ref?: string | null; spec: Spec };
@@ -49,28 +50,19 @@ export default function Benchmarks({ specs, runs, providerAggregateCount, compac
  */
 function CompactionProbe({ runs }: { runs: ProbeRun[] }) {
     const [busy, setBusy] = useState(false);
-    const launch = (reserved: boolean) => {
-        setBusy(true);
-        router.post('/lab/benchmarks/compaction-probe', { reserved }, {
-            preserveScroll: true,
-            onFinish: () => setBusy(false),
-        });
-    };
-    const runRecall = () => {
-        setBusy(true);
-        router.post('/lab/benchmarks/compaction-recall', {}, {
-            preserveScroll: true,
-            onFinish: () => setBusy(false),
-        });
-    };
-    const runSummaryLoss = () => {
-        setBusy(true);
-        router.post('/lab/benchmarks/summary-loss', {}, {
-            preserveScroll: true,
-            onFinish: () => setBusy(false),
-        });
-    };
+    const [error, setError] = useState<string | null>(null);
+    async function runProbe(path: string, payload: Record<string, boolean>) {
+        setBusy(true); setError(null);
+        try {
+            const id = await requestPaidRun(path, payload);
+            router.post(path, payload, { headers: { 'X-Lab-Run-Id': id }, preserveScroll: true, onFinish: () => setBusy(false) });
+        } catch (failure) { setError(failure instanceof Error ? failure.message : 'The probe was not launched.'); setBusy(false); }
+    }
+    const launch = (reserved: boolean) => { void runProbe('/lab/benchmarks/compaction-probe', { reserved }); };
+    const runRecall = () => { void runProbe('/lab/benchmarks/compaction-recall', {}); };
+    const runSummaryLoss = () => { void runProbe('/lab/benchmarks/summary-loss', {}); };
     return <section className="lab-panel" style={{ marginTop: '.85rem' }}>
+        {error && <p role="alert">{error}</p>}
         <div className="lab-panel-head">
             <span>Compaction vs reservation · does our guarantee hold while the window shrinks?</span>
             <div className="lab-run-actions">

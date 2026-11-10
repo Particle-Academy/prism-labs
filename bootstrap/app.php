@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Lab\LabDatabase;
+use App\Lab\PaidRunNotAuthorised;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Bootstrap\LoadConfiguration;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -25,17 +26,17 @@ $application = Application::configure(basePath: dirname(__DIR__))
         // authenticated by its HMAC signature instead.
         $middleware->validateCsrfTokens(except: [
             'webhooks/github',
-            // Driven by an external benchmark harness, which holds no session
-            // and therefore no token. Safe because the route is local-only
-            // behind EnsurePrismLabIsLocal, and because it mutates nothing —
-            // it asks the model a question and returns the answer.
-            'lab/benchmarks/policy-turn',
         ]);
 
         // Trust the deploy proxy so signed URLs / OAuth redirects use HTTPS.
         $middleware->trustProxies(at: '*');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->render(function (PaidRunNotAuthorised $failure, Request $request) {
+            if ($request->expectsJson()) {
+                return response()->json(['code' => 'paid_call_not_authorised', 'message' => $failure->getMessage()], 403);
+            }
+        });
         $exceptions->shouldRenderJsonWhen(
             // Lab forms use fetch with Accept: application/json. Redirecting
             // validation failures gave them HTML instead of actionable errors.

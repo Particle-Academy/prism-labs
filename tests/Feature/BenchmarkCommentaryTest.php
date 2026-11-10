@@ -9,7 +9,9 @@ use App\Benchmarks\BenchmarkDesigner;
 use App\Benchmarks\LaneActivity;
 use App\Http\Controllers\Lab\BenchmarkController;
 use App\Jobs\CallTheRunJob;
+use App\Lab\ModelPolicy;
 use App\Models\BenchmarkCommentary;
+use App\Models\BenchmarkRun;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -18,7 +20,7 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Testing\TextResponseFake;
-use Tests\Concerns\CachesModelRoster;
+use Tests\Concerns\ApprovesBenchmarks;
 use Tests\TestCase;
 
 /**
@@ -32,8 +34,11 @@ use Tests\TestCase;
  */
 class BenchmarkCommentaryTest extends TestCase
 {
-    use CachesModelRoster;
+    use ApprovesBenchmarks;
     use RefreshDatabase;
+
+    /** @var array<string, CallTheRunJob> */
+    private array $commentaryJobs = [];
 
     private function liveRun()
     {
@@ -42,7 +47,25 @@ class BenchmarkCommentaryTest extends TestCase
             'language' => 'php', 'harness' => 'cli', 'provider' => 'anthropic', 'model' => 'claude-sonnet-5',
         ]], ['cost' => 1]);
 
-        return $designer->launch($designer->approve($designer->requestApproval($spec)));
+        $run = $this->dispatchApprovedDraft($spec);
+        $this->commentaryJobs[$run->id] = Queue::pushed(CallTheRunJob::class)->sole();
+        Queue::fake(); // Page assertions observe only the page, after native launch.
+
+        return $run;
+    }
+
+    private function callCommentary(BenchmarkRun $run): ?BenchmarkCommentary
+    {
+        $lines = BenchmarkCommentary::query()->where('benchmark_run_id', $run->id);
+        $before = (clone $lines)->count();
+        $this->beginBenchmarkJob('commentary');
+        $this->commentaryJobs[$run->id]->handle(app(BenchmarkCommentator::class));
+        if (Queue::pushed(CallTheRunJob::class)->isNotEmpty()) {
+            $this->commentaryJobs[$run->id] = Queue::pushed(CallTheRunJob::class)->sole();
+        }
+        Queue::fake();
+
+        return (clone $lines)->count() > $before ? $lines->latest('id')->first() : null;
     }
 
     public function test_the_page_never_generates_or_dispatches_commentary(): void
@@ -74,7 +97,8 @@ class BenchmarkCommentaryTest extends TestCase
         $run->forceFill(['status' => 'running'])->save();
         app(LaneActivity::class)->record($run->lanes()->firstOrFail(), 'lane.started', 'first');
 
-        app(CallTheRunJob::class, ['runId' => $run->id])->handle(app(BenchmarkCommentator::class));
+        $this->beginBenchmarkJob('commentary');
+        $this->commentaryJobs[$run->id]->handle(app(BenchmarkCommentator::class));
 
         Queue::assertPushed(CallTheRunJob::class);
     }
@@ -89,7 +113,8 @@ class BenchmarkCommentaryTest extends TestCase
         app(LaneActivity::class)->record($run->lanes()->firstOrFail(), 'lane.finished', 'done');
         $run->forceFill(['status' => 'completed'])->save();
 
-        app(CallTheRunJob::class, ['runId' => $run->id])->handle(app(BenchmarkCommentator::class));
+        $this->beginBenchmarkJob('commentary');
+        $this->commentaryJobs[$run->id]->handle(app(BenchmarkCommentator::class));
 
         Queue::assertNotPushed(CallTheRunJob::class);
     }
@@ -141,18 +166,17 @@ class BenchmarkCommentaryTest extends TestCase
         $activity->record($lane, 'lane.started', 'first');
         $activity->record($lane, 'file.written', 'second');
 
-        $commentator = app(BenchmarkCommentator::class);
-        $first = $commentator->call($run->refresh());
+        $first = $this->callCommentary($run->refresh());
 
         $this->assertNotNull($first);
         $this->assertSame('Sonnet 5 is straight into the workspace.', $first->line);
 
         // Nothing new has happened, so there is nothing to say — and saying
         // something anyway would mean paying a model to repeat itself.
-        $this->assertNull($commentator->call($run->refresh()));
+        $this->assertNull($this->callCommentary($run->refresh()));
 
         $activity->record($lane, 'file.written', 'third');
-        $second = $commentator->call($run->refresh());
+        $second = $this->callCommentary($run->refresh());
 
         $this->assertNotNull($second);
         $this->assertGreaterThan($first->after_activity_id, $second->after_activity_id);
@@ -175,7 +199,7 @@ class BenchmarkCommentaryTest extends TestCase
             'started_at' => now(), 'created_at' => now(), 'updated_at' => now(),
         ]);
 
-        $line = app(BenchmarkCommentator::class)->call($run->refresh());
+        $line = $this->callCommentary($run->refresh());
 
         $this->assertNotNull($line, 'Tool calls alone must be enough to say something.');
         $this->assertNotNull($line->after_operation_at, 'The operation cursor must advance, or the same call repeats forever.');
@@ -189,7 +213,7 @@ class BenchmarkCommentaryTest extends TestCase
         $run = $this->liveRun();
         app(LaneActivity::class)->record($run->lanes()->firstOrFail(), 'lane.started', 'first');
 
-        $this->assertNull(app(BenchmarkCommentator::class)->call($run->refresh()));
+        $this->assertNull($this->callCommentary($run->refresh()));
         $this->assertSame(0, BenchmarkCommentary::query()->count());
     }
 
@@ -200,7 +224,7 @@ class BenchmarkCommentaryTest extends TestCase
         $run = $this->liveRun();
         app(LaneActivity::class)->record($run->lanes()->firstOrFail(), 'lane.started', 'first');
 
-        $line = app(BenchmarkCommentator::class)->call($run->refresh());
+        $line = $this->callCommentary($run->refresh());
 
         $this->assertNotNull($line);
         $this->assertLessThanOrEqual(400, mb_strlen($line->line));
@@ -209,8 +233,11 @@ class BenchmarkCommentaryTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->prepareBenchmarkAuthority();
         Cache::flush();
         config(['prism.providers.anthropic.api_key' => 'sk-test']);
         $this->cacheModelRoster();
+        app(ModelPolicy::class)->allow(['anthropic:claude-sonnet-5']);
+        Queue::fake();
     }
 }

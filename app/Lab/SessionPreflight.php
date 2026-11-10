@@ -15,8 +15,13 @@ final class SessionPreflight
 
     public function report(bool $freshCore = false): array
     {
+        return $this->inspect($this->workers->check(), $freshCore);
+    }
+
+    private function inspect(array $workerStatus, bool $freshCore): array
+    {
         $checks = [
-            'workers' => $this->workers->check(),
+            'workers' => $workerStatus,
             'database' => $this->database->check(),
             'providers' => $this->providerStatus(),
             'core_actions' => $this->coreActions->check($freshCore),
@@ -34,6 +39,13 @@ final class SessionPreflight
     {
         // Run entrypoints must observe the current main, not reuse a prior green.
         if (! $this->report(freshCore: true)['ready']) {
+            throw new SessionNotReady;
+        }
+    }
+
+    public function assertReadyForExecution(): void
+    {
+        if (! $this->inspect($this->workers->checkForExecution(), true)['ready']) {
             throw new SessionNotReady;
         }
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Http;
@@ -11,13 +12,18 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Tests\Concerns\ApprovesLabRuns;
 use Tests\TestCase;
 
 class ProviderDiagnosticsTest extends TestCase
 {
+    use ApprovesLabRuns;
+    use RefreshDatabase;
+
     protected function setUp(): void
     {
         parent::setUp();
+        $this->prepareLabAuthority();
         $this->app->detectEnvironment(fn () => 'local');
         Route::middleware('web')->group(base_path('routes/web.php'));
         $this->withSession(['_token' => 'fixture-csrf'])->withHeader('X-CSRF-TOKEN', 'fixture-csrf');
@@ -47,15 +53,16 @@ class ProviderDiagnosticsTest extends TestCase
             'usage' => ['prompt_tokens' => 12, 'completion_tokens' => 64, 'cache_write_input_tokens' => null, 'cache_read_input_tokens' => null, 'thought_tokens' => null, 'cost' => 0.01, 'cache_write_5m_input_tokens' => null, 'cache_write_1h_input_tokens' => null],
         ];
 
-        $this->postJson('/lab/provider-probes/research', ['question' => 'Fixture research'])
+        $this->postApprovedLabRun('/lab/provider-probes/research', 'provider.research', ['question' => 'Fixture research'])
             ->assertOk()->assertJsonPath('ok', false)->assertJsonPath('diagnostics', $expected);
-        $this->postJson('/lab/tests', ['cases' => ['perplexity.text']])
+        $this->postApprovedLabRun('/lab/tests', 'tests.run', ['cases' => ['perplexity.text']])
             ->assertOk()->assertJsonPath('results.0.passed', false)->assertJsonPath('results.0.diagnostics', $expected);
 
         Http::swap(new Factory);
         Http::preventStrayRequests();
+        $this->fakeAuthorityReadiness();
         Http::fake(['api.perplexity.ai/*' => Http::response('data: '.json_encode(['type' => 'response.'.$status, 'response' => $body])."\n\n", 200, ['Content-Type' => 'text/event-stream'])]);
-        $this->postJson('/lab/tests', ['cases' => ['perplexity.streaming']])
+        $this->postApprovedLabRun('/lab/tests', 'tests.run', ['cases' => ['perplexity.streaming']])
             ->assertOk()->assertJsonPath('results.0.passed', false)->assertJsonPath('results.0.diagnostics', $expected);
 
         Log::shouldNotHaveReceived('error');
@@ -69,15 +76,16 @@ class ProviderDiagnosticsTest extends TestCase
     public function test_completed_control_returns_answer_without_failure_diagnostics(): void
     {
         Http::fake(['api.perplexity.ai/*' => Http::response($this->body('completed'))]);
-        $this->postJson('/lab/provider-probes/research', ['question' => 'Fixture research'])
+        $this->postApprovedLabRun('/lab/provider-probes/research', 'provider.research', ['question' => 'Fixture research'])
             ->assertOk()->assertJsonPath('ok', true)->assertJsonPath('answer', 'Private partial finding')->assertJsonMissingPath('diagnostics');
-        $this->postJson('/lab/tests', ['cases' => ['perplexity.text']])
+        $this->postApprovedLabRun('/lab/tests', 'tests.run', ['cases' => ['perplexity.text']])
             ->assertOk()->assertJsonPath('results.0.passed', true)->assertJsonPath('results.0.diagnostics', null);
 
         Http::swap(new Factory);
         Http::preventStrayRequests();
+        $this->fakeAuthorityReadiness();
         Http::fake(['api.perplexity.ai/*' => Http::response('data: '.json_encode(['type' => 'response.completed', 'response' => $this->body('completed')])."\n\n", 200, ['Content-Type' => 'text/event-stream'])]);
-        $this->postJson('/lab/tests', ['cases' => ['perplexity.streaming']])
+        $this->postApprovedLabRun('/lab/tests', 'tests.run', ['cases' => ['perplexity.streaming']])
             ->assertOk()->assertJsonPath('results.0.passed', true)->assertJsonPath('results.0.diagnostics', null);
     }
 

@@ -20,6 +20,8 @@ final class WorkerHeartbeats
 
     private ?array $context = null;
 
+    private ?string $executingQueue = null;
+
     private readonly string $fingerprint;
 
     public function __construct(private readonly Filesystem $files)
@@ -35,6 +37,7 @@ final class WorkerHeartbeats
 
     public function looping(Looping $event): void
     {
+        $this->executingQueue = null;
         $queues = is_string($event->queue) ? explode(',', $event->queue) : [];
         if (! is_string($event->connectionName) || ! preg_match('/^[a-zA-Z0-9_-]{1,64}$/D', $event->connectionName)
             || $queues === [] || count($queues) > 16
@@ -42,6 +45,11 @@ final class WorkerHeartbeats
             return;
         }
         $timeout = $event->workerOptions->timeout ?? null;
+        // Symfony supplies actual shell options as strings; Artisan::call may
+        // supply integers. Accept only canonical bounded decimal syntax.
+        if (is_string($timeout) && preg_match('/^[1-9][0-9]{0,3}$/D', $timeout)) {
+            $timeout = (int) $timeout;
+        }
         $this->context = ['connection' => $event->connectionName, 'queues' => $queues,
             'timeout' => is_int($timeout) ? $timeout : null];
         try {
@@ -55,6 +63,14 @@ final class WorkerHeartbeats
     public function processing(JobProcessing $event): void
     {
         if ($this->context !== null && $this->context['connection'] === $event->connectionName) {
+            $this->executingQueue = null;
+            try {
+                $queue = $event->job->getQueue();
+                $this->executingQueue = is_string($queue) && in_array($queue, $this->context['queues'], true) ? $queue : null;
+            } catch (Throwable) {
+                // Observing a queue must never replace native job behavior.
+                $this->diagnostic();
+            }
             $this->write('busy');
         }
     }
@@ -62,12 +78,14 @@ final class WorkerHeartbeats
     public function processed(JobProcessed $event): void
     {
         if ($this->context !== null && $this->context['connection'] === $event->connectionName) {
+            $this->executingQueue = null;
             $this->write('idle');
         }
     }
 
     public function stopping(WorkerStopping $event): void
     {
+        $this->executingQueue = null;
         if ($this->worker === null) {
             return;
         }
@@ -85,7 +103,21 @@ final class WorkerHeartbeats
 
     public function check(): array
     {
-        $required = config('lab-preflight.workers.queues');
+        return $this->inspect(config('lab-preflight.workers.queues'), false);
+    }
+
+    /** Only the process handling a native JobProcessing event can qualify. */
+    public function checkForExecution(): array
+    {
+        if ($this->executingQueue === null || $this->worker === null) {
+            return $this->unavailable();
+        }
+
+        return $this->inspect([$this->executingQueue], true);
+    }
+
+    private function inspect(mixed $required, bool $currentExecution): array
+    {
         $connection = config('queue.default');
         $key = config('app.key');
         if (! is_array($required) || $required === [] || count($required) > 16
@@ -103,6 +135,9 @@ final class WorkerHeartbeats
                 foreach (new FilesystemIterator($directory, FilesystemIterator::SKIP_DOTS) as $file) {
                     if (++$count > 256) {
                         return $this->unavailable();
+                    }
+                    if ($currentExecution && $file->getFilename() !== ($this->worker.'.json')) {
+                        continue;
                     }
                     if (! $file->isFile() || $file->isLink() || $file->getSize() > 4096
                         || ! preg_match('/^[a-f0-9]{32}\.json$/D', $file->getFilename())) {
@@ -151,21 +186,26 @@ final class WorkerHeartbeats
 
                     continue;
                 }
-                if (($record['state'] ?? null) === 'idle'
+                if (! $currentExecution && ($record['state'] ?? null) === 'idle'
                     && now()->timestamp - $record['seen_at'] <= $this->freshness()) {
                     $state = 'ready';
                     break;
                 }
                 if (($record['state'] ?? null) === 'busy') {
+                    if ($currentExecution) {
+                        $state = 'executing';
+                        break;
+                    }
                     $state = 'busy';
                 }
             }
             $queues[] = ['queue' => $queue, 'status' => $state];
         }
-        $ready = count(array_filter($queues, static fn (array $queue): bool => $queue['status'] === 'ready')) === count($required);
+        $ready = count(array_filter($queues, static fn (array $queue): bool => in_array($queue['status'], ['ready', 'executing'], true))) === count($required);
 
         return ['ready' => $ready, 'status' => $ready ? 'ready' : 'blocked',
-            'message' => $ready ? 'Required queue workers have recent available heartbeats.' : 'Required queue workers are unavailable, busy or misconfigured.',
+            'message' => $ready ? ($currentExecution ? 'This native worker is executing the claimed job.' : 'Required queue workers have recent available heartbeats.')
+                : 'Required queue workers are unavailable, busy or misconfigured.',
             'queues' => $queues];
     }
 

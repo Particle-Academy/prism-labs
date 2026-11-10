@@ -72,7 +72,7 @@ final class ConsensusController extends Controller
 
         $evidence = ['brief' => $input['evidence'] ?? ''];
         $run = $coordinator->begin($input['question'], $evidence);
-        CollectConsensusJob::dispatch($run->id, $evidence);
+        CollectConsensusJob::dispatch($run->id, $evidence, $run->paid_work_id)->afterCommit();
 
         return to_route('lab.consensus')->with('status', 'Consensus collection queued. The Overseer worker collects the answers; this page refreshes while it runs.');
     }

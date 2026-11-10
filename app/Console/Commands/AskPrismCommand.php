@@ -4,16 +4,22 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Lab\ApprovedCliRun;
 use App\Team\Coordinator;
 use Illuminate\Console\Command;
 
 final class AskPrismCommand extends Command
 {
-    protected $signature = 'team:ask {question : What to ask Prism.php}';
+    protected $signature = 'team:ask {question : What to ask Prism.php} {--approved-run= : Exact owner-approved GO reference}';
 
     protected $description = 'Put a question to Prism.php and let it delegate to the language agents';
 
     public function handle(Coordinator $coordinator): int
+    {
+        return app(ApprovedCliRun::class)->run($this, 'team.ask', ['question' => (string) $this->argument('question')], fn (): int => $this->executeApproved($coordinator));
+    }
+
+    private function executeApproved(Coordinator $coordinator): int
     {
         $result = $coordinator->ask((string) $this->argument('question'));
 

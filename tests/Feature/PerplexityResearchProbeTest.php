@@ -6,18 +6,24 @@ namespace Tests\Feature;
 
 use App\Lab\PrismTestRegistry;
 use App\Lab\PrismTestRunner;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use PHPUnit\Framework\Attributes\Group;
+use Tests\Concerns\ApprovesLabRuns;
 use Tests\TestCase;
 
 #[Group('dogfood')]
 class PerplexityResearchProbeTest extends TestCase
 {
+    use ApprovesLabRuns;
+    use RefreshDatabase;
+
     protected function setUp(): void
     {
         parent::setUp();
+        $this->prepareLabAuthority();
         $this->app->detectEnvironment(fn () => 'local');
         config(['prism.providers.perplexity.api_key' => 'fixture-only', 'prism.telemetry.enabled' => true]);
         Http::preventStrayRequests();
@@ -27,7 +33,10 @@ class PerplexityResearchProbeTest extends TestCase
 
     private function probe(string $kind): array
     {
-        return app(PrismTestRunner::class)->run(app(PrismTestRegistry::class)->find('perplexity.research.'.$kind));
+        $id = 'perplexity.research.'.$kind;
+
+        return $this->withApprovedLabRun('tests.run', ['cases' => [$id]],
+            fn () => app(PrismTestRunner::class)->run(app(PrismTestRegistry::class)->find($id)));
     }
 
     // Documented-shape fault injection, not a provider recording. Source:
@@ -46,14 +55,14 @@ class PerplexityResearchProbeTest extends TestCase
         $r = $this->probe('completed');
         $this->assertFalse($r['passed']);
         $this->assertSame('SKIPPED: no key', $r['note']);
-        Http::assertNothingSent();
+        $this->assertOnlyAuthorityReadinessRequests();
     }
 
     public function test_live_path_is_refused_outside_local_before_provider_dispatch(): void
     {
         $this->app->detectEnvironment(fn () => 'production');
         $this->assertFalse($this->probe('completed')['passed']);
-        Http::assertNothingSent();
+        $this->assertOnlyAuthorityReadinessRequests();
     }
 
     public function test_completed_control_requires_citations_usage_and_request_id_and_redacts_content(): void
@@ -67,7 +76,8 @@ class PerplexityResearchProbeTest extends TestCase
         $this->assertTrue(config('prism.telemetry.enabled'));
         $this->assertStringNotContainsString('PRIVATE', json_encode($r));
         $this->assertStringNotContainsString('req_not_logged', json_encode($r));
-        Http::assertSent(fn ($req) => $req['max_steps'] === 6 && $req['max_output_tokens'] === 2048 && $req['effort'] === 'medium');
+        Http::assertSent(fn ($req) => parse_url($req->url(), PHP_URL_HOST) === 'api.perplexity.ai'
+            && $req['max_steps'] === 6 && $req['max_output_tokens'] === 2048 && $req['effort'] === 'medium');
         Exceptions::assertNothingReported();
         Log::shouldNotHaveReceived('error');
     }
@@ -81,7 +91,8 @@ class PerplexityResearchProbeTest extends TestCase
         $this->assertSame('max_output_tokens', $r['metrics']['reason']);
         $this->assertTrue($r['metrics']['partial_output_present']);
         $this->assertStringNotContainsString('PRIVATE', json_encode($r));
-        Http::assertSent(fn ($req) => $req['max_steps'] === 1 && $req['max_output_tokens'] === 1);
+        Http::assertSent(fn ($req) => parse_url($req->url(), PHP_URL_HOST) === 'api.perplexity.ai'
+            && $req['max_steps'] === 1 && $req['max_output_tokens'] === 1);
     }
 
     public function test_completed_provider_does_not_pass_the_incomplete_or_failed_observation(): void
@@ -114,13 +125,13 @@ class PerplexityResearchProbeTest extends TestCase
         foreach (['filters-deep', 'filters-pro'] as $kind) {
             $this->assertTrue($this->probe($kind)['passed']);
         }
-        Http::assertSentCount(2);
+        $this->assertCount(2, Http::recorded(fn ($request) => parse_url($request->url(), PHP_URL_HOST) === 'api.perplexity.ai'));
         Http::assertSent(fn ($req) => isset($req['tools'][0]['filters']['search_recency_filter'], $req['tools'][0]['filters']['search_after_date_filter']));
     }
 
     public function test_transport_failure_is_failed_redacted_and_never_reported(): void
     {
-        Http::fake(['*' => Http::failedConnection('PRIVATE transport message')]);
+        Http::fake(['api.perplexity.ai/*' => Http::failedConnection('PRIVATE transport message')]);
         $r = $this->probe('completed');
         $this->assertFalse($r['passed']);
         $this->assertSame('FAIL', $r['verdict']);

@@ -17,6 +17,8 @@ use Throwable;
  */
 final class LanguageAgent
 {
+    public const PAID_AUTHORITY_UNAVAILABLE = 'Paid agent calls need run authority, not yet available.';
+
     public function __construct(private readonly Agent $agent) {}
 
     /**
@@ -104,6 +106,11 @@ final class LanguageAgent
      */
     public function call(string $tool, array $arguments = [], ?float $timeout = null): array
     {
+        // No reviewed cross-process authority transport exists yet. Refuse
+        // locally as well: an older running agent may still expose generation.
+        if (in_array($tool, ['explain', 'consensus'], true)) {
+            return $this->paidAuthorityUnavailable();
+        }
         if ($this->agent->endpoint === null || $this->agent->endpoint === '') {
             return $this->unreachable('this lane has no endpoint configured');
         }
@@ -126,6 +133,11 @@ final class LanguageAgent
 
         $structured = $result->structuredContent;
         $semanticRefusal = is_array($structured) && ($structured['ok'] ?? null) === false;
+        if ($semanticRefusal && ($structured['code'] ?? null) === 'paid_call_not_authorised') {
+            // Project this known capability refusal to fixed application copy.
+            // Untrusted agent text cannot turn it into an approval instruction.
+            return $this->paidAuthorityUnavailable();
+        }
 
         return [
             'ok' => ! $result->isError && ! $semanticRefusal,
@@ -138,6 +150,16 @@ final class LanguageAgent
     /**
      * @return array<string, mixed>
      */
+    private function paidAuthorityUnavailable(): array
+    {
+        return [
+            'ok' => false, 'language' => $this->agent->language, 'unavailable' => true,
+            'code' => 'paid_call_not_authorised', 'reason' => self::PAID_AUTHORITY_UNAVAILABLE,
+            'data' => ['ok' => false, 'code' => 'paid_call_not_authorised', 'reason' => self::PAID_AUTHORITY_UNAVAILABLE],
+            'text' => self::PAID_AUTHORITY_UNAVAILABLE,
+        ];
+    }
+
     private function unreachable(string $reason): array
     {
         return [
