@@ -61,7 +61,7 @@ final class NativeRsiCostProcessTest extends TestCase
         } finally {
             foreach ($this->children as $child) {
                 if (is_resource($child['process'])) {
-                    proc_terminate($child['process']);
+                    proc_terminate($child['process'], 9);
                     proc_close($child['process']);
                 }
             }
@@ -118,7 +118,8 @@ final class NativeRsiCostProcessTest extends TestCase
         $this->assertContains($entry['pid'], $workerPids);
         if ($outcome === 'killed') {
             $key = $this->workers[array_search($entry['pid'], $workerPids, true)];
-            $this->assertTrue(proc_terminate($this->children[$key]['process']));
+            // SIGTERM only asks a POSIX Laravel worker to stop after its current job.
+            $this->assertTrue(proc_terminate($this->children[$key]['process'], 9));
             $this->assertNotSame(0, $this->finish($key, 5));
             $after = $this->fixture('inspect-rsi-cost');
             $this->assertCount(1, $after['calls']);
@@ -210,7 +211,7 @@ final class NativeRsiCostProcessTest extends TestCase
             }
             usleep(10000);
         } while (microtime(true) < $deadline);
-        proc_terminate($this->children[$key]['process']);
+        proc_terminate($this->children[$key]['process'], 9);
         proc_close($this->children[$key]['process']);
         $this->children[$key]['process'] = null;
         $this->fail('Owned native cost process exceeded its deadline.');
