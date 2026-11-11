@@ -25,6 +25,7 @@ return new class extends Migration
         foreach (['overseer_turns', 'acp_turns', 'consensus_runs', 'benchmark_runs'] as $name) {
             Schema::table($name, function (Blueprint $table): void {
                 $table->dropConstrainedForeignId('paid_work_id');
+                $table->dropUnique(['approved_run_id']);
                 $table->dropConstrainedForeignId('approved_run_id');
             });
         }

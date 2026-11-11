@@ -33,6 +33,8 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('learnings', function (Blueprint $table): void {
+            $table->dropIndex(['sent_at']);
+            $table->dropIndex(['acted_at']);
             $table->dropColumn(['sent_at', 'acted_at', 'acted_note']);
         });
     }
