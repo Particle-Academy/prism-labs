@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "af5976ece60a9f7bf76e3a8498efdc1d",
+    "content-hash": "c9a8d40ed0c994271c33a4f6f893ac0e",
     "packages": [
         {
             "name": "brick/math",
@@ -3300,6 +3300,74 @@
             },
             "time": "2026-09-09T22:06:17+00:00",
             "published-time": "2026-09-10T00:15:38+00:00"
+        },
+        {
+            "name": "particle-academy/change-council",
+            "version": "v0.7.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/Particle-Academy/change-council.git",
+                "reference": "619adae59d8cab439b3301da282ce532b4314350"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/Particle-Academy/change-council/zipball/619adae59d8cab439b3301da282ce532b4314350",
+                "reference": "619adae59d8cab439b3301da282ce532b4314350",
+                "shasum": ""
+            },
+            "require": {
+                "ext-json": "*",
+                "ext-sodium": "*",
+                "illuminate/console": "^13.0",
+                "illuminate/container": "^13.0",
+                "illuminate/contracts": "^13.0",
+                "illuminate/database": "^13.0",
+                "illuminate/http": "^13.0",
+                "illuminate/routing": "^13.0",
+                "illuminate/support": "^13.0",
+                "php": "^8.4"
+            },
+            "require-dev": {
+                "laravel/framework": "^13.30",
+                "pestphp/pest": "^4.0|^5.0"
+            },
+            "suggest": {
+                "inertiajs/inertia-laravel": "Renders the lab pages (Council/Index, Council/Show) through the default InertiaPageRenderer"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "ChangeCouncil\\Laravel\\CouncilServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "ChangeCouncil\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "A consumer-agent voting ledger for major package changes: a zero-dependency change detector for CI and pre-push, and a Laravel ledger with HITL initiation, two voting rounds, per-consumer silence policy, a hash-chained audit log, Ed25519-signed decision records and a lab UI built from Fancy components.",
+            "keywords": [
+                "agents",
+                "breaking-changes",
+                "ci",
+                "fancy",
+                "governance",
+                "human-plus",
+                "laravel",
+                "release"
+            ],
+            "support": {
+                "issues": "https://github.com/Particle-Academy/change-council/issues",
+                "source": "https://github.com/Particle-Academy/change-council/tree/v0.7.1"
+            },
+            "time": "2026-11-10T23:50:20+00:00",
+            "published-time": "2026-11-10T23:53:20+00:00"
         },
         {
             "name": "particle-academy/fancy-flow-php",

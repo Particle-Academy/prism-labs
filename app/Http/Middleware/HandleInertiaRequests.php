@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -39,6 +40,7 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'name' => config('app.name'),
             'labEnabled' => app()->environment('local'),
+            'canUseCouncil' => fn (): bool => $request->user() !== null && Gate::allows('council-owner'),
             'auth' => [
                 'user' => $request->user() ? [
                     'id' => $request->user()->id,

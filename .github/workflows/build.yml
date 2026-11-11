@@ -215,6 +215,12 @@ jobs:
       - name: Owner allocation, pagination and cancellation fences
         run: node scripts/test-owner-allocations-ui.mjs storage/framework/testing/owner-allocations-browser
 
+      - name: Council native SSR consent boundary (no server)
+        run: node scripts/test-council-ssr.mjs storage/framework/testing/council-ssr
+
+      - name: Council owner dialogs, portal consent and clerk UI controls
+        run: node scripts/test-council-ui.mjs storage/framework/testing/council-browser
+
       - name: Install the committed isolated renderer without lifecycle scripts
         run: npm ci --prefix tools/remotion-runtime --ignore-scripts
 
@@ -256,4 +262,6 @@ jobs:
             storage/framework/testing/owner-delegated-browser/
             storage/framework/testing/owner-conversation-browser/
             storage/framework/testing/owner-allocations-browser/
+            storage/framework/testing/council-browser/
+            storage/framework/testing/council-ssr/
           if-no-files-found: error

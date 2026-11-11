@@ -1,6 +1,8 @@
 import { createFancyServer } from '@particle-academy/fancy-inertia/server';
 import { Toast } from '@particle-academy/react-fancy';
 import type { ComponentType, ReactNode } from 'react';
+import { PaidRunApproval } from './components/paid-run-approval';
+import { withCouncilConsent } from './components/council-consent-boundary';
 
 /**
  * Server-side rendering entry. It renders each page inside the SAME Fancy
@@ -12,13 +14,15 @@ import type { ComponentType, ReactNode } from 'react';
  * `INERTIA_SSR_ENABLED=true` in `.env` to use it.
  */
 const providers = (outlet: ReactNode): ReactNode => (
-    <Toast.Provider position="bottom-right">{outlet}</Toast.Provider>
+    <Toast.Provider position="bottom-right"><PaidRunApproval>{outlet}</PaidRunApproval></Toast.Provider>
 );
 
 createFancyServer({
     resolve: (name) => {
         const pages = import.meta.glob<{ default: ComponentType }>('./pages/**/*.tsx', { eager: true });
-        return pages[`./pages/${name}.tsx`];
+        const page = pages[`./pages/${name}.tsx`];
+        if (!page) throw new Error(`Inertia page not found: ${name}`);
+        return { ...page, default: withCouncilConsent(name, page.default) };
     },
     providers,
     appRoot: false,

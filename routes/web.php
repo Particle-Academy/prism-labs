@@ -24,7 +24,9 @@ use App\Http\Controllers\Lab\TestSuiteController;
 use App\Http\Controllers\Lab\ThreadController;
 use App\Http\Middleware\EnsurePrismLabIsLocal;
 use App\Http\Middleware\RequireApprovedRun;
+use App\Http\Middleware\RequireCouncilOwner;
 use App\Http\Middleware\RequireLabOwner;
+use ChangeCouncil\Facades\Council;
 use Illuminate\Support\Facades\Route;
 
 // Everything here is the Lab. There is no public surface to separate it from,
@@ -39,6 +41,10 @@ Route::redirect('/', '/lab');
 
 if (app()->environment('local')) {
     Route::middleware(EnsurePrismLabIsLocal::class)->group(function (): void {
+        // Every Council page, read API, feed and owner action shares the same
+        // stable owner ID/email boundary. Package routes remain opt-in only.
+        Council::routes(['middleware' => [RequireLabOwner::class, RequireCouncilOwner::class, 'throttle:60,1']]);
+
         Route::get('/lab/owner', [OwnerSessionController::class, 'show'])->name('lab.owner');
         Route::post('/lab/owner/login', [OwnerSessionController::class, 'login'])->name('lab.owner.login');
         Route::post('/lab/owner/logout', [OwnerSessionController::class, 'logout'])->name('lab.owner.logout');
