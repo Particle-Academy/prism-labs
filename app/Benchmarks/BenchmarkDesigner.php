@@ -21,6 +21,29 @@ final class BenchmarkDesigner
 {
     public function __construct(private readonly OwnerIdentity $owner) {}
 
+    /** Free draft persistence. Provenance is declared, never measured here. */
+    public function draftTest(string $name, FrozenTestDefinition $definition, string $surfaceMode = 'standard'): BenchmarkSpec
+    {
+        return $this->draft($name, FrozenTestDefinition::ARCHETYPE, $surfaceMode,
+            $definition->specification(), [], $definition->lanes, $definition->budgets);
+    }
+
+    /** Edits append a new unapproved revision; the old approval is not copied. */
+    public function reviseTest(BenchmarkSpec $previous, FrozenTestDefinition $definition): BenchmarkSpec
+    {
+        return DB::transaction(function () use ($previous, $definition): BenchmarkSpec {
+            $locked = BenchmarkSpec::query()->lockForUpdate()->findOrFail($previous->id);
+            $this->assertFrozen($locked);
+            if ($locked->archetype !== FrozenTestDefinition::ARCHETYPE) {
+                throw ValidationException::withMessages(['test' => 'Only an RSI test can be revised as an RSI test.']);
+            }
+
+            return $this->draft($locked->name, FrozenTestDefinition::ARCHETYPE, $locked->surface_mode,
+                $definition->specification(['id' => $locked->id, 'digest' => $locked->digest]),
+                [], $definition->lanes, $definition->budgets);
+        }, 3);
+    }
+
     /**
      * @param  array<string, mixed>  $specification
      * @param  array<string, mixed>  $rubric
@@ -29,6 +52,12 @@ final class BenchmarkDesigner
      */
     public function draft(string $name, string $archetype, string $surfaceMode, array $specification, array $rubric, array $lanes, array $budgets): BenchmarkSpec
     {
+        if ($archetype === FrozenTestDefinition::ARCHETYPE) {
+            FrozenTestDefinition::fromStored($specification, $lanes, $budgets);
+            if ($rubric !== [] || trim($name) === '' || strlen($name) > 160) {
+                throw ValidationException::withMessages(['test' => 'An RSI test needs a name and has no reviewer rubric.']);
+            }
+        }
         if (! in_array($surfaceMode, ['standard', 'human_plus'], true)) {
             throw new \InvalidArgumentException('Benchmark surface mode must be standard or human_plus.');
         }
@@ -80,6 +109,12 @@ final class BenchmarkDesigner
 
     public function assertFrozen(BenchmarkSpec $spec): void
     {
+        if ($spec->archetype === FrozenTestDefinition::ARCHETYPE) {
+            FrozenTestDefinition::fromStored($spec->specification, $spec->lane_matrix, $spec->budgets);
+            if ($spec->rubric !== []) {
+                throw ValidationException::withMessages(['test' => 'An RSI test has no reviewer rubric.']);
+            }
+        }
         $digest = $spec->digest;
         $document = [
             'name' => $spec->name, 'archetype' => $spec->archetype,
@@ -130,6 +165,9 @@ final class BenchmarkDesigner
         try {
             return DB::transaction(function () use ($spec, $intent): BenchmarkRun {
                 $locked = BenchmarkSpec::query()->lockForUpdate()->findOrFail($spec->id);
+                if ($locked->archetype === FrozenTestDefinition::ARCHETYPE) {
+                    throw ValidationException::withMessages(['test' => 'RSI test execution requires native cost admission and an unjudged lane runner.']);
+                }
                 $snapshot = $this->approvedSnapshot($locked);
                 if (CanonicalJson::encode($snapshot) !== CanonicalJson::encode($intent->payload['benchmark'] ?? null)
                     || BenchmarkRun::query()->where('approved_run_id', $intent->id)->exists()) {
@@ -172,11 +210,15 @@ final class BenchmarkDesigner
 
     private function transition(BenchmarkSpec $spec, string $from, string $to): BenchmarkSpec
     {
-        if ($spec->status !== $from) {
-            throw new \LogicException(sprintf('Benchmark must be [%s] before it can become [%s].', $from, $to));
-        }
-        $spec->forceFill(['status' => $to])->save();
+        return DB::transaction(function () use ($spec, $from, $to): BenchmarkSpec {
+            $locked = BenchmarkSpec::query()->lockForUpdate()->findOrFail($spec->id);
+            $this->assertFrozen($locked);
+            if ($locked->status !== $from) {
+                throw new \LogicException(sprintf('Benchmark must be [%s] before it can become [%s].', $from, $to));
+            }
+            $locked->forceFill(['status' => $to])->save();
 
-        return $spec;
+            return $locked;
+        }, 3);
     }
 }
