@@ -44,6 +44,7 @@ final readonly class BenchmarkCommentator
 
     public function call(BenchmarkRun $run, int $sequence = 1): ?BenchmarkCommentary
     {
+        BenchmarkWork::requireLegacyJudgment($run);
         BenchmarkWork::assertRun($run);
         app(PaidRunContext::class)->authorizedWork('benchmark.commentary', BenchmarkWork::commentaryKey($run->id, $sequence),
             BenchmarkWork::commentaryPayload($run->id, $sequence));

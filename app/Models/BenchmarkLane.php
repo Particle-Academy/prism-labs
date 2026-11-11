@@ -45,7 +45,7 @@ final class BenchmarkLane extends Model
     protected function casts(): array
     {
         return [
-            'proof' => 'array', 'cost' => 'decimal:8', 'score' => 'decimal:4',
+            'proof' => 'array', 'frozen_test_lane' => 'array', 'cost' => 'decimal:8', 'score' => 'decimal:4',
             'started_at' => 'datetime', 'finished_at' => 'datetime',
         ];
     }

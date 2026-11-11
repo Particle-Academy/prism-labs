@@ -73,6 +73,20 @@ final readonly class BenchmarkLaneExecutor implements NodeExecutor
         $ctx->emit(RunEvent::log('info', sprintf('%s lane started', $lane->language), $ctx->node->id));
 
         try {
+            if ($spec->archetype === FrozenTestDefinition::ARCHETYPE) {
+                $result = app(RsiLaneRunner::class)->run($lane, $spec);
+                if (($result['ok'] ?? false) !== true && $run->fresh()->status !== 'cancelled') {
+                    $lane->forceFill(['status' => 'failed', 'proof' => ['judgment' => 'unjudged',
+                        'classification' => $result['classification'], 'reason' => $result['reason'], 'code' => $result['code'] ?? null,
+                        'failure_class' => $result['failure_class'] ?? null], 'finished_at' => now()])->save();
+                }
+                $this->activity->record($lane, 'rsi.observed', 'Native lane finished without a judgment.', [
+                    'classification' => $result['classification'], 'run_id' => $result['run_id'] ?? null,
+                ]);
+                $this->runs->reconcile($run);
+
+                return ['lane_id' => $lane->id, 'ok' => ($result['ok'] ?? false), 'status' => $lane->fresh()->status];
+            }
             $result = $this->run($lane, $spec);
             if ($run->refresh()->status === 'cancelled') {
                 return ['lane_id' => $lane->id, 'ok' => false, 'status' => 'cancelled'];
@@ -93,7 +107,7 @@ final readonly class BenchmarkLaneExecutor implements NodeExecutor
                 return ['lane_id' => $lane->id, 'ok' => false, 'status' => 'cancelled'];
             }
             $lane->forceFill(['status' => 'failed', 'proof' => ['failure_class' => $failure::class], 'finished_at' => now()])->save();
-            $this->activity->record($lane, 'agent.exception', $failure->getMessage(), ['failure_class' => $failure::class], 'error');
+            $this->activity->record($lane, 'agent.exception', $spec->archetype === FrozenTestDefinition::ARCHETYPE ? 'Native lane failed; output and error content are not captured.' : $failure->getMessage(), ['failure_class' => $failure::class], 'error');
             $this->runs->reconcile($run);
             throw $failure;
         }

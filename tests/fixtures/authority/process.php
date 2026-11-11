@@ -2,12 +2,17 @@
 
 declare(strict_types=1);
 
+use App\Benchmarks\BenchmarkDesigner;
+use App\Benchmarks\BenchmarkWorkflow;
+use App\Benchmarks\FrozenTestDefinition;
+use App\Benchmarks\RsiLaneProfile;
 use App\Lab\PaidRunContext;
 use App\Lab\PaidRunNotAuthorised;
 use App\Lab\PaidWorkRegistry;
 use App\Lab\RunAuthority;
 use App\Lab\RunScopeFactory;
 use App\Lab\SessionPreflight;
+use App\Models\BenchmarkLane;
 use App\Models\CompactionProbeRun;
 use App\Models\LabAuthoritySession;
 use App\Models\LabPaidWork;
@@ -15,6 +20,7 @@ use App\Models\LabRunIntent;
 use App\Models\User;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Tests\Concerns\NativeAuthorityFixture;
 use Tests\Concerns\NativeAuthorityProvider;
 use Tests\Concerns\NativeAuthorityWork;
@@ -32,7 +38,7 @@ if ($resolved === false || $parent === false || dirname($resolved) !== $parent |
     || getenv('LAB_DB_DATABASE') !== $resolved.'/lab.sqlite'
     || getenv('APP_CONFIG_CACHE') !== 'storage/framework/testing/'.basename($resolved).'/config.php'
     || ! is_file($resolved.'/fixture.env') || filesize($resolved.'/fixture.env') !== 0
-    || ! in_array($mode, ['prepare', 'ready', 'seed-cli', 'seed-race', 'seed-work', 'enqueue-work', 'race', 'inspect'], true)) {
+    || ! in_array($mode, ['prepare', 'ready', 'seed-cli', 'seed-race', 'seed-work', 'enqueue-work', 'seed-rsi-cost', 'inspect-rsi-cost', 'race', 'inspect'], true)) {
     throw new RuntimeException('Refuse a non-owned native authority process.');
 }
 require $repo.'/vendor/autoload.php';
@@ -67,6 +73,18 @@ if ($mode === 'prepare') {
         // capability. Satisfy validation with a synthetic token; no sidecar runs.
         'prism-browser.sidecar.token' => str_repeat('owned-native-browser-', 2),
         'team.coordinator.provider' => 'anthropic', 'prism.providers.anthropic.api_key' => 'synthetic-native-authority-key']);
+    if ($case === 'rsi-cost') {
+        config(['testing-native-authority.rsi_cost' => true,
+            // SQLite's default deferred queue transactions can fail on lock
+            // upgrade before the cost boundary. Isolate that store contention
+            // in this throwaway concurrent fixture; production stays unchanged.
+            'database.connections.sqlite.busy_timeout' => 5000,
+            'database.connections.sqlite.journal_mode' => 'WAL',
+            'database.connections.sqlite.transaction_mode' => 'IMMEDIATE',
+            'filesystems.disks.native-rsi-cost' => ['driver' => 'local', 'root' => $directory.'/workspaces', 'throw' => true],
+            'prism-workspace.disk' => 'native-rsi-cost', 'prism-workspace.root' => 'w',
+            'prism-harness.pricing' => ['anthropic' => ['claude-sonnet-5' => ['inputPerMTok' => 0, 'outputPerMTok' => 60000, 'toolOverheadTokens' => 286]]]]);
+    }
     $file = fopen($directory.'/config.php', 'x');
     fwrite($file, '<?php return '.var_export(config()->all(), true).';'.PHP_EOL);
     fclose($file);
@@ -85,6 +103,48 @@ if ($mode === 'ready') {
     exit;
 }
 $authority = app(RunAuthority::class);
+if ($mode === 'inspect-rsi-cost') {
+    echo json_encode(['calls' => DB::table('lab_call_reservations')->get()->all(),
+        'lanes' => BenchmarkLane::query()->get(['id', 'status', 'proof'])->toArray(),
+        'judgments' => DB::table('benchmark_scores')->count()], JSON_THROW_ON_ERROR).PHP_EOL;
+    exit;
+}
+if ($mode === 'seed-rsi-cost') {
+    if (config('testing-native-authority.rsi_cost') !== true) {
+        throw new RuntimeException('Expected dedicated native cost fixture.');
+    }
+    $owner = User::query()->findOrFail(config('lab_authority.owner_user_id'));
+    Auth::guard('web')->setUser($owner);
+    DB::table('lab_settings')->updateOrInsert(['key' => 'benchmark.allowed_models'], ['value' => '["anthropic:claude-sonnet-5"]']);
+    $reference = app(RsiLaneProfile::class)->installedReference();
+    $lanes = [];
+    foreach (['first', 'second'] as $laneId) {
+        $lanes[] = ['id' => $laneId, 'language' => 'php', 'package' => 'particle-academy/prism-harness', 'package_ref' => $reference,
+            'provider' => 'anthropic', 'model' => 'claude-sonnet-5', 'harness' => 'prism-harness', 'harness_ref' => $reference,
+            'mode' => RsiLaneProfile::MODE, 'agent' => null,
+            'bounds' => ['max_calls' => 1, 'max_steps' => 1, 'timeout_seconds' => 120, 'limits' => ['max_output_tokens' => 10, 'max_tool_calls' => 0]]];
+    }
+    $definition = FrozenTestDefinition::fromArray(['brief' => 'Synthetic native shared allocation test.', 'fixtures' => [],
+        'assertions' => [['id' => 'result', 'instrument_id' => 'later', 'expected' => true]],
+        'instruments' => [['id' => 'later', 'version' => '1.0.0', 'sha256' => str_repeat('a', 64)]], 'lanes' => $lanes, 'cost_cap_microusd' => 1000000]);
+    $designer = app(BenchmarkDesigner::class);
+    $spec = $designer->draftTest('Native shared reservation', $definition);
+    $spec = $designer->approve($designer->requestApproval($spec));
+    $scope = app(RunScopeFactory::class)->fromAction('benchmarks.launch', $spec->id, []);
+    $intent = $authority->draft($scope, '1');
+    $authority->approve($intent->id, $intent->digest);
+    $authority->go($intent->id, $intent->digest, '1', 'GO');
+    $authority->consume($intent->id, $scope);
+    $run = app(PaidRunContext::class)->within($intent->id, $scope, function () use ($designer, $spec) {
+        $run = $designer->launch($spec);
+        app(BenchmarkWorkflow::class)->dispatch($run);
+
+        return $run;
+    });
+    Auth::guard('web')->logout();
+    echo json_encode(['run' => $run->id, 'lanes' => $run->lanes()->pluck('id')->all()], JSON_THROW_ON_ERROR).PHP_EOL;
+    exit;
+}
 if ($mode === 'seed-work') {
     Auth::guard('web')->setUser(User::query()->findOrFail(config('lab_authority.owner_user_id')));
     $scope = app(RunScopeFactory::class)->fromAction('benchmarks.compaction-probe', 'lab:agent', []);

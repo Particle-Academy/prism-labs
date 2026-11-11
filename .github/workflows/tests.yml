@@ -16,6 +16,17 @@ jobs:
     name: Tests (${{ matrix.resolution }})
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    services:
+      native-cost-postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: prism_ci_cost
+          POSTGRES_PASSWORD: g246-ci-only
+          POSTGRES_DB: postgres
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U prism_ci_cost -d postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
     strategy:
       fail-fast: false
       matrix:
@@ -118,7 +129,7 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: "8.4"
-          extensions: dom, curl, libxml, mbstring, zip, fileinfo, sqlite3, pdo_sqlite, sodium
+          extensions: dom, curl, libxml, mbstring, zip, fileinfo, sqlite3, pdo_sqlite, pdo_pgsql, sodium
           coverage: none
       - name: Check discovery and failure behavior for every committed lockfile
         run: node --test scripts/audit-locks.test.mjs
@@ -138,6 +149,11 @@ jobs:
           composer test -- --fail-on-warning
       - name: Exercise the required dogfood paths explicitly
         run: vendor/bin/pest --group dogfood --fail-on-empty-test-suite
+      - name: Prove native shared-cost accounting on a disposable PostgreSQL database
+        env:
+          G246_CI_DISPOSABLE_POSTGRES: '1'
+          G246_PG_PORT: '5432'
+        run: php tests/fixtures/authority/postgres-cost.php
       - name: Check first-party released dependencies against Packagist
         if: always() && matrix.resolution == 'current'
         run: node scripts/dogfood-dependencies.mjs --composer-currency
@@ -152,4 +168,5 @@ jobs:
             prism-labs/dogfood-evidence.json
             prism-labs/composer.lock
             prism-labs/lock-audit-evidence.json
+            prism-labs/native-postgres-cost-evidence.json
           if-no-files-found: error

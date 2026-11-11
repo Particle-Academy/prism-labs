@@ -166,7 +166,10 @@ final class BenchmarkDesigner
             return DB::transaction(function () use ($spec, $intent): BenchmarkRun {
                 $locked = BenchmarkSpec::query()->lockForUpdate()->findOrFail($spec->id);
                 if ($locked->archetype === FrozenTestDefinition::ARCHETYPE) {
-                    throw ValidationException::withMessages(['test' => 'RSI test execution requires native cost admission and an unjudged lane runner.']);
+                    $this->assertFrozen($locked);
+                    if ($intent->cap_microusd !== $locked->budgets['cost_cap_microusd']) {
+                        throw new PaidRunNotAuthorised;
+                    }
                 }
                 $snapshot = $this->approvedSnapshot($locked);
                 if (CanonicalJson::encode($snapshot) !== CanonicalJson::encode($intent->payload['benchmark'] ?? null)
@@ -185,18 +188,15 @@ final class BenchmarkDesigner
                         'benchmark_run_id' => $run->id, 'ordinal' => $ordinal + 1,
                         'language' => $lane['language'], 'harness' => $lane['harness'],
                         'provider' => $lane['provider'], 'model' => $lane['model'], 'status' => 'queued',
+                        'frozen_test_lane' => $locked->archetype === FrozenTestDefinition::ARCHETYPE ? $lane : null,
                     ]);
                 }
-                $matrix = array_map(fn (BenchmarkLane $lane): array => ['id' => $lane->id, 'language' => $lane->language,
-                    'harness' => $lane->harness, 'provider' => $lane->provider, 'model' => $lane->model], $created);
+                $matrix = array_map(fn (BenchmarkLane $lane): array => BenchmarkWork::matrixLane($lane), $created);
                 $work = app(PaidWorkRegistry::class)->bind('benchmark.run', $run->id,
                     ['spec_id' => $locked->id, 'spec_digest' => $locked->digest, 'lanes' => $matrix, 'approved_run_id' => $intent->id]);
                 $run->forceFill(['paid_work_id' => $work->id])->save();
                 foreach ($created as $lane) {
-                    $bound = app(PaidWorkRegistry::class)->bind('benchmark.lane', $lane->id, [
-                        'run_id' => $run->id, 'lane_id' => $lane->id, 'language' => $lane->language,
-                        'harness' => $lane->harness, 'provider' => $lane->provider, 'model' => $lane->model,
-                    ], $work->id);
+                    $bound = app(PaidWorkRegistry::class)->bind('benchmark.lane', $lane->id, BenchmarkWork::lanePayload($lane), $work->id);
                     $lane->forceFill(['paid_work_id' => $bound->id])->save();
                 }
 

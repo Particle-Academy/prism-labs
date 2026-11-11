@@ -7,6 +7,8 @@ namespace App\Lab;
 use App\Benchmarks\BenchmarkDesigner;
 use App\Benchmarks\CanonicalJson;
 use App\Benchmarks\CompactionAuthority;
+use App\Benchmarks\FrozenTestDefinition;
+use App\Benchmarks\RsiLaneProfile;
 use App\Learnings\Learning;
 use App\Learnings\LearningBacklog;
 use App\Models\AcpTurn;
@@ -108,6 +110,10 @@ final readonly class RunScopeFactory
                 throw new PaidRunNotAuthorised;
             }
             $payload['benchmark'] = app(BenchmarkDesigner::class)->approvedSnapshot($spec);
+            if ($spec->archetype === FrozenTestDefinition::ARCHETYPE) {
+                $profile = app(RsiLaneProfile::class);
+                $payload['native_runtime'] = ['harness' => $profile->installedReference(), 'core' => $profile->installedReference('particle-academy/prism')];
+            }
         }
 
         return new RunScope($action, $resource, $payload);
@@ -120,6 +126,7 @@ final readonly class RunScopeFactory
         foreach (['team.coordinator', 'team.voice', 'team.research', 'team.tasks', 'team.endpoints', 'team.timeouts',
             'prism-harness.agent', 'prism-harness.agents', 'prism-harness.context', 'prism-harness.tools', 'capabilities', 'prism-workspace',
             'prism.request_timeout', 'prism.telemetry.capture_content', 'prism.telemetry.capture_media',
+            'prism-harness.pricing', 'prism-harness.cost_observer', 'prism-harness.stores', 'prism-harness.tasks',
             'acp.claude.model', 'acp.codex.model'] as $key) {
             $configuration[$key] = config($key);
         }

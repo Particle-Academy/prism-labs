@@ -38,6 +38,11 @@ final readonly class BenchmarkLearningRecorder
      */
     public function record(BenchmarkRun $run): void
     {
+        // The legacy artifact/rubric narrative is not a finding about an RSI
+        // observation. Instruments and findings are a separate reviewed slice.
+        if ($run->fresh()->spec?->archetype === FrozenTestDefinition::ARCHETYPE) {
+            return;
+        }
         if (is_string($run->learning_ref) && $run->learning_ref !== '') {
             // Reconcile fires once per finishing lane and the fuse can be
             // pressed twice. One run, one 0L.
