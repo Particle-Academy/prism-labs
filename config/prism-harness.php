@@ -54,6 +54,10 @@ return [
         'authorize_tools' => false,
         'default' => 'chat',
         'modes' => [
+            'rsi-test' => [
+                'system_prompt' => 'Execute the supplied frozen test brief. Return the result; do not judge, score, approve or launch work.',
+                'tools' => [], 'skills' => [], 'provider_options' => [], 'max_steps' => 40,
+            ],
             'chat' => [
                 'system_prompt' => PromptFile::content('chat'),
                 'tools' => ['*'],

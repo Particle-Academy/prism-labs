@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Benchmarks\BenchmarkDesigner;
+use App\Benchmarks\BenchmarkWork;
 use App\Benchmarks\FrozenTestDefinition;
+use App\Lab\PaidRunNotAuthorised;
 use App\Models\BenchmarkLane;
 use App\Models\BenchmarkRun;
 use App\Models\BenchmarkSpec;
@@ -168,14 +170,13 @@ final class RsiTestRevisionTest extends TestCase
         DB::table('lab_settings')->updateOrInsert(['key' => 'benchmark.allowed_models'], ['value' => '["anthropic:claude-sonnet-5"]']);
         auth('web')->logout();
         $fake = Prism::fake([]);
-        $this->expectException(ValidationException::class);
-        try {
-            $this->withApprovedLabRun('benchmarks.launch', [], fn () => app(BenchmarkDesigner::class)->launch($approved), $approved->id);
-        } finally {
-            $this->assertSame(0, BenchmarkRun::query()->count());
-            $this->assertSame(0, BenchmarkLane::query()->count());
-            $this->assertSame(0, LabPaidWork::query()->count());
-            $fake->assertCallCount(0);
-        }
+        $run = $this->withApprovedLabRun('benchmarks.launch', [], fn () => app(BenchmarkDesigner::class)->launch($approved), $approved->id);
+        $this->assertSame(1, BenchmarkRun::query()->count());
+        $this->assertSame($approved->lane_matrix[0], $run->lanes()->sole()->frozen_test_lane);
+        $this->assertNull($run->lanes()->sole()->score);
+        $this->assertSame(0, DB::table('jobs')->count());
+        $fake->assertCallCount(0);
+        $this->expectException(PaidRunNotAuthorised::class);
+        BenchmarkWork::bindScore($run->lanes()->sole());
     }
 }

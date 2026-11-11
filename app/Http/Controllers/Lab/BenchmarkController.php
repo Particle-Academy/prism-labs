@@ -9,6 +9,7 @@ use App\Benchmarks\BenchmarkFuse;
 use App\Benchmarks\BenchmarkPreflight;
 use App\Benchmarks\BenchmarkWork;
 use App\Benchmarks\BenchmarkWorkflow;
+use App\Benchmarks\FrozenTestDefinition;
 use App\Benchmarks\LaneWorkspace;
 use App\Http\Controllers\Controller;
 use App\Jobs\CallTheRunJob;
@@ -384,8 +385,10 @@ final class BenchmarkController extends Controller
         // Start the broadcast with the run, not with the first viewer. The job
         // keeps its own cadence from here and stops itself when the run
         // settles, so a run nobody watched is still narrated afterwards.
-        $commentary = BenchmarkWork::bindCommentary($run, 1);
-        CallTheRunJob::dispatch($run->id, $commentary->id)->delay(now()->addSeconds(5))->afterCommit();
+        if ($spec->archetype !== FrozenTestDefinition::ARCHETYPE) {
+            $commentary = BenchmarkWork::bindCommentary($run, 1);
+            CallTheRunJob::dispatch($run->id, $commentary->id)->delay(now()->addSeconds(5))->afterCommit();
+        }
 
         return to_route('lab.benchmark-runs.show', $run);
     }

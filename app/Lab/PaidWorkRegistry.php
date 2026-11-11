@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Lab;
 
 use App\Benchmarks\CanonicalJson;
+use App\Benchmarks\FrozenTestDefinition;
 use App\Models\LabPaidWork;
 use App\Models\LabRunIntent;
 use Closure;
@@ -154,6 +155,10 @@ final readonly class PaidWorkRegistry
 
     private function assertAdmitted(LabRunIntent $intent, string $kind, string $key, array $payload, ?LabPaidWork $parent): void
     {
+        if (($intent->payload['benchmark']['archetype'] ?? null) === FrozenTestDefinition::ARCHETYPE
+            && in_array($kind, ['benchmark.score', 'benchmark.commentary'], true)) {
+            throw new PaidRunNotAuthorised;
+        }
         $input = $intent->payload['input'] ?? [];
         if (array_key_exists('approved_run_id', $payload)) {
             $this->require($payload['approved_run_id'] === $intent->id);
@@ -218,18 +223,19 @@ final readonly class PaidWorkRegistry
         $actual = [];
         $ids = [];
         $frozen = [];
+        $rsi = ($intent->payload['benchmark']['archetype'] ?? null) === FrozenTestDefinition::ARCHETYPE;
         foreach ($lanes as $lane) {
             if (! is_array($lane) || ! is_string($lane['id'] ?? null) || ! Str::isUuid($lane['id']) || in_array($lane['id'], $ids, true)) {
                 return false;
             }
             $ids[] = $lane['id'];
-            $actual[] = CanonicalJson::encode(array_intersect_key($lane, array_flip(['language', 'harness', 'provider', 'model'])));
+            $actual[] = CanonicalJson::encode($rsi ? ($lane['frozen_test_lane'] ?? null) : array_intersect_key($lane, array_flip(['language', 'harness', 'provider', 'model'])));
         }
         foreach ($expected as $lane) {
             if (! is_array($lane)) {
                 return false;
             }
-            $frozen[] = CanonicalJson::encode(array_intersect_key($lane, array_flip(['language', 'harness', 'provider', 'model'])));
+            $frozen[] = CanonicalJson::encode($rsi ? $lane : array_intersect_key($lane, array_flip(['language', 'harness', 'provider', 'model'])));
         }
         sort($actual, SORT_STRING);
         sort($frozen, SORT_STRING);
@@ -244,7 +250,8 @@ final readonly class PaidWorkRegistry
                 && ($lane['language'] ?? null) === ($payload['language'] ?? null)
                 && ($lane['harness'] ?? null) === ($payload['harness'] ?? null)
                 && ($lane['provider'] ?? null) === ($payload['provider'] ?? null)
-                && ($lane['model'] ?? null) === ($payload['model'] ?? null)) {
+                && ($lane['model'] ?? null) === ($payload['model'] ?? null)
+                && CanonicalJson::encode($lane['frozen_test_lane'] ?? null) === CanonicalJson::encode($payload['frozen_test_lane'] ?? null)) {
                 return true;
             }
         }

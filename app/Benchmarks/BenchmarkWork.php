@@ -20,18 +20,30 @@ final class BenchmarkWork
 
         return ['spec_id' => $run->benchmark_spec_id, 'spec_digest' => $run->spec->digest,
             'approved_run_id' => $run->approved_run_id,
-            'lanes' => $run->lanes()->orderBy('ordinal')->get()->map(fn (BenchmarkLane $lane): array => [
-                'id' => $lane->id, 'language' => $lane->language, 'harness' => $lane->harness,
-                'provider' => $lane->provider, 'model' => $lane->model,
-            ])->all()];
+            'lanes' => $run->lanes()->orderBy('ordinal')->get()->map(fn (BenchmarkLane $lane): array => self::matrixLane($lane))->all()];
+    }
+
+    public static function matrixLane(BenchmarkLane $lane): array
+    {
+        $matrix = ['id' => $lane->id, 'language' => $lane->language, 'harness' => $lane->harness, 'provider' => $lane->provider, 'model' => $lane->model];
+        if ($lane->frozen_test_lane !== null) {
+            $matrix['frozen_test_lane'] = $lane->frozen_test_lane;
+        }
+
+        return $matrix;
     }
 
     public static function lanePayload(BenchmarkLane $lane): array
     {
         $lane->refresh();
 
-        return ['run_id' => $lane->benchmark_run_id, 'lane_id' => $lane->id, 'language' => $lane->language,
+        $payload = ['run_id' => $lane->benchmark_run_id, 'lane_id' => $lane->id, 'language' => $lane->language,
             'harness' => $lane->harness, 'provider' => $lane->provider, 'model' => $lane->model];
+        if ($lane->frozen_test_lane !== null) {
+            $payload['frozen_test_lane'] = $lane->frozen_test_lane;
+        }
+
+        return $payload;
     }
 
     public static function scorePayload(BenchmarkLane $lane): array
@@ -56,6 +68,7 @@ final class BenchmarkWork
 
     public static function bindScore(BenchmarkLane $lane): LabPaidWork
     {
+        self::requireLegacyJudgment($lane->benchmarkRun);
         self::assertRun($lane->benchmarkRun);
         app(PaidRunContext::class)->authorizedWork('benchmark.lane', $lane->id, self::lanePayload($lane));
 
@@ -80,6 +93,7 @@ final class BenchmarkWork
 
     public static function bindCommentary(BenchmarkRun $run, int $sequence): LabPaidWork
     {
+        self::requireLegacyJudgment($run);
         self::assertRun($run);
         $registry = app(PaidWorkRegistry::class);
         $root = $registry->checkProducer($run->paid_work_id, 'benchmark.run', $run->id, self::runPayload($run));
@@ -92,5 +106,12 @@ final class BenchmarkWork
         }
 
         return $registry->bind('benchmark.commentary', self::commentaryKey($run->id, $sequence), self::commentaryPayload($run->id, $sequence), $root->id);
+    }
+
+    public static function requireLegacyJudgment(BenchmarkRun $run): void
+    {
+        if ($run->fresh()->spec->archetype === FrozenTestDefinition::ARCHETYPE) {
+            throw new PaidRunNotAuthorised;
+        }
     }
 }

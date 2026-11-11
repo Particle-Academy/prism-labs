@@ -42,6 +42,7 @@ final readonly class BenchmarkScorer
 
     public function score(BenchmarkLane $lane): ScoringResult
     {
+        BenchmarkWork::requireLegacyJudgment($lane->benchmarkRun);
         if ($lane->score !== null) {
             return new ScoringResult((float) $lane->score);
         }

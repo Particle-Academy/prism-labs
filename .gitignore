@@ -30,6 +30,7 @@ Thumbs.db
 /dogfood-evidence.json
 /dogfood-acp-release.json
 /lock-audit-evidence.json
+/native-postgres-cost-evidence.json
 /remotion-render-evidence.json
 /prism-labs-forms-ci.json
 /prism-labs-models-ci.json

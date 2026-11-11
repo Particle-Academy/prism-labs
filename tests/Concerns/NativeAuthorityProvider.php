@@ -11,8 +11,12 @@ use Illuminate\Support\ServiceProvider;
 use OpenTelemetry\API\Trace\NoopTracer;
 use OpenTelemetry\API\Trace\TracerInterface;
 use OpenTelemetry\SDK\Trace\TracerProvider;
+use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
+use Prism\Prism\PrismManager;
+use Prism\Prism\Testing\PrismFake;
 use Prism\Prism\Testing\TextResponseFake;
+use Prism\Prism\ValueObjects\Usage;
 use RuntimeException;
 
 /** Synthetic transport only; actual commands, authority, DB and worker stay native. */
@@ -101,7 +105,22 @@ final class NativeAuthorityProvider extends ServiceProvider
                     config('lab-preflight.core_actions.workflows'), array_keys(config('lab-preflight.core_actions.workflows'))),
             ]),
         ]);
-        app()->instance('native-authority-sdk', Prism::fake([TextResponseFake::make()->withText('Owned native authority output')]));
+        $responses = [TextResponseFake::make()->withText('Owned native authority output')];
+        if (config('testing-native-authority.rsi_cost') === true) {
+            $fake = new NativeRsiCostFake($directory, [TextResponseFake::make()->withText('Owned native RSI output')->withUsage(new Usage(1, 1, cost: .04))]);
+            app()->instance(PrismManager::class, new class($fake) extends PrismManager
+            {
+                public function __construct(private PrismFake $fake) {}
+
+                public function resolve(Provider|string $name, array $providerConfig = []): PrismFake
+                {
+                    return $this->fake;
+                }
+            });
+        } else {
+            $fake = Prism::fake($responses);
+        }
+        app()->instance('native-authority-sdk', $fake);
         register_shutdown_function(function () use ($directory, $tag): void {
             $result = ['calls' => NativeAuthorityFixture::sdkCalls(), 'guest' => Auth::guard('web')->guest(),
                 'external_exporter_closed' => app('native-authority-exporter-closed') === true,
