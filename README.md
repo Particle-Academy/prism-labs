@@ -111,3 +111,12 @@ would then accept whatever an attacker claimed. There is also an
 
 Both stay even though this app is never deployed. They are what keeps that
 true by construction rather than by intention.
+
+## Change council
+
+The owner-only ledger is at `/council`; its single email must belong to the same
+configured `LAB_OWNER_USER_ID`. Council 0.7.1 records that verified numeric ID
+through the native actor hook; historical email actors remain unchanged.
+All four pages and native APIs share the same owner boundary. Prism's census
+scope is configured per ecosystem; fixture checks do not claim a live census.
+See [setup, clerk procedure and operational holds](docs/change-council.md).

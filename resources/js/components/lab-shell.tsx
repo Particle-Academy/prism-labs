@@ -45,6 +45,8 @@ export function LabShell({ title, current, eyebrow, children }: { title: string;
 }
 
 export function LabTopbar({ current }: { current: string }) {
+    const { canUseCouncil } = usePage<{ canUseCouncil?: boolean }>().props;
+
     return <header className="lab-topbar">
                 <Link href="/lab" className="lab-brand"><span>P</span>Prism Lab</Link>
                 <nav aria-label="Lab workflows">
@@ -53,6 +55,7 @@ export function LabTopbar({ current }: { current: string }) {
                     ))}
                     <Link href="/lab/diagnostics" className={current === '/lab/diagnostics' ? 'is-active' : ''}>Diagnostics</Link>
                     <a href="/lab/owner" className={current === '/lab/owner' ? 'is-active' : ''}>Owner</a>
+                    {canUseCouncil === true && <Link href="/council">Council</Link>}
                 </nav>
                 <div className="lab-live"><i /> telemetry live</div>
             </header>;

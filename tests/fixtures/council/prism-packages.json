@@ -1,0 +1,181 @@
+{
+  "source": "Particle-Academy/prism-parity@62083f674f6870a42e639366dd04180ee3fef7ec/manifest/packages.json",
+  "purpose": "Synthetic name acceptance controls; planned entries are not publication claims and 1.2.3 is a fixture version.",
+  "packages": [
+    {
+      "ecosystem": "npm",
+      "name": "@particle-academy/prism",
+      "status": "published"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@particle-academy/prism-acp",
+      "status": "published"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@particle-academy/prism-browser",
+      "status": "published"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@particle-academy/prism-conformance",
+      "status": "planned"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@particle-academy/prism-harness",
+      "status": "published"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@particle-academy/prism-human-plus",
+      "status": "published"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@particle-academy/prism-mcp",
+      "status": "published"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@particle-academy/prism-mcp-server",
+      "status": "published"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@particle-academy/prism-memory",
+      "status": "published"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@particle-academy/prism-opentelemetry",
+      "status": "published"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@particle-academy/prism-perplexity",
+      "status": "published"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@particle-academy/prism-workspace",
+      "status": "published"
+    },
+    {
+      "ecosystem": "composer",
+      "name": "particle-academy/prism",
+      "status": "published"
+    },
+    {
+      "ecosystem": "composer",
+      "name": "particle-academy/prism-acp",
+      "status": "published"
+    },
+    {
+      "ecosystem": "composer",
+      "name": "particle-academy/prism-browser",
+      "status": "published"
+    },
+    {
+      "ecosystem": "composer",
+      "name": "particle-academy/prism-conformance",
+      "status": "planned"
+    },
+    {
+      "ecosystem": "composer",
+      "name": "particle-academy/prism-harness",
+      "status": "published"
+    },
+    {
+      "ecosystem": "composer",
+      "name": "particle-academy/prism-human-plus",
+      "status": "published"
+    },
+    {
+      "ecosystem": "composer",
+      "name": "particle-academy/prism-mcp",
+      "status": "published"
+    },
+    {
+      "ecosystem": "composer",
+      "name": "particle-academy/prism-memory",
+      "status": "published"
+    },
+    {
+      "ecosystem": "composer",
+      "name": "particle-academy/prism-opentelemetry",
+      "status": "published"
+    },
+    {
+      "ecosystem": "composer",
+      "name": "particle-academy/prism-perplexity",
+      "status": "published"
+    },
+    {
+      "ecosystem": "composer",
+      "name": "particle-academy/prism-rag",
+      "status": "planned"
+    },
+    {
+      "ecosystem": "composer",
+      "name": "particle-academy/prism-workspace",
+      "status": "published"
+    },
+    {
+      "ecosystem": "pypi",
+      "name": "prism-ai-browser",
+      "status": "published"
+    },
+    {
+      "ecosystem": "pypi",
+      "name": "prism-ai-core",
+      "status": "published"
+    },
+    {
+      "ecosystem": "pypi",
+      "name": "prism-ai-harness",
+      "status": "published"
+    },
+    {
+      "ecosystem": "pypi",
+      "name": "prism-ai-human-plus",
+      "status": "published"
+    },
+    {
+      "ecosystem": "pypi",
+      "name": "prism-ai-mcp",
+      "status": "published"
+    },
+    {
+      "ecosystem": "pypi",
+      "name": "prism-ai-mcp-server",
+      "status": "planned"
+    },
+    {
+      "ecosystem": "pypi",
+      "name": "prism-ai-memory",
+      "status": "published"
+    },
+    {
+      "ecosystem": "pypi",
+      "name": "prism-ai-opentelemetry",
+      "status": "published"
+    },
+    {
+      "ecosystem": "pypi",
+      "name": "prism-ai-perplexity",
+      "status": "published"
+    },
+    {
+      "ecosystem": "pypi",
+      "name": "prism-ai-workspace",
+      "status": "published"
+    },
+    {
+      "ecosystem": "pypi",
+      "name": "prism-conformance",
+      "status": "planned"
+    }
+  ]
+}

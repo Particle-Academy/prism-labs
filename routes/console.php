@@ -13,6 +13,9 @@ use Illuminate\Support\Facades\Schedule;
 // Requires the scheduler cron (`php artisan schedule:run`) and GITHUB_TOKEN.
 Schedule::command('gamification:backfill')->dailyAt('05:00')->withoutOverlapping();
 
+// Local ledger arithmetic only. Feed push and the agent clerk are separate.
+Schedule::command('council:tally')->everyFifteenMinutes()->withoutOverlapping();
+
 Artisan::command('lab:test {cases?* : Case IDs; omit to run all non-costly cases} {--include-costly} {--approved-run= : Exact owner-approved GO reference}', function (PrismTestRegistry $registry, PrismTestRunner $runner, BenchmarkStore $benchmarks): int {
     abort_unless(app()->environment('local'), 404);
     $requested = collect($this->argument('cases'));

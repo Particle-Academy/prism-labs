@@ -40,6 +40,13 @@
     <php>
         <env name="APP_ENV" value="testing" force="true"/>
         <server name="APP_ENV" value="testing" force="true"/>
+        <!-- Council tests must never consume a real Genie inbox or signing key. -->
+        <env name="GENIE_INBOX_URL" value="" force="true"/>
+        <server name="GENIE_INBOX_URL" value="" force="true"/>
+        <env name="GENIE_INBOX_TOKEN" value="" force="true"/>
+        <server name="GENIE_INBOX_TOKEN" value="" force="true"/>
+        <env name="COUNCIL_SIGNING_KEY" value="" force="true"/>
+        <server name="COUNCIL_SIGNING_KEY" value="" force="true"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>

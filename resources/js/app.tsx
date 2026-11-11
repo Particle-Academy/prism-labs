@@ -4,6 +4,7 @@ import { Toast } from '@particle-academy/react-fancy';
 import type { ComponentType, ReactNode } from 'react';
 import '@particle-academy/react-fancy/styles.css';
 import { PaidRunApproval } from './components/paid-run-approval';
+import { withCouncilConsent } from './components/council-consent-boundary';
 
 const appName = import.meta.env.VITE_APP_NAME ?? 'Fancy';
 
@@ -27,7 +28,7 @@ createInertiaApp({
         if (!page) {
             return Promise.reject(new Error(`Inertia page not found: ${name}`));
         }
-        return page().then((module) => module.default);
+        return page().then((module) => withCouncilConsent(name, module.default));
     },
     // setupFancyApp builds the page-transition + provider tree and auto-detects
     // hydrateRoot vs createRoot. `appRoot: false` keeps the root lean (just our

@@ -114,6 +114,7 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ env.phpv }}
+          extensions: sodium
           coverage: none
 
       - uses: ramsey/composer-install@v3
