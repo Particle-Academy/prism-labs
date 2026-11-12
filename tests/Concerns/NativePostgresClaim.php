@@ -30,6 +30,8 @@ final class NativePostgresClaim
 
         return self::validName($name)
             && ! is_link($directory.'/postgres.marker')
+            && is_file($directory.'/postgres.marker')
+            && is_readable($directory.'/postgres.marker')
             && @file_get_contents($directory.'/postgres.marker') === $name
             && getenv('DB_CONNECTION') === 'pgsql' && getenv('DB_DATABASE') === ':memory:'
             && getenv('LAB_DB_DATABASE') === $name && getenv('DB_HOST') === '127.0.0.1'

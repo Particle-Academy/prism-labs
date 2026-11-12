@@ -69,6 +69,33 @@ final class PostgresClaimBoundaryTest extends TestCase
         ];
     }
 
+    public function test_missing_or_non_regular_marker_refuses_without_a_php_warning(): void
+    {
+        $this->withOwnedContext(function (string $directory): void {
+            $marker = $directory.'/postgres.marker';
+            unlink($marker);
+            $warnings = [];
+            set_error_handler(static function (int $level, string $message) use (&$warnings): bool {
+                $warnings[] = [$level, $message];
+
+                return true;
+            });
+            try {
+                $missing = NativePostgresClaim::contextMatches($directory);
+                mkdir($marker, 0700);
+                $nonRegular = NativePostgresClaim::contextMatches($directory);
+            } finally {
+                restore_error_handler();
+                if (is_dir($marker)) {
+                    rmdir($marker);
+                }
+            }
+            $this->assertFalse($missing);
+            $this->assertFalse($nonRegular);
+            $this->assertSame([], $warnings, 'Refusal must not attempt to read a missing or non-regular marker.');
+        });
+    }
+
     #[DataProvider('changedContext')]
     public function test_every_changed_field_refuses_without_any_ci_or_database(string $field, ?string $value): void
     {

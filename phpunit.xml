@@ -4,6 +4,7 @@
          bootstrap="vendor/autoload.php"
          colors="true"
          failOnRisky="true"
+         failOnWarning="true"
 >
     <!--
         A RISKY TEST FAILS THE BUILD.
@@ -32,7 +33,8 @@
             <directory>tests/Feature</directory>
         </testsuite>
     </testsuites>
-    <source>
+    <!-- A suppressed PHP warning must fail the gate too, not only Pest's display. -->
+    <source ignoreSuppressionOfWarnings="true" ignoreSuppressionOfPhpWarnings="true">
         <include>
             <directory>app</directory>
         </include>
