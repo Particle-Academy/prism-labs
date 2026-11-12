@@ -15,6 +15,7 @@ use App\Http\Controllers\Lab\ModelPolicyController;
 use App\Http\Controllers\Lab\OwnerSessionController;
 use App\Http\Controllers\Lab\PolicyBenchmarkController;
 use App\Http\Controllers\Lab\ProviderProbeController;
+use App\Http\Controllers\Lab\RsiRunRoomController;
 use App\Http\Controllers\Lab\RunIntentController;
 use App\Http\Controllers\Lab\SessionPreflightController;
 use App\Http\Controllers\Lab\TaskListController;
@@ -41,6 +42,10 @@ Route::redirect('/', '/lab');
 
 if (app()->environment('local')) {
     Route::middleware(EnsurePrismLabIsLocal::class)->group(function (): void {
+        Route::get('/runs/{run}', [RsiRunRoomController::class, 'show'])
+            ->middleware([RequireLabOwner::class, 'throttle:60,1'])->name('lab.rsi-runs.show');
+        Route::get('/runs/{run}/evidence', [RsiRunRoomController::class, 'export'])
+            ->middleware([RequireLabOwner::class, 'throttle:30,1'])->name('lab.rsi-runs.export');
         // Every Council page, read API, feed and owner action shares the same
         // stable owner ID/email boundary. Package routes remain opt-in only.
         Council::routes(['middleware' => [RequireLabOwner::class, RequireCouncilOwner::class, 'throttle:60,1']]);

@@ -11,10 +11,13 @@ use App\Benchmarks\BenchmarkWork;
 use App\Benchmarks\BenchmarkWorkflow;
 use App\Benchmarks\FrozenTestDefinition;
 use App\Benchmarks\LaneWorkspace;
+use App\Benchmarks\RsiInstruments;
+use App\Benchmarks\RsiRunEvidence;
 use App\Http\Controllers\Controller;
 use App\Jobs\CallTheRunJob;
 use App\Lab\BenchmarkStore;
 use App\Lab\InstalledVersions;
+use App\Lab\OwnerIdentity;
 use App\Learnings\Learning;
 use App\Learnings\LearningStore;
 use App\Learnings\Severity;
@@ -54,6 +57,9 @@ final class BenchmarkController extends Controller
 
     public function runRoom(BenchmarkRun $run): Response
     {
+        if ($run->spec->archetype === FrozenTestDefinition::ARCHETYPE) {
+            return app(RsiRunRoomController::class)->show(request(), $run, app(RsiRunEvidence::class));
+        }
         $run->load(['spec', 'lanes.receipts']);
         $workflowIds = $run->lanes->pluck('workflow_run_id')->filter()->values();
         $queued = $run->lanes->where('status', 'queued')->count();
@@ -240,6 +246,7 @@ final class BenchmarkController extends Controller
      */
     public function lane(Request $request, BenchmarkRun $run, BenchmarkLane $lane, LaneWorkspace $workspace): JsonResponse
     {
+        abort_if($run->spec->archetype === FrozenTestDefinition::ARCHETYPE, 404);
         abort_unless($lane->benchmark_run_id === $run->id, 404);
 
         $input = $request->validate([
@@ -294,6 +301,7 @@ final class BenchmarkController extends Controller
 
     public function laneFile(Request $request, BenchmarkRun $run, BenchmarkLane $lane, LaneWorkspace $workspace): JsonResponse
     {
+        abort_if($run->spec->archetype === FrozenTestDefinition::ARCHETYPE, 404);
         abort_unless($lane->benchmark_run_id === $run->id, 404);
         $input = $request->validate(['path' => ['required', 'string', 'max:1000']]);
 
@@ -302,6 +310,7 @@ final class BenchmarkController extends Controller
 
     public function laneMedia(Request $request, BenchmarkRun $run, BenchmarkLane $lane, LaneWorkspace $workspace): BinaryFileResponse
     {
+        abort_if($run->spec->archetype === FrozenTestDefinition::ARCHETYPE, 404);
         abort_unless($lane->benchmark_run_id === $run->id, 404);
         $input = $request->validate(['path' => ['required', 'string', 'max:1000']]);
         $media = $workspace->media($lane, $input['path']);
@@ -315,6 +324,16 @@ final class BenchmarkController extends Controller
 
     public function specification(BenchmarkSpec $spec): Response
     {
+        if ($spec->archetype === FrozenTestDefinition::ARCHETYPE) {
+            $evidence = app(RsiRunEvidence::class);
+            $contract = $evidence->contract($spec);
+
+            return Inertia::render('Lab/RsiSpecificationReview', [
+                'contract' => $contract, 'reviewDocuments' => $evidence->documents($contract),
+                'instrumentCatalog' => app(RsiInstruments::class)->catalog(),
+            ]);
+        }
+
         return Inertia::render('Lab/SpecificationReview', ['spec' => $spec]);
     }
 
@@ -348,15 +367,17 @@ final class BenchmarkController extends Controller
         return to_route('lab.benchmark-specs.show', $spec);
     }
 
-    public function requestApproval(BenchmarkSpec $spec, BenchmarkDesigner $designer): RedirectResponse
+    public function requestApproval(Request $request, BenchmarkSpec $spec, BenchmarkDesigner $designer): RedirectResponse
     {
+        $this->requireReviewedDigest($request, $spec);
         $designer->requestApproval($spec);
 
         return to_route('lab.benchmark-specs.show', $spec);
     }
 
-    public function approve(BenchmarkSpec $spec, BenchmarkDesigner $designer): RedirectResponse
+    public function approve(Request $request, BenchmarkSpec $spec, BenchmarkDesigner $designer): RedirectResponse
     {
+        $this->requireReviewedDigest($request, $spec);
         $designer->approve($spec);
 
         return to_route('lab.benchmark-specs.show', $spec);
@@ -390,7 +411,18 @@ final class BenchmarkController extends Controller
             CallTheRunJob::dispatch($run->id, $commentary->id)->delay(now()->addSeconds(5))->afterCommit();
         }
 
-        return to_route('lab.benchmark-runs.show', $run);
+        return $spec->archetype === FrozenTestDefinition::ARCHETYPE
+            ? to_route('lab.rsi-runs.show', $run) : to_route('lab.benchmark-runs.show', $run);
+    }
+
+    private function requireReviewedDigest(Request $request, BenchmarkSpec $spec): void
+    {
+        if ($spec->archetype !== FrozenTestDefinition::ARCHETYPE) {
+            return;
+        }
+        app(OwnerIdentity::class)->requireOwner();
+        $input = $request->validate(['digest' => ['required', 'string', 'size:64']]);
+        abort_unless(hash_equals($spec->digest, $input['digest']), 409, 'The reviewed test digest changed.');
     }
 
     /**
