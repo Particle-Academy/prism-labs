@@ -104,6 +104,7 @@ final readonly class PaidWorkRegistry
         $this->require($kind === 'benchmark.run');
 
         return DB::transaction(function () use ($id, $kind, $key, $payload, $operation): mixed {
+            AdmissionWriter::forWork($id);
             $work = $this->checkProducer($id, $kind, $key, $payload);
             $this->require($work->claimed_at === null && $work->finished_at === null);
             $intent = $this->context->authorizedRun($this->actions($kind));

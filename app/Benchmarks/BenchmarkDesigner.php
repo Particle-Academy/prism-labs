@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Benchmarks;
 
+use App\Lab\AdmissionWriter;
 use App\Lab\ModelPolicy;
 use App\Lab\OwnerIdentity;
 use App\Lab\PaidRunContext;
@@ -32,6 +33,7 @@ final class BenchmarkDesigner
     public function reviseTest(BenchmarkSpec $previous, FrozenTestDefinition $definition): BenchmarkSpec
     {
         return DB::transaction(function () use ($previous, $definition): BenchmarkSpec {
+            AdmissionWriter::forSpecification($previous->id);
             $locked = BenchmarkSpec::query()->lockForUpdate()->findOrFail($previous->id);
             $this->assertFrozen($locked);
             if ($locked->archetype !== FrozenTestDefinition::ARCHETYPE) {
@@ -93,6 +95,7 @@ final class BenchmarkDesigner
         $owner = $this->owner->requireOwner();
 
         return DB::transaction(function () use ($spec, $owner): BenchmarkSpec {
+            AdmissionWriter::forSpecification($spec->id);
             $locked = BenchmarkSpec::query()->lockForUpdate()->findOrFail($spec->id);
             $this->assertFrozen($locked);
             if ($locked->status !== 'awaiting_approval') {
@@ -164,6 +167,7 @@ final class BenchmarkDesigner
 
         try {
             return DB::transaction(function () use ($spec, $intent): BenchmarkRun {
+                AdmissionWriter::forIntent($intent->id);
                 $locked = BenchmarkSpec::query()->lockForUpdate()->findOrFail($spec->id);
                 if ($locked->archetype === FrozenTestDefinition::ARCHETYPE) {
                     $this->assertFrozen($locked);
@@ -211,6 +215,7 @@ final class BenchmarkDesigner
     private function transition(BenchmarkSpec $spec, string $from, string $to): BenchmarkSpec
     {
         return DB::transaction(function () use ($spec, $from, $to): BenchmarkSpec {
+            AdmissionWriter::forSpecification($spec->id);
             $locked = BenchmarkSpec::query()->lockForUpdate()->findOrFail($spec->id);
             $this->assertFrozen($locked);
             if ($locked->status !== $from) {

@@ -53,6 +53,7 @@ final class PaidRunContext
     {
         if ($this->work !== null && ! $this->workClaimed) {
             return DB::transaction(function () use ($actions): LabRunIntent {
+                AdmissionWriter::forIntent($this->intentId);
                 // Keep intent/session locks through the one-time paid claim,
                 // so revocation cannot fall between approval and reservation.
                 $intent = $this->authorizedRun($actions);

@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Lab;
 use App\Acp\AcpWork;
 use App\Http\Controllers\Controller;
 use App\Jobs\RunAcpTurnJob;
+use App\Lab\AdmissionWriter;
 use App\Lab\InstalledVersions;
 use App\Lab\PaidRunContext;
 use App\Lab\PaidRunNotAuthorised;
@@ -71,6 +72,7 @@ final class AcpController extends Controller
             throw new PaidRunNotAuthorised;
         }
         $turn = DB::transaction(function () use ($intent, $input, $provider, $model, $resume): AcpTurn {
+            AdmissionWriter::forIntent($intent->id);
             if (AcpTurn::query()->where('approved_run_id', $intent->id)->exists()) {
                 throw new PaidRunNotAuthorised;
             }
