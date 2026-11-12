@@ -154,6 +154,11 @@ jobs:
           G246_CI_DISPOSABLE_POSTGRES: '1'
           G246_PG_PORT: '5432'
         run: php tests/fixtures/authority/postgres-cost.php
+      - name: Prove duplicate paid-work admission with real PostgreSQL queue workers
+        env:
+          G246_CI_DISPOSABLE_POSTGRES: '1'
+          G246_PG_PORT: '5432'
+        run: php tests/fixtures/authority/postgres-claim.php
       - name: Check first-party released dependencies against Packagist
         if: always() && matrix.resolution == 'current'
         run: node scripts/dogfood-dependencies.mjs --composer-currency
@@ -169,4 +174,9 @@ jobs:
             prism-labs/composer.lock
             prism-labs/lock-audit-evidence.json
             prism-labs/native-postgres-cost-evidence.json
+            prism-labs/native-postgres-claim-evidence.json
+            prism-labs/native-postgres-claim-race.json
+            prism-labs/native-postgres-claim-junit.xml
+            prism-labs/native-postgres-claim.stdout
+            prism-labs/native-postgres-claim.stderr
           if-no-files-found: error

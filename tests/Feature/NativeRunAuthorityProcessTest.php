@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Lab\PaidRunNotAuthorised;
+use Composer\InstalledVersions;
 use Illuminate\Filesystem\Filesystem;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Concerns\NativeAuthorityFixture;
+use Tests\Concerns\NativePostgresClaim;
 use Tests\TestCase;
 
 /** Actual Artisan binaries and competing PHP processes; no real provider or DB. */
@@ -17,6 +20,8 @@ final class NativeRunAuthorityProcessTest extends TestCase
     private array $workers = [];
 
     private array $processes = [];
+
+    private ?string $postgres = null;
 
     protected function setUp(): void
     {
@@ -33,6 +38,12 @@ final class NativeRunAuthorityProcessTest extends TestCase
         file_put_contents($this->directory.'/fixture.marker', "G246 native authority fixture v1\n");
         touch($this->directory.'/fixture.env');
         touch($this->directory.'/lab.sqlite');
+        if (($database = getenv('G260_CI_CLAIM_DATABASE')) !== false) {
+            $this->assertTrue(NativePostgresClaim::ci() && NativePostgresClaim::validName($database),
+                'A PostgreSQL claim fixture requires the explicit CI-only boundary.');
+            $this->postgres = $database;
+            file_put_contents($this->directory.'/postgres.marker', $database, LOCK_EX);
+        }
         $result = $this->fixture('prepare', 'prepare');
         $this->assertSame(['prepared' => true, 'owner' => 1], $result);
         // Compile this final cached provider list before concurrent workers and
@@ -179,6 +190,28 @@ final class NativeRunAuthorityProcessTest extends TestCase
         $this->fail('The real native fixture worker never became ready.');
     }
 
+    public function test_paid_claim_reserves_the_writer_before_its_first_transaction_read(): void
+    {
+        $this->startWorkers(1);
+        $this->assertSame(['bound' => true], $this->fixture('seed-work', 'seed-work'));
+        $this->assertSame(['queued' => 1], $this->fixture('claim-contention', 'claim-contention'));
+        $file = $this->directory.'/contention-result.json';
+        $deadline = microtime(true) + 45;
+        while (! is_file($file) && microtime(true) < $deadline) {
+            usleep(10000);
+        }
+        $this->assertFileExists($file);
+        $report = json_decode(file_get_contents($file), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('claimed', $report['outcome'], json_encode($report, JSON_THROW_ON_ERROR));
+        $this->assertNull($report['exception_class']);
+        $this->assertNull($report['failing_sql']);
+        $this->assertTrue($report['writer_before_first_read'], json_encode($report, JSON_THROW_ON_ERROR));
+        $this->assertSame(0, $report['intrusion_commits']);
+        $this->assertGreaterThan(0, $report['intrusion_refusals']);
+        $this->assertSame('DEFERRED', $report['transaction_mode']);
+        $this->assertSame(1, $report['calls']);
+    }
+
     public function test_two_real_queue_workers_cannot_claim_the_same_paid_work_twice(): void
     {
         $this->startWorkers(2);
@@ -206,6 +239,7 @@ final class NativeRunAuthorityProcessTest extends TestCase
             $this->assertTrue($result['guest']);
             $this->assertTrue($result['external_exporter_closed']);
             $this->assertNull($result['exception_class']);
+            $this->assertSame($result['outcome'] === 'refused' ? PaidRunNotAuthorised::class : null, $result['refusal_class']);
             $this->assertSame($result['outcome'] === 'claimed' ? 1 : 0, $result['calls']);
         }
         $state = $this->fixture('inspect-work', 'inspect');
@@ -213,6 +247,13 @@ final class NativeRunAuthorityProcessTest extends TestCase
         $this->assertSame(1, $state['claimed_works']);
         $this->assertSame(1, $state['probe_rows']);
         $this->assertSame(100000, $state['allocated']);
+        if ($this->postgres !== null) {
+            $report = base_path('native-postgres-claim-race.json');
+            $this->assertFileDoesNotExist($report);
+            file_put_contents($report, json_encode(['database' => $this->postgres,
+                'framework' => InstalledVersions::getPrettyVersion('laravel/framework'),
+                'results' => $results, 'state' => $state], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT).PHP_EOL, LOCK_EX);
+        }
     }
 
     private function fixture(string $tag, string $mode, string $case = ''): array
@@ -279,6 +320,12 @@ final class NativeRunAuthorityProcessTest extends TestCase
             'LAB_WORKER_HEARTBEATS_DIRECTORY' => $this->directory.'/workers',
             'G246_NATIVE_AUTHORITY_DIRECTORY' => $this->directory, 'G246_AUTHORITY_OBSERVATION_TAG' => $tag];
         $pipes = [];
+        if ($this->postgres !== null) {
+            $env = [...$env, 'GITHUB_ACTIONS' => 'true', 'G246_CI_DISPOSABLE_POSTGRES' => '1', 'G246_PG_PORT' => '5432',
+                'G260_CI_CLAIM_DATABASE' => $this->postgres, 'DB_CONNECTION' => 'pgsql', 'LAB_DB_DATABASE' => $this->postgres,
+                'DB_HOST' => '127.0.0.1', 'DB_PORT' => '5432', 'DB_USERNAME' => 'prism_ci_cost',
+                'DB_PASSWORD' => 'g246-ci-only', 'DB_SSLMODE' => 'disable'];
+        }
         $process = proc_open([PHP_BINARY, '-d', 'opcache.enable_cli=0', ...$arguments],
             [['file', PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null', 'r'], ['file', $stdout, 'w'], ['file', $stderr, 'w']],
             $pipes, base_path(), $env, ['bypass_shell' => true]);

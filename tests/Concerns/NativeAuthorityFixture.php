@@ -34,15 +34,20 @@ final class NativeAuthorityFixture
             || preg_match('/^native-authority-[a-f0-9]{16}$/D', basename($directory)) !== 1
             || @file_get_contents($directory.'/fixture.marker') !== "G246 native authority fixture v1\n"
             || getenv('G246_NATIVE_AUTHORITY_DIRECTORY') !== $directory
-            || getenv('DB_CONNECTION') !== 'sqlite'
-            || getenv('DB_DATABASE') !== ':memory:'
-            || getenv('LAB_DB_DATABASE') !== $directory.'/lab.sqlite'
+            || ! self::databaseMatches($directory)
             || getenv('APP_CONFIG_CACHE') !== 'storage/framework/testing/'.basename($directory).'/config.php'
             || ! is_file($directory.'/fixture.env') || filesize($directory.'/fixture.env') !== 0) {
             throw new RuntimeException('Refuse a non-owned native authority fixture.');
         }
 
         return $directory;
+    }
+
+    public static function databaseMatches(string $directory): bool
+    {
+        return (getenv('DB_CONNECTION') === 'sqlite' && getenv('DB_DATABASE') === ':memory:'
+            && getenv('LAB_DB_DATABASE') === $directory.'/lab.sqlite')
+            || NativePostgresClaim::owns($directory);
     }
 
     public static function sdkCalls(): int

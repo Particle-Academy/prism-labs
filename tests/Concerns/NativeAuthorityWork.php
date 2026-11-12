@@ -34,17 +34,20 @@ final class NativeAuthorityWork implements ShouldQueue
         NativeAuthorityFixture::barrier($this->directory, 'work');
         $before = NativeAuthorityFixture::sdkCalls();
         $unexpected = null;
+        $refusal = null;
         try {
             (new RunCompactionReservationProbe(approvedRunId: $this->intentId, paidWorkId: $this->workId))->handle($probe);
             $outcome = 'claimed';
         } catch (PaidRunNotAuthorised) {
             $outcome = 'refused';
+            $refusal = PaidRunNotAuthorised::class;
         } catch (Throwable $failure) {
             $outcome = 'error';
             $unexpected = $failure;
         }
         $result = ['outcome' => $outcome, 'pid' => getmypid(), 'calls' => NativeAuthorityFixture::sdkCalls() - $before,
             'guest' => Auth::guard('web')->guest(), 'exception_class' => $unexpected === null ? null : $unexpected::class,
+            'refusal_class' => $refusal,
             'external_exporter_closed' => app('native-authority-exporter-closed') === true];
         $file = fopen($this->directory.'/work-result-'.$this->slot.'.json', 'x');
         if ($file === false) {

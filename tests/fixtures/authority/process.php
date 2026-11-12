@@ -21,24 +21,28 @@ use App\Models\User;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Tests\Concerns\NativeAdmissionContention;
 use Tests\Concerns\NativeAuthorityFixture;
 use Tests\Concerns\NativeAuthorityProvider;
 use Tests\Concerns\NativeAuthorityWork;
+use Tests\Concerns\NativePostgresClaim;
 
 $repo = dirname(__DIR__, 3);
 $directory = $argv[1] ?? '';
 $mode = $argv[2] ?? '';
 $case = $argv[3] ?? '';
+require_once $repo.'/tests/Concerns/NativePostgresClaim.php';
+$ownedSqlite = getenv('DB_CONNECTION') === 'sqlite' && getenv('DB_DATABASE') === ':memory:'
+    && getenv('LAB_DB_DATABASE') === $directory.'/lab.sqlite';
 $parent = realpath($repo.'/storage/framework/testing');
 $resolved = realpath($directory);
 if ($resolved === false || $parent === false || dirname($resolved) !== $parent || is_link($directory)
     || preg_match('/^native-authority-[a-f0-9]{16}$/D', basename($resolved)) !== 1
     || @file_get_contents($resolved.'/fixture.marker') !== "G246 native authority fixture v1\n"
-    || getenv('DB_CONNECTION') !== 'sqlite' || getenv('DB_DATABASE') !== ':memory:'
-    || getenv('LAB_DB_DATABASE') !== $resolved.'/lab.sqlite'
+    || (! $ownedSqlite && ! NativePostgresClaim::owns($resolved))
     || getenv('APP_CONFIG_CACHE') !== 'storage/framework/testing/'.basename($resolved).'/config.php'
     || ! is_file($resolved.'/fixture.env') || filesize($resolved.'/fixture.env') !== 0
-    || ! in_array($mode, ['prepare', 'ready', 'seed-cli', 'seed-race', 'seed-work', 'enqueue-work', 'seed-rsi-cost', 'inspect-rsi-cost', 'race', 'inspect'], true)) {
+    || ! in_array($mode, ['prepare', 'ready', 'seed-cli', 'seed-race', 'seed-work', 'enqueue-work', 'claim-contention', 'seed-rsi-cost', 'inspect-rsi-cost', 'race', 'inspect'], true)) {
     throw new RuntimeException('Refuse a non-owned native authority process.');
 }
 require $repo.'/vendor/autoload.php';
@@ -51,8 +55,16 @@ if ($mode !== 'prepare' && (! is_file($directory.'/config.php') || is_link($dire
 }
 $app->make(Kernel::class)->bootstrap();
 NativeAuthorityFixture::directory($directory);
-if (app('db')->connection()->getDriverName() !== 'sqlite' || app('db')->connection()->getDatabaseName() !== $directory.'/lab.sqlite') {
+$expectedDriver = $ownedSqlite ? 'sqlite' : 'pgsql';
+$expectedDatabase = $ownedSqlite ? $directory.'/lab.sqlite' : getenv('G260_CI_CLAIM_DATABASE');
+if (app('db')->connection()->getDriverName() !== $expectedDriver || app('db')->connection()->getDatabaseName() !== $expectedDatabase) {
     throw new RuntimeException('Wrong native authority database.');
+}
+if (! $ownedSqlite) {
+    $identity = DB::selectOne('SELECT current_database() AS name, current_user AS owner');
+    if ($identity->name !== $expectedDatabase || $identity->owner !== 'prism_ci_cost') {
+        throw new RuntimeException('Wrong disposable PostgreSQL identity.');
+    }
 }
 
 if ($mode === 'prepare') {
@@ -103,6 +115,12 @@ if ($mode === 'ready') {
     exit;
 }
 $authority = app(RunAuthority::class);
+if ($mode === 'claim-contention') {
+    $work = json_decode(file_get_contents($directory.'/work.json'), true, flags: JSON_THROW_ON_ERROR);
+    NativeAdmissionContention::dispatch($directory, $work);
+    echo json_encode(['queued' => 1], JSON_THROW_ON_ERROR).PHP_EOL;
+    exit;
+}
 if ($mode === 'inspect-rsi-cost') {
     echo json_encode(['calls' => DB::table('lab_call_reservations')->get()->all(),
         'lanes' => BenchmarkLane::query()->get(['id', 'status', 'proof'])->toArray(),
