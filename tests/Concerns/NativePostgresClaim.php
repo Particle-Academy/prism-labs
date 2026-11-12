@@ -20,15 +20,23 @@ final class NativePostgresClaim
 
     public static function owns(string $directory): bool
     {
+        return self::ci() && self::contextMatches($directory);
+    }
+
+    /** Pure field validation only; it cannot grant the CI capability. */
+    public static function contextMatches(string $directory): bool
+    {
         $name = (string) getenv('G260_CI_CLAIM_DATABASE');
 
-        return self::ci() && self::validName($name)
+        return self::validName($name)
             && ! is_link($directory.'/postgres.marker')
             && @file_get_contents($directory.'/postgres.marker') === $name
             && getenv('DB_CONNECTION') === 'pgsql' && getenv('DB_DATABASE') === ':memory:'
             && getenv('LAB_DB_DATABASE') === $name && getenv('DB_HOST') === '127.0.0.1'
             && getenv('DB_PORT') === '5432' && getenv('DB_USERNAME') === 'prism_ci_cost'
             && getenv('DB_PASSWORD') === 'g246-ci-only' && getenv('DB_SSLMODE') === 'disable'
-            && getenv('DB_URL') === '';
+            // proc_open may omit an empty environment entry. Both spellings
+            // mean no URL; every nonempty URL remains forbidden.
+            && in_array(getenv('DB_URL'), [false, ''], true);
     }
 }
