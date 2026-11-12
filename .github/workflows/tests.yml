@@ -154,7 +154,7 @@ jobs:
           G246_CI_DISPOSABLE_POSTGRES: '1'
           G246_PG_PORT: '5432'
         run: php tests/fixtures/authority/postgres-cost.php
-      - name: Prove duplicate paid-work admission with real PostgreSQL queue workers
+      - name: Prove full PostgreSQL migration cycle and duplicate paid-work admission
         env:
           G246_CI_DISPOSABLE_POSTGRES: '1'
           G246_PG_PORT: '5432'
@@ -176,6 +176,7 @@ jobs:
             prism-labs/native-postgres-cost-evidence.json
             prism-labs/native-postgres-claim-evidence.json
             prism-labs/native-postgres-claim-race.json
+            prism-labs/native-postgres-history-evidence.json
             prism-labs/native-postgres-claim-junit.xml
             prism-labs/native-postgres-claim.stdout
             prism-labs/native-postgres-claim.stderr

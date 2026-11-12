@@ -71,7 +71,51 @@ if ($mode === 'prepare') {
     if (app()->configurationIsCached() || User::query()->getConnection()->getSchemaBuilder()->hasTable('users')) {
         throw new RuntimeException('Native authority fixture already prepared.');
     }
-    app(Kernel::class)->call('migrate', ['--force' => true]);
+    if ($ownedSqlite) {
+        if (app(Kernel::class)->call('migrate', ['--force' => true]) !== 0) {
+            throw new RuntimeException('Native SQLite migration failed.');
+        }
+    } else {
+        // Permanent full-history gate, only after the private marker, CI,
+        // generated database name, connection and server identity guards above.
+        $historyFile = $repo.'/native-postgres-history-evidence.json';
+        if (file_exists($historyFile)) {
+            throw new RuntimeException('Refuse replay of PostgreSQL migration history.');
+        }
+        $tables = static fn (): array => array_column(DB::select(
+            'SELECT tablename FROM pg_tables WHERE schemaname = current_schema() ORDER BY tablename'), 'tablename');
+        $history = ['database' => $expectedDatabase, 'driver' => 'pgsql', 'status' => 'BLOCK',
+            'migrationSha256' => hash_file('sha256', $repo.'/database/migrations/2026_11_08_000002_create_lab_run_authorities.php'),
+            'first' => null, 'rollback' => null, 'second' => null];
+        try {
+            if ($tables() !== [] || app(Kernel::class)->call('migrate', ['--force' => true]) !== 0) {
+                throw new RuntimeException('Fresh PostgreSQL history did not migrate.');
+            }
+            $snapshot = static fn (): array => ['migrations' => DB::table('migrations')->orderBy('migration')->pluck('migration')->all(),
+                'tables' => $tables()];
+            $history['first'] = $snapshot();
+            if ($history['first']['migrations'] === [] || ! in_array('lab_paid_works', $history['first']['tables'], true)) {
+                throw new RuntimeException('PostgreSQL history was incomplete.');
+            }
+            if (app(Kernel::class)->call('migrate:reset', ['--force' => true]) !== 0) {
+                throw new RuntimeException('PostgreSQL full-history rollback failed.');
+            }
+            $history['rollback'] = ['command' => 'migrate:reset', 'migrations' => DB::table('migrations')->count(), 'tables' => $tables()];
+            if ($history['rollback']['migrations'] !== 0 || $history['rollback']['tables'] !== ['migrations']) {
+                throw new RuntimeException('PostgreSQL rollback left application tables or migration records.');
+            }
+            if (app(Kernel::class)->call('migrate', ['--force' => true]) !== 0) {
+                throw new RuntimeException('PostgreSQL history did not migrate a second time.');
+            }
+            $history['second'] = $snapshot();
+            if ($history['first'] !== $history['second']) {
+                throw new RuntimeException('PostgreSQL migration histories or table sets differ.');
+            }
+            $history['status'] = 'PASS';
+        } finally {
+            file_put_contents($historyFile, json_encode($history, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT).PHP_EOL, LOCK_EX);
+        }
+    }
     $owner = User::factory()->create(['name' => 'Owned native authority owner', 'email' => 'native-authority@example.invalid']);
     config(['app.env' => 'local', 'app.debug' => false, 'lab_authority.owner_user_id' => $owner->id,
         'app.providers' => [NativeAuthorityProvider::class, ...config('app.providers')],

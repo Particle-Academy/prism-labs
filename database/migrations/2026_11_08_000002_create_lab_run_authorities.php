@@ -37,7 +37,10 @@ return new class extends Migration
             $table->timestamps();
         });
         Schema::create('lab_paid_works', function (Blueprint $table): void {
-            $table->uuid('id')->primary();
+            $table->uuid('id');
+            // Fluent indexes are appended after foreign keys. PostgreSQL needs
+            // this key established before the self-reference below.
+            $table->primary('id');
             $table->foreignUuid('intent_id')->constrained('lab_run_intents')->restrictOnDelete();
             $table->foreignUuid('parent_id')->nullable()->constrained('lab_paid_works')->restrictOnDelete();
             $table->string('kind', 64);

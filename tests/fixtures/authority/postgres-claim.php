@@ -33,7 +33,8 @@ if (! NativePostgresClaim::ci() || count($argv) !== 1) {
 $repo = dirname(__DIR__, 3);
 $reportFile = $repo.'/native-postgres-claim-evidence.json';
 $raceFile = $repo.'/native-postgres-claim-race.json';
-foreach ([$reportFile, $raceFile, $repo.'/native-postgres-claim.stdout', $repo.'/native-postgres-claim.stderr', $repo.'/native-postgres-claim-junit.xml'] as $file) {
+$historyFile = $repo.'/native-postgres-history-evidence.json';
+foreach ([$reportFile, $raceFile, $historyFile, $repo.'/native-postgres-claim.stdout', $repo.'/native-postgres-claim.stderr', $repo.'/native-postgres-claim-junit.xml'] as $file) {
     claimCheck(! file_exists($file), 'Refuse replay of a prior PostgreSQL claim proof.');
 }
 $database = 'g260_native_claim_'.bin2hex(random_bytes(12));
@@ -42,7 +43,7 @@ $admin = new PDO('pgsql:host=127.0.0.1;port=5432;dbname=postgres;sslmode=disable
     'prism_ci_cost', 'g246-ci-only', [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 $created = false;
 $process = null;
-$report = ['database' => $database, 'created' => false, 'dropped' => false, 'remainingSessions' => null, 'race' => null];
+$report = ['database' => $database, 'created' => false, 'dropped' => false, 'remainingSessions' => null, 'migrationHistory' => null, 'race' => null];
 $failure = null;
 try {
     claimCheck((int) $admin->query('SELECT COUNT(*) FROM pg_database WHERE datname='.$admin->quote($database))->fetchColumn() === 0,
@@ -75,6 +76,15 @@ try {
     } while (microtime(true) < $deadline);
     claimCheck($process === null, 'Owned PostgreSQL claim test exceeded its deadline.');
     claimCheck($exit === 0, 'The real PostgreSQL queue-worker claim race failed. Inspect retained stdout/stderr.');
+    claimCheck(is_file($historyFile), 'The full PostgreSQL migration cycle did not emit evidence.');
+    $history = json_decode(file_get_contents($historyFile), true, flags: JSON_THROW_ON_ERROR);
+    claimCheck($history['status'] === 'PASS' && $history['driver'] === 'pgsql' && $history['database'] === $database,
+        'Wrong PostgreSQL migration history identity or result.');
+    claimCheck($history['migrationSha256'] === hash_file('sha256', $repo.'/database/migrations/2026_11_08_000002_create_lab_run_authorities.php')
+        && $history['first'] === $history['second'] && $history['first']['migrations'] !== []
+        && $history['rollback'] === ['command' => 'migrate:reset', 'migrations' => 0, 'tables' => ['migrations']],
+        'Incomplete PostgreSQL migrate, full rollback, migrate cycle.');
+    $report['migrationHistory'] = $history;
     claimCheck(is_file($raceFile), 'The PostgreSQL race did not emit a native result.');
     $report['race'] = json_decode(file_get_contents($raceFile), true, flags: JSON_THROW_ON_ERROR);
     claimCheck($report['race']['database'] === $database, 'Wrong PostgreSQL race database.');
