@@ -194,6 +194,11 @@ jobs:
       - name: Consensus and Benchmarks browser regressions
         run: npm run test:dogfood-ui
 
+      - name: Frozen RSI review, paid GO, native consent and run room browser controls
+        run: |
+          node scripts/test-rsi-runroom-ui.mjs storage/framework/testing/rsi-runroom-browser
+          node scripts/test-rsi-runroom-ssr.mjs storage/framework/testing/rsi-runroom-ssr
+
       - name: Session readiness Home and refusal browser controls
         run: npm run test:preflight-ui
 
@@ -264,4 +269,6 @@ jobs:
             storage/framework/testing/owner-allocations-browser/
             storage/framework/testing/council-browser/
             storage/framework/testing/council-ssr/
+            storage/framework/testing/rsi-runroom-browser/
+            storage/framework/testing/rsi-runroom-ssr/
           if-no-files-found: error

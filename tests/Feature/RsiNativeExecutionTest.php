@@ -8,13 +8,17 @@ use App\Benchmarks\BenchmarkDesigner;
 use App\Benchmarks\BenchmarkLaneExecutor;
 use App\Benchmarks\BenchmarkWork;
 use App\Benchmarks\BenchmarkWorkflow;
+use App\Benchmarks\CanonicalJson;
 use App\Benchmarks\FrozenTestDefinition;
 use App\Benchmarks\RsiCostAdmission;
+use App\Benchmarks\RsiInstruments;
 use App\Benchmarks\RsiLaneProfile;
+use App\Benchmarks\RsiRunEvidence;
 use App\Jobs\CallTheRunJob;
 use App\Jobs\ScoreLaneJob;
 use App\Lab\PaidRunNotAuthorised;
 use App\Lab\PaidWorkRegistry;
+use App\Lab\RunAuthority;
 use App\Models\BenchmarkLane;
 use App\Models\BenchmarkRun;
 use App\Models\BenchmarkSpec;
@@ -29,6 +33,7 @@ use Illuminate\Foundation\Testing\RefreshDatabaseState;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Prism\Harness\Exceptions\CallRefused;
 use Prism\Harness\Exceptions\RunNotPermitted;
@@ -146,7 +151,8 @@ final class RsiNativeExecutionTest extends TestCase
         $this->assertSame('completed', $lane->fresh()->status);
         $this->assertSame('unjudged', $lane->fresh()->proof['judgment']);
         $this->assertSame(hash('sha256', $private), $lane->fresh()->proof['output_sha256']);
-        $this->assertNull($lane->fresh()->proof['instrument_results']);
+        $this->assertSame('unknown', $lane->fresh()->proof['instrument_results'][0]['status']);
+        $this->assertSame('unsupported_instrument', $lane->fresh()->proof['instrument_results'][0]['reason']);
         $this->assertNull($lane->fresh()->score);
         $this->assertStringNotContainsString($private, json_encode($lane->fresh()->proof));
         $this->assertFalse($lane->fresh()->proof['artifact_content_captured']);
@@ -446,5 +452,220 @@ final class RsiNativeExecutionTest extends TestCase
         $this->assertSame(100000, (int) $row->charged_microusd);
         $this->assertFalse((bool) $row->usage_known);
         $fake->assertCallCount(1);
+    }
+
+    public function test_owner_run_room_exports_only_bound_evidence_and_keeps_complete_frozen_review(): void
+    {
+        $private = 'PRIVATE_PROVIDER_RESULT_EXPORT_CANARY';
+        $run = $this->dispatchedTest(function (array $input): array {
+            $pin = array_column(app(RsiInstruments::class)->catalog(), null, 'id')['text.equals'];
+            $input['instruments'] = [$pin];
+            $input['assertions'] = [['id' => 'answer', 'instrument_id' => $pin['id'], 'expected' => 'expected public answer']];
+
+            return $input;
+        });
+        $lane = $run->lanes()->firstOrFail();
+        $fake = Prism::fake([TextResponseFake::make()->withText($private)->withUsage(new Usage(3, 2, cost: .04))]);
+        $this->execute($lane);
+        $proof = $lane->fresh()->proof;
+        $proof['private_transcript'] = $private;
+        $proof['instrument_results'][0]['private_body'] = $private;
+        $lane->forceFill(['proof' => $proof])->save();
+        $this->actingAs($this->authorityFixtureOwner, 'web');
+        $response = $this->getJson('/runs/'.$run->id.'/evidence?lane='.$lane->id)->assertOk();
+        $response->assertJsonPath('run.judgment', 'unjudged')->assertJsonPath('run.artifact_content_captured', false)
+            ->assertJsonPath('lanes.0.instruments.0.status', 'fail')->assertJsonPath('lanes.0.artifact.sha256', hash('sha256', $private))
+            ->assertJsonPath('lanes.0.metrics.prompt_tokens', 3)->assertJsonPath('allocation.costs.known_charge_microusd', 40000);
+        $this->assertStringNotContainsString($private, $response->getContent());
+        $this->assertSame($run->spec->specification, $response->json('contract.specification'));
+        $this->assertSame($run->spec->lane_matrix, $response->json('contract.lanes'));
+        $this->assertSame($run->spec->budgets, $response->json('contract.budgets'));
+        $this->assertSame($run->spec->approved_digest, $response->json('contract.approved_digest'));
+        $this->get('/runs/'.$run->id)->assertOk();
+        $this->get('/lab/benchmarks/specs/'.$run->benchmark_spec_id)->assertOk();
+        foreach (['', '/file?path=private', '/media?path=private'] as $suffix) {
+            $this->getJson('/lab/benchmarks/runs/'.$run->id.'/lanes/'.$lane->id.$suffix)->assertNotFound();
+        }
+        $this->getJson('/runs/'.$run->id.'/evidence?lane='.Str::uuid())->assertNotFound();
+        $fake->assertCallCount(1);
+        Queue::assertNotPushed(ScoreLaneJob::class);
+        Queue::assertNotPushed(CallTheRunJob::class);
+    }
+
+    #[DataProvider('malformedInstrumentEvidence')]
+    public function test_malformed_measurement_cannot_be_presented_as_a_passing_instrument(string $case): void
+    {
+        $run = $this->dispatchedTest(function (array $input): array {
+            $pin = array_column(app(RsiInstruments::class)->catalog(), null, 'id')['text.equals'];
+            $input['instruments'] = [$pin];
+            $input['assertions'] = [['id' => 'answer', 'instrument_id' => $pin['id'], 'expected' => 'correct']];
+
+            return $input;
+        });
+        $lane = $run->lanes()->firstOrFail();
+        Prism::fake([TextResponseFake::make()->withText('correct')->withUsage(new Usage(1, 1, cost: .01))]);
+        $this->execute($lane);
+        $proof = $lane->fresh()->proof;
+        match ($case) {
+            'actual-pin' => $proof['instrument_results'][0]['actual_instrument']['sha256'] = str_repeat('0', 64),
+            'reason' => $proof['instrument_results'][0]['reason'] = 'expectation_not_met',
+            'bytes' => $proof['instrument_results'][0]['observed']['bytes'] = PHP_INT_MAX,
+            'duplicate' => $proof['instrument_results'][] = $proof['instrument_results'][0],
+        };
+        $lane->forceFill(['proof' => $proof])->save();
+        $this->actingAs($this->authorityFixtureOwner, 'web');
+        $result = app(RsiRunEvidence::class)->present($run, null)['lanes'][0]['instruments'][0];
+        $this->assertSame('unknown', $result['status']);
+        $this->assertNull($result['observed']);
+    }
+
+    public static function malformedInstrumentEvidence(): array
+    {
+        return array_map(fn ($case) => [$case], ['actual-pin', 'reason', 'bytes', 'duplicate']);
+    }
+
+    public function test_run_evidence_requires_the_owner_and_does_not_borrow_a_foreign_work_binding(): void
+    {
+        $run = $this->dispatchedTest();
+        $lane = $run->lanes()->firstOrFail();
+        $this->getJson('/runs/'.$run->id.'/evidence')->assertForbidden();
+        $this->actingAs(User::factory()->create(), 'web')->getJson('/runs/'.$run->id.'/evidence')->assertForbidden();
+        $this->actingAs($this->authorityFixtureOwner, 'web')->getJson('/runs/'.$run->id.'/evidence')->assertOk();
+        $lane->forceFill(['paid_work_id' => null])->save();
+        $this->getJson('/runs/'.$run->id.'/evidence')->assertNotFound();
+    }
+
+    public function test_a_foreign_flow_reference_cannot_lend_its_progress_or_private_node_details(): void
+    {
+        $run = $this->dispatchedTest();
+        $lane = $run->lanes()->firstOrFail();
+        $this->actingAs($this->authorityFixtureOwner, 'web');
+        $evidence = app(RsiRunEvidence::class);
+        $this->assertSame($lane->workflow_run_id, $evidence->present($run, null)['lanes'][0]['flow']['id']);
+        $flow = WorkflowRun::query()->findOrFail($lane->workflow_run_id);
+        $schema = $flow->schema;
+        $this->assertSame($lane->id, $schema['graph']['nodes'][0]['config']['lane_id']);
+        $schema['graph']['nodes'][0]['config']['lane_id'] = (string) Str::uuid();
+        $flow->forceFill(['schema' => $schema])->save();
+        $this->assertNull($evidence->present($run, null)['lanes'][0]['flow']);
+    }
+
+    #[DataProvider('nativeUsageMeasurements')]
+    public function test_native_token_measurements_are_separate_from_cost_certainty(int $input, int $output, ?float $cost, ?int $expectedInput): void
+    {
+        $run = $this->dispatchedTest();
+        $lane = $run->lanes()->firstOrFail();
+        Prism::fake([TextResponseFake::make()->withText('synthetic response')->withUsage(new Usage($input, $output, cost: $cost))]);
+        $result = $this->execute($lane);
+        $this->assertTrue($result['ok']);
+        $this->assertSame($expectedInput, $lane->fresh()->proof['metrics']['prompt_tokens']);
+        $this->assertNull($lane->fresh()->proof['metrics']['known_charge_microusd']);
+        $this->assertSame(100000, (int) DB::table('lab_call_reservations')->sole()->charged_microusd);
+    }
+
+    public static function nativeUsageMeasurements(): array
+    {
+        return [[3, 2, -1.0, 3], [0, 0, null, null]];
+    }
+
+    public function test_expired_and_revoked_history_stays_visible_without_authorizing_another_call(): void
+    {
+        $run = $this->dispatchedTest();
+        $intent = LabRunIntent::query()->findOrFail($run->approved_run_id);
+        $this->travelTo($intent->expires_at->addSecond());
+        $this->actingAs($this->authorityFixtureOwner, 'web');
+        app(RunAuthority::class)->revoke($intent->id);
+        $this->getJson('/runs/'.$run->id.'/evidence')->assertOk()->assertJsonPath('allocation.revoked', true)
+            ->assertJsonPath('allocation.expired', true)->assertJsonPath('allocation.costs.known_charge_microusd', null);
+        $this->assertSame(0, DB::table('lab_call_reservations')->count());
+        $this->travelBack();
+    }
+
+    public function test_a_different_spec_digest_cannot_claim_observed_evidence(): void
+    {
+        $run = $this->dispatchedTest();
+        $lane = $run->lanes()->firstOrFail();
+        Prism::fake([TextResponseFake::make()->withText('synthetic')->withUsage(new Usage(1, 1, cost: .01))]);
+        $this->execute($lane);
+        $proof = $lane->fresh()->proof;
+        $this->assertSame($run->spec->digest, $proof['spec_digest']);
+        $proof['spec_digest'] = str_repeat('0', 64);
+        $lane->forceFill(['proof' => $proof])->save();
+        $this->actingAs($this->authorityFixtureOwner, 'web');
+        $evidence = app(RsiRunEvidence::class)->present($run, null)['lanes'][0];
+        $this->assertSame('unknown', $evidence['classification']);
+        $this->assertNull($evidence['artifact']['sha256']);
+        $this->assertNull($evidence['metrics']['prompt_tokens']);
+    }
+
+    public function test_artifact_size_cannot_silently_round_in_the_browser(): void
+    {
+        $run = $this->dispatchedTest();
+        $lane = $run->lanes()->firstOrFail();
+        $lane->forceFill(['proof' => ['spec_digest' => $run->spec->digest, 'output_bytes' => PHP_INT_MAX]])->save();
+        $this->actingAs($this->authorityFixtureOwner, 'web');
+        $this->assertNull(app(RsiRunEvidence::class)->present($run, null)['lanes'][0]['artifact']['bytes']);
+    }
+
+    public function test_malformed_stored_flow_is_unknown_without_exporting_its_parser_failure(): void
+    {
+        $run = $this->dispatchedTest();
+        $lane = $run->lanes()->firstOrFail();
+        $flow = WorkflowRun::query()->findOrFail($lane->workflow_run_id);
+        $schema = $flow->schema;
+        $this->assertSame($lane->id, $schema['graph']['nodes'][0]['config']['lane_id']);
+        $schema['graph']['nodes'][0]['config'] = 'PRIVATE_FLOW_PARSE_CANARY';
+        $flow->forceFill(['schema' => $schema])->save();
+        $this->actingAs($this->authorityFixtureOwner, 'web');
+        $response = $this->getJson('/runs/'.$run->id.'/evidence')->assertOk()->assertJsonPath('lanes.0.flow', null);
+        $this->assertStringNotContainsString('PRIVATE_FLOW_PARSE_CANARY', $response->getContent());
+    }
+
+    public function test_native_owner_transitions_require_the_exact_reviewed_digest_before_each_step(): void
+    {
+        $this->approvedTest();
+        $draft = app(BenchmarkDesigner::class)->draftTest('Exact digest review', FrozenTestDefinition::fromArray(self::definitionInput()));
+        $fake = Prism::fake([]);
+        $this->actingAs($this->authorityFixtureOwner, 'web');
+        $this->postJson('/lab/benchmarks/'.$draft->id.'/request-approval', ['digest' => $draft->digest])->assertStatus(419);
+        $this->assertSame('draft', $draft->fresh()->status);
+        $this->withSession(['_token' => 'owned-rsi-review-csrf'])->withHeader('X-CSRF-TOKEN', 'owned-rsi-review-csrf');
+        foreach ([['request-approval', 'draft', 'awaiting_approval'], ['approve', 'awaiting_approval', 'approved']] as [$action, $before, $after]) {
+            $path = '/lab/benchmarks/'.$draft->id.'/'.$action;
+            $this->postJson($path)->assertUnprocessable();
+            $this->postJson($path, ['digest' => str_repeat('0', 64)])->assertConflict();
+            $this->assertSame($before, $draft->fresh()->status);
+            $this->post($path, ['digest' => $draft->digest])->assertRedirect('/lab/benchmarks/specs/'.$draft->id);
+            $this->assertSame($after, $draft->fresh()->status);
+        }
+        $this->assertSame($draft->digest, $draft->fresh()->approved_digest);
+        $fake->assertCallCount(0);
+        $this->assertSame(0, DB::table('lab_call_reservations')->count());
+    }
+
+    public function test_native_contract_review_preserves_integers_above_javascript_safe_range(): void
+    {
+        $run = $this->dispatchedTest(function (array $input): array {
+            $input['fixtures'] = [['id' => 'large-fixture', 'sha256' => str_repeat('e', 64), 'bytes' => 9007199254740993]];
+            $input['assertions'][0]['expected'] = ['maximum' => PHP_INT_MAX];
+
+            return $input;
+        });
+        $fake = Prism::fake([]);
+        $this->actingAs($this->authorityFixtureOwner, 'web');
+        $response = $this->getJson('/runs/'.$run->id.'/evidence')->assertOk();
+        $documents = $response->json('review_documents');
+        $this->assertIsArray($documents);
+        $this->assertStringContainsString('9007199254740993', $documents['fixtures']);
+        $this->assertStringContainsString('9223372036854775807', $documents['assertions']);
+        $this->assertStringContainsString('9007199254740993', $documents['complete']);
+        $this->assertStringNotContainsString('9007199254740992', $documents['complete']);
+        $this->assertSame(CanonicalJson::encode($response->json('contract')), $documents['complete']);
+        $this->get('/lab/benchmarks/specs/'.$run->benchmark_spec_id)->assertOk()->assertInertia(fn ($page) => $page
+            ->component('Lab/RsiSpecificationReview')->where('reviewDocuments', $documents));
+        $this->get('/runs/'.$run->id)->assertOk()->assertInertia(fn ($page) => $page
+            ->component('Lab/RsiRunRoom')->where('evidence.review_documents', $documents));
+        $fake->assertCallCount(0);
+        $this->assertSame(0, DB::table('lab_call_reservations')->count());
     }
 }
