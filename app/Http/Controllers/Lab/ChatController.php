@@ -7,10 +7,13 @@ namespace App\Http\Controllers\Lab;
 use App\Http\Controllers\Controller;
 use App\Lab\CapabilityManager;
 use App\Lab\InstalledVersions;
+use App\Lab\LabConversation;
 use App\Lab\LabSession;
+use App\Lab\PaidRunNotAuthorised;
 use App\Lab\ProviderRegistry;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -55,13 +58,9 @@ final class ChatController extends Controller
         $capabilities = app(CapabilityManager::class);
 
         $started = hrtime(true);
-        $session = $sessions->resolve($request)
-            ->usingProvider($input['provider'])
-            ->usingModel($input['model'])
-            ->usingMode($input['feature'] === 'research' ? 'research' : 'chat');
-
         try {
-            $result = $session->send($input['prompt']);
+            $result = app(LabConversation::class)->chat($input['provider'], $input['model'], $input['feature'], $input['prompt']);
+            $session = $sessions->resolve($request);
             $response = $result->response;
 
             return response()->json([
@@ -80,12 +79,23 @@ final class ChatController extends Controller
                 ],
                 'phoenix_url' => rtrim((string) env('PHOENIX_UI_URL', 'http://localhost:6006'), '/'),
             ]);
+        } catch (PaidRunNotAuthorised $exception) {
+            throw $exception;
         } catch (Throwable $exception) {
-            report($exception);
+            try {
+                Log::warning('Lab chat turn failed.', ['failure' => $exception::class]);
+            } catch (Throwable) {
+            }
+            $harness = ['mode' => null, 'state' => null];
+            try {
+                $failedSession = $sessions->resolve($request);
+                $harness = ['mode' => $failedSession->mode(), 'state' => $failedSession->run()];
+            } catch (Throwable) {
+            }
 
             return response()->json([
                 'message' => 'Harness run failed. Check the application log for details.',
-                'harness' => ['mode' => $session->mode(), 'state' => $session->run()],
+                'harness' => $harness,
             ], 502);
         }
     }

@@ -1,6 +1,7 @@
 import { router } from '@inertiajs/react';
 import { useState } from 'react';
 import { LabShell } from '../../components/lab-shell';
+import { requestPaidRun } from '../../lib/paid-run';
 
 type Learning = {
     ref: string; title: string; severity: string; severity_label: string; filed_by: string;
@@ -10,13 +11,17 @@ type Learning = {
 
 export default function Evidence({ open, closed }: { open: Learning[]; closed: Learning[] }) {
     const [sending, setSending] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     // HUMAN-TRIGGERED. Nothing sends on a schedule or when a run finishes —
     // the operator decides a batch is worth an agent's attention, and delivery
     // from that press onward is automatic.
-    const send = () => {
-        setSending(true);
-        router.post('/lab/evidence/send', {}, { preserveScroll: true, onFinish: () => setSending(false) });
+    const send = async () => {
+        setSending(true); setError(null);
+        try {
+            const id = await requestPaidRun('/lab/evidence/send', {});
+            router.post('/lab/evidence/send', {}, { headers: { 'X-Lab-Run-Id': id }, preserveScroll: true, onFinish: () => setSending(false) });
+        } catch (failure) { setError(failure instanceof Error ? failure.message : 'The batch was not sent.'); setSending(false); }
     };
 
     return <LabShell title="Evidence" current="/lab/evidence" eyebrow="0Learning registry">
@@ -33,6 +38,7 @@ export default function Evidence({ open, closed }: { open: Learning[]; closed: L
         </div>
 
         <section className="lab-panel">
+            {error && <p role="alert">{error}</p>}
             <div className="lab-panel-head"><span>Open</span><span>{open.length} waiting on someone</span></div>
             {open.length === 0
                 ? <p className="lab-empty">Nothing open. Every filed learning has been acted on.</p>

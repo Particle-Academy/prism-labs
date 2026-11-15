@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Consensus;
 
 use App\Benchmarks\CanonicalJson;
+use App\Lab\PaidRunContext;
+use App\Lab\PaidRunNotAuthorised;
+use App\Lab\PaidWorkRegistry;
 use App\Models\ConsensusResponse;
 use App\Models\ConsensusRun;
 use App\Team\AgentRoster;
@@ -35,21 +38,42 @@ final class ConsensusCoordinator
     /** @param array<string, mixed> $evidence */
     public function begin(string $question, array $evidence = []): ConsensusRun
     {
-        return ConsensusRun::query()->create([
-            'question' => $question,
-            'evidence_digest' => hash('sha256', CanonicalJson::encode($evidence)),
-            'status' => 'collecting',
-        ]);
+        // The native no-brief call and the form's empty brief are the same
+        // effective request. Freeze that shape before creating the work row.
+        if ($evidence === []) {
+            $evidence = ['brief' => ''];
+        }
+        $intent = app(PaidRunContext::class)->authorizedRun(['consensus.collect']);
+
+        return DB::transaction(function () use ($question, $evidence, $intent): ConsensusRun {
+            $run = ConsensusRun::query()->create([
+                'question' => $question, 'approved_run_id' => $intent->id,
+                'evidence_digest' => hash('sha256', CanonicalJson::encode($evidence)), 'status' => 'collecting',
+            ]);
+            $work = app(PaidWorkRegistry::class)->bind('consensus.collect', $run->id,
+                ['question' => $question, 'evidence' => $evidence, 'approved_run_id' => $intent->id]);
+            $run->forceFill(['paid_work_id' => $work->id])->save();
+
+            return $run;
+        });
     }
 
     /** @param array<string, mixed> $evidence */
     public function collectPending(ConsensusRun $run, array $evidence = []): ConsensusRun
     {
+        if ($evidence === []) {
+            $evidence = ['brief' => ''];
+        }
         if ($run->refresh()->status !== 'collecting') {
             return $run;
         }
         if (! hash_equals($run->evidence_digest, hash('sha256', CanonicalJson::encode($evidence)))) {
             throw new \LogicException('Collection evidence differs from the frozen brief.');
+        }
+        $intent = app(PaidRunContext::class)->requireActions(['consensus.collect']);
+        if ($run->approved_run_id !== $intent->id || $run->question !== ($intent->payload['input']['question'] ?? null)
+            || $evidence !== ['brief' => $intent->payload['input']['evidence'] ?? '']) {
+            throw new PaidRunNotAuthorised;
         }
 
         foreach ($this->roster->addressable() as $agent) {
@@ -59,6 +83,7 @@ final class ConsensusCoordinator
             if ($run->responses()->where('agent', $agent->name)->exists()) {
                 continue;
             }
+            app(PaidRunContext::class)->requireActions(['consensus.collect']);
             $result = (new LanguageAgent($agent))->call('consensus', [
                 'question' => $run->question,
                 'evidence' => $evidence,

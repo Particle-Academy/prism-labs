@@ -13,12 +13,14 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $id
  * @property string $status
  * @property string $prompt
+ * @property string $provider
  * @property string|null $model
  * @property string|null $resume_session_id
  * @property string|null $cli_session_id
  * @property string|null $stop_reason
  * @property string|null $error
  * @property list<array<string, mixed>>|null $updates
+ * @property list<array<string, mixed>>|null $history_updates
  * @property array<string, mixed>|null $handshake
  * @property array<string, mixed>|null $process
  */
@@ -40,6 +42,7 @@ final class AcpTurn extends Model
     {
         return [
             'updates' => 'array',
+            'history_updates' => 'array',
             'handshake' => 'array',
             'process' => 'array',
             'started_at' => 'datetime',
@@ -60,12 +63,14 @@ final class AcpTurn extends Model
             'status' => $this->status,
             'pending' => $this->isPending(),
             'prompt' => $this->prompt,
+            'provider' => $this->provider ?? 'claude',
             'model' => $this->model,
             'resume_session_id' => $this->resume_session_id,
             'cli_session_id' => $this->cli_session_id,
             'stop_reason' => $this->stop_reason,
             'error' => $this->error,
             'updates' => $this->updates ?? [],
+            'history_updates' => $this->history_updates ?? [],
             'handshake' => $this->handshake,
             'process' => $this->process,
             'created_at' => $this->created_at?->toIso8601String(),

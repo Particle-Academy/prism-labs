@@ -30,8 +30,7 @@ final class BenchmarkRespecCommand extends Command
         {name : The spec name, matched exactly}
         {--from= : Replace lanes carrying this model id (default: every lane)}
         {--to= : The model id to use instead}
-        {--lanes= : A whole replacement lane matrix as JSON, when more than the model id is wrong}
-        {--approve : Approve the new revision immediately}';
+        {--lanes= : A whole replacement lane matrix as JSON, when more than the model id is wrong}';
 
     protected $description = 'Re-draft a benchmark spec as a new revision with corrected lane model ids';
 
@@ -80,11 +79,6 @@ final class BenchmarkRespecCommand extends Command
 
         foreach ($lanes as $lane) {
             $this->line(sprintf('  %s / %s / %s', $lane['language'], $lane['provider'], $lane['model']));
-        }
-
-        if ($this->option('approve')) {
-            $designer->approve($designer->requestApproval($draft));
-            $this->info(sprintf('%s r%d approved.', $draft->name, $draft->revision));
         }
 
         return self::SUCCESS;

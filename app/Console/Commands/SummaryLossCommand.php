@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Benchmarks\SummaryLossProbe;
+use App\Lab\ApprovedCliRun;
 use Illuminate\Console\Command;
 
 /**
@@ -27,11 +28,20 @@ final class SummaryLossCommand extends Command
         {--summarise-with=claude-haiku-4-5-20251001 : The model writing the summary}
         {--keep=6 : messages kept verbatim in the window}
         {--padding=8 : filler turns used to push the planted turn out}
-        {--summary-words=60 : the summary budget — tighten it to force real loss}';
+        {--summary-words=60 : the summary budget — tighten it to force real loss}
+        {--approved-run= : Exact owner-approved GO reference}';
 
     protected $description = 'Assert that nuance a summary drops can still be recalled';
 
     public function handle(SummaryLossProbe $probe): int
+    {
+        return app(ApprovedCliRun::class)->run($this, 'cli.compaction-summary-loss', [
+            'model' => (string) $this->option('model'), 'summarise_with' => (string) $this->option('summarise-with'),
+            'keep' => (int) $this->option('keep'), 'padding' => (int) $this->option('padding'), 'summary_words' => (int) $this->option('summary-words'),
+        ], fn (): int => $this->executeApproved($probe));
+    }
+
+    private function executeApproved(SummaryLossProbe $probe): int
     {
         $this->line('');
         $this->line('  WHAT A SUMMARY LOSES — is dropped nuance still reachable?');

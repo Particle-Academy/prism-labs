@@ -6,11 +6,11 @@ namespace Tests\Feature;
 
 use App\Http\Controllers\Lab\AgentConversationController;
 use App\Lab\LabSession;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
-use Prism\Harness\Voice\VoiceExchange;
 use Prism\Prism\Audio\AudioResponse;
 use Prism\Prism\Audio\TextResponse as TranscriptResponse;
 use Prism\Prism\Facades\Prism;
@@ -18,6 +18,7 @@ use Prism\Prism\Testing\TextResponseFake;
 use Prism\Prism\ValueObjects\GeneratedAudio;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Tests\Concerns\ApprovesBenchmarks;
 use Tests\TestCase;
 
 /**
@@ -34,7 +35,18 @@ use Tests\TestCase;
  */
 class OverseerVoiceTest extends TestCase
 {
+    use ApprovesBenchmarks;
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->prepareBenchmarkAuthority();
+        $this->authorityFixtureOwner = User::factory()->create();
+        config(['lab_authority.owner_user_id' => $this->authorityFixtureOwner->id,
+            'prism.providers.openai.api_key' => 'synthetic-voice-fixture']);
+        $this->actingAs($this->authorityFixtureOwner, 'web');
+    }
 
     public function test_a_spoken_turn_returns_the_transcript_the_answer_and_the_audio(): void
     {
@@ -150,11 +162,13 @@ class OverseerVoiceTest extends TestCase
 
     private function speak(?string $audio = null, string $mime = 'audio/webm'): JsonResponse
     {
-        $request = Request::create('/lab/agent/voice', 'POST', [
+        $input = [
             'audio' => $audio ?? base64_encode('not really audio'),
             'mime' => $mime,
-        ]);
+        ];
 
-        return (new AgentConversationController)->voice($request, app(LabSession::class), new VoiceExchange);
+        return $this->withApprovedLabRun('agent.voice', $input, fn () => app()->call([app(AgentConversationController::class), 'voice'], [
+            'request' => Request::create('/lab/agent/voice', 'POST', $input),
+        ]));
     }
 }

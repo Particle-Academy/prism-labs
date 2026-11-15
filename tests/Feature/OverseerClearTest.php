@@ -6,6 +6,7 @@ namespace Tests\Feature;
 
 use App\Http\Controllers\Lab\AgentConversationController;
 use App\Lab\LabSession;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
@@ -20,6 +21,15 @@ use Tests\TestCase;
 class OverseerClearTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->assertSame(':memory:', app('db')->connection()->getDatabaseName());
+        $owner = User::factory()->create();
+        config(['lab_authority.owner_user_id' => $owner->id]);
+        $this->actingAs($owner, 'web');
+    }
 
     public function test_it_starts_an_empty_conversation(): void
     {

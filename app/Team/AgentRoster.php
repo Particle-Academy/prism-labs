@@ -36,7 +36,7 @@ final class AgentRoster
                 state: AgentState::Live,
                 repo: 'prism-ts',
                 endpoint: (string) config('team.endpoints.ts'),
-                note: 'Reasons through prism-ts itself, so the port is its own most demanding consumer.',
+                note: 'Uses prism-ts itself. Free probes remain available; paid agent calls need run authority, not yet available.',
             ),
             new Agent(
                 name: 'prism.py',
@@ -44,7 +44,7 @@ final class AgentRoster
                 state: AgentState::Live,
                 repo: 'prism-py',
                 endpoint: (string) config('team.endpoints.py'),
-                note: 'Reasons through prism-py itself.',
+                note: 'Uses prism-py itself. Free probes remain available; paid agent calls need run authority, not yet available.',
             ),
             new Agent(
                 name: 'prism.rust',

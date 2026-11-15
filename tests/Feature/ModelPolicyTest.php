@@ -9,6 +9,7 @@ use App\Lab\ModelCatalogue;
 use App\Lab\ModelPolicy;
 use App\Models\BenchmarkSpec;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\CachesModelRoster;
 use Tests\TestCase;
 
 /**
@@ -21,7 +22,14 @@ use Tests\TestCase;
  */
 class ModelPolicyTest extends TestCase
 {
+    use CachesModelRoster;
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->cacheModelRoster(includeOpenAI: true);
+    }
 
     public function test_the_default_is_the_cheap_tier_on_the_providers_we_hold_keys_for(): void
     {
@@ -29,8 +37,7 @@ class ModelPolicyTest extends TestCase
         // benchmark anyone ran cost the most it could.
         $allowed = app(ModelPolicy::class)->allowed();
 
-        $this->assertContains('anthropic:claude-sonnet-5', $allowed);
-        $this->assertContains('openai:gpt-4.1-mini', $allowed);
+        $this->assertSame(['anthropic:claude-sonnet-5-5', 'openai:gpt-5.4-mini'], $allowed);
         $this->assertNotContains('anthropic:claude-opus-5', $allowed);
     }
 
@@ -95,15 +102,13 @@ class ModelPolicyTest extends TestCase
         $this->assertNotSame([], app(BenchmarkPreflight::class)->failures($spec));
     }
 
-    public function test_a_model_whose_provider_has_no_key_is_listed_and_marked_never_hidden(): void
+    public function test_a_provider_without_a_key_is_visible_without_inventing_model_rows(): void
     {
-        // Hiding it turns "you have not set a key" into "that model does not
-        // exist", which is the harder problem to diagnose.
         config(['prism.providers.openai.api_key' => '']);
-
-        $openai = array_values(array_filter(app(ModelCatalogue::class)->all(), fn (array $row): bool => $row['provider'] === 'openai'));
-
-        $this->assertNotSame([], $openai);
-        $this->assertFalse($openai[0]['configured']);
+        $provider = collect(app(ModelCatalogue::class)->providers())->firstWhere('key', 'openai');
+        $this->assertNotNull($provider);
+        $this->assertFalse($provider['configured']);
+        $this->assertSame([], $provider['models']);
+        $this->assertStringContainsString('no API key', $provider['message']);
     }
 }

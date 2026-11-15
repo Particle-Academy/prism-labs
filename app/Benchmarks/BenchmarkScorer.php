@@ -6,6 +6,11 @@ namespace App\Benchmarks;
 
 use App\Lab\LabSession;
 use App\Lab\ModelCatalogue;
+use App\Lab\ModelPolicy;
+use App\Lab\ModelPrices;
+use App\Lab\PaidRunContext;
+use App\Lab\PaidRunNotAuthorised;
+use App\Lab\SessionNotReady;
 use App\Models\BenchmarkLane;
 use App\Models\BenchmarkScore;
 use Illuminate\Support\Facades\DB;
@@ -27,44 +32,64 @@ use Throwable;
  * author, not a check" — and a judge that could write the workspace it is
  * judging is the same defect wearing a different hat.
  *
- * Never throws. An unscored lane is a gap; a lane whose RESULT was lost because
+ * Provider failures do not throw. Missing authority refuses before inference.
+ * An unscored lane is a gap; a lane whose RESULT was lost because
  * its judge failed is corruption.
  */
 final readonly class BenchmarkScorer
 {
-    public function __construct(private LabSession $sessions, private ModelCatalogue $catalogue) {}
+    public function __construct(private LabSession $sessions, private ModelCatalogue $catalogue, private ModelPolicy $modelPolicy, private ModelPrices $prices) {}
 
-    public function score(BenchmarkLane $lane): ?float
+    public function score(BenchmarkLane $lane): ScoringResult
     {
+        BenchmarkWork::requireLegacyJudgment($lane->benchmarkRun);
+        if ($lane->score !== null) {
+            return new ScoringResult((float) $lane->score);
+        }
+        BenchmarkWork::assertRun($lane->benchmarkRun);
+        app(PaidRunContext::class)->authorizedWork('benchmark.score', $lane->id, BenchmarkWork::scorePayload($lane));
         try {
             return $this->judge($lane);
+        } catch (PaidRunNotAuthorised|SessionNotReady $refusal) {
+            throw $refusal;
         } catch (Throwable $failure) {
             report($failure);
 
-            return null;
+            return new ScoringResult(null, 'Not scored: the judge failed. No automatic inference retry.');
         }
     }
 
-    private function judge(BenchmarkLane $lane): ?float
+    private function judge(BenchmarkLane $lane): ScoringResult
     {
+        if ($lane->score !== null) {
+            return new ScoringResult((float) $lane->score);
+        }
+        if ($lane->activities()->where('kind', 'scoring.started')->exists()) {
+            return new ScoringResult(null, 'Not scored: previous judging delivery is uncertain. No automatic inference retry.');
+        }
+
         $spec = $lane->benchmarkRun?->spec;
 
         if ($spec === null || ! is_array($lane->proof) || ! isset($lane->proof['checks'])) {
-            return null;
+            return new ScoringResult(null, 'Not scored: no checkable proof or specification is available.');
         }
 
         $rubric = Rubric::fromSpec($spec);
 
         if ($rubric->isEmpty()) {
-            return null;
+            return new ScoringResult(null, 'Not scored: no scoring rubric is defined.');
         }
 
-        $model = $this->catalogue->cheapestConfigured();
+        $model = $this->catalogue->cheapestConfigured($this->modelPolicy->allowed());
 
         if ($model === null) {
-            return null;
+            return $this->unavailableModel();
         }
 
+        // Persist before send: a worker crash must not turn a listing retry into repeated inference.
+        BenchmarkWork::assertRun($lane->benchmarkRun);
+        app(PaidRunContext::class)->requireWork('benchmark.score', $lane->id, BenchmarkWork::scorePayload($lane));
+        app(LaneActivity::class)->record($lane, 'scoring.started', 'Judging attempt started; no completed score yet. An uncertain delivery will not be automatically repeated.');
         $response = $this->sessions->resolveScope('scoring:'.$lane->id)
             ->usingMode('scoring')
             ->usingProvider($model['provider'])
@@ -74,10 +99,47 @@ final readonly class BenchmarkScorer
         $scored = $this->parse($response->text(), $rubric);
 
         if ($scored === []) {
-            return null;
+            return new ScoringResult(null, 'Not scored: the judge returned no usable scores. No automatic inference retry.');
         }
 
-        return $this->persist($lane, $rubric, $scored);
+        return new ScoringResult($this->persist($lane, $rubric, $scored));
+    }
+
+    private function unavailableModel(): ScoringResult
+    {
+        $selection = $this->modelPolicy->selection();
+        if ($selection === []) {
+            return new ScoringResult(null, 'Not scored: no model is enabled for judging.');
+        }
+
+        $providers = array_column($this->catalogue->providers(), null, 'key');
+        $states = [];
+        $listingStates = [];
+        foreach ($selection as $key) {
+            [$provider, $id] = array_pad(explode(':', $key, 2), 2, '');
+            $listingStates[] = $providers[$provider]['status'] ?? 'unconfigured';
+            if ($this->prices->forModel($provider, $id) !== null) {
+                $states[] = $providers[$provider]['status'] ?? 'unconfigured';
+            }
+        }
+
+        if (in_array('authentication_rejected', $listingStates, true)) {
+            return new ScoringResult(null, 'Not scored: the provider rejected a selected API key or its access. Update the Lab configuration before retrying.');
+        }
+        if (in_array('unreachable', $states, true)) {
+            return new ScoringResult(null, "Not scored: couldn't reach the provider's model list.", true);
+        }
+        if (in_array('unconfigured', $listingStates, true)) {
+            return new ScoringResult(null, 'Not scored: a selected provider has no configured API key or endpoint.');
+        }
+        if (in_array('unsupported', $listingStates, true)) {
+            return new ScoringResult(null, 'Not scored: model listing is unsupported for a selected provider.');
+        }
+        if (in_array('ready', $states, true)) {
+            return new ScoringResult(null, 'Not scored: the selected priced model is no longer offered.');
+        }
+
+        return new ScoringResult(null, 'Not scored: no permitted model has a checked price.');
     }
 
     /**

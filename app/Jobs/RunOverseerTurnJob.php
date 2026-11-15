@@ -4,11 +4,17 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Lab\LabConversation;
 use App\Lab\LabSession;
+use App\Lab\PaidRunContext;
+use App\Lab\PaidRunNotAuthorised;
+use App\Lab\PaidWorkRegistry;
+use App\Lab\SessionNotReady;
 use App\Models\OverseerTurn;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
@@ -59,8 +65,12 @@ final class RunOverseerTurnJob implements ShouldQueue
      */
     public int $timeout = 1800;
 
-    public function __construct(public readonly string $turnId)
+    // A real default keeps old serialized jobs readable, then refused.
+    public ?string $paidWorkId = null;
+
+    public function __construct(public readonly string $turnId, ?string $paidWorkId = null)
     {
+        $this->paidWorkId = $paidWorkId;
         $this->onQueue('overseer');
     }
 
@@ -82,17 +92,41 @@ final class RunOverseerTurnJob implements ShouldQueue
     {
         $turn = OverseerTurn::query()->find($this->turnId);
 
-        if (! $turn instanceof OverseerTurn || ! $turn->isPending()) {
+        if (! $turn instanceof OverseerTurn || $turn->status !== OverseerTurn::QUEUED) {
             return;
         }
 
-        $turn->forceFill(['status' => OverseerTurn::RUNNING, 'started_at' => now()])->save();
+        try {
+            if ($this->paidWorkId === null || $turn->paid_work_id !== $this->paidWorkId) {
+                throw new PaidRunNotAuthorised;
+            }
+            app(PaidWorkRegistry::class)->run($this->paidWorkId, 'overseer.turn', $turn->id,
+                ['prompt' => $turn->prompt, 'approved_run_id' => $turn->approved_run_id],
+                fn () => $this->executeApproved($turn, $sessions));
+        } catch (PaidRunNotAuthorised|SessionNotReady) {
+            OverseerTurn::query()->whereKey($turn->id)->where('status', OverseerTurn::QUEUED)->update(['status' => OverseerTurn::FAILED,
+                'error' => 'The approved run authority or current session readiness is unavailable. No turn was started.',
+                'finished_at' => now(), 'updated_at' => now()]);
+        }
+    }
+
+    private function executeApproved(OverseerTurn $turn, LabSession $sessions): void
+    {
+        app(PaidRunContext::class)->requireActions(['agent.send']);
+
+        $claimed = OverseerTurn::query()->whereKey($turn->id)->where('status', OverseerTurn::QUEUED)
+            ->update(['status' => OverseerTurn::RUNNING, 'started_at' => now(), 'updated_at' => now()]);
+        if ($claimed !== 1) {
+            return;
+        }
+        $turn->refresh();
 
         try {
             $session = $sessions->resolveScope('lab:agent')
                 ->usingProvider((string) config('team.coordinator.provider'))
                 ->usingModel((string) config('team.coordinator.model'))
-                ->usingMode('chat');
+                ->usingMode('chat')
+                ->usingMaxSteps(LabConversation::settings('agent.send', [])['max_steps']);
 
             $result = $session->send($turn->prompt);
 
@@ -103,7 +137,10 @@ final class RunOverseerTurnJob implements ShouldQueue
                 'finished_at' => now(),
             ])->save();
         } catch (Throwable $failure) {
-            report($failure);
+            try {
+                Log::warning('Lab Overseer turn failed.', ['failure' => $failure::class]);
+            } catch (Throwable) {
+            }
 
             // The MESSAGE a person reads, not the exception. A chat panel is the
             // wrong place for a stack trace, and the useful part is that the

@@ -3,13 +3,18 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "test:ui": "node scripts/test-provider-ui.mjs",
+        "audit:locks": "node scripts/audit-locks.mjs",
+        "test:remotion-runtime": "node scripts/test-remotion-runtime.mjs",
+        "test:ui": "node scripts/test-provider-ui.mjs && node scripts/test-human-plus-bridge.mjs",
         "test:dogfood-ui": "node scripts/test-dogfood-ui.mjs",
+        "test:models-ui": "node scripts/test-models-ui.mjs",
+        "test:preflight-ui": "node scripts/test-preflight-ui.mjs",
         "build": "vite build && vite build --ssr",
         "build:client": "vite build",
         "build:ssr": "vite build --ssr",
         "dev": "vite",
-        "smoke:human-plus-browser": "node scripts/human-plus-browser-smoke.mjs"
+        "smoke:human-plus-browser": "node scripts/human-plus-browser-smoke.mjs",
+        "test:forms": "node scripts/test-form-submit-ui.mjs"
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4.3.3",
@@ -26,15 +31,15 @@
     },
     "dependencies": {
         "@inertiajs/react": "^3.7.0",
-        "@particle-academy/agent-integrations": "^0.47.1",
-        "@particle-academy/fancy-app-update": "^0.7.0",
-        "@particle-academy/fancy-code": "^0.15.0",
-        "@particle-academy/fancy-echarts": "^6.1.0",
-        "@particle-academy/fancy-inertia": "^0.14.0",
+        "@particle-academy/agent-integrations": ">=0.58.0 <1.0.0",
+        "@particle-academy/fancy-app-update": "^0.8.0",
+        "@particle-academy/fancy-code": "^0.16.0",
+        "@particle-academy/fancy-echarts": "^6.2.0",
+        "@particle-academy/fancy-inertia": "^0.16.0",
         "@particle-academy/fancy-pwa": "^0.2.0",
-        "@particle-academy/fancy-query": "^0.8.0",
+        "@particle-academy/fancy-query": "^0.9.1",
         "@particle-academy/fancy-screens": "^0.7.1",
-        "@particle-academy/react-fancy": "^5.60.0",
+        "@particle-academy/react-fancy": "^6.19.1",
         "@tanstack/react-query": "^5.102.0",
         "react": "^19.2.8",
         "react-dom": "^19.2.8"

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Benchmarks\CompactionReservationProbe;
+use App\Lab\ApprovedCliRun;
 use App\Models\CompactionProbeRun;
 use Illuminate\Console\Command;
 
@@ -25,11 +26,20 @@ final class CompactionProbeCommand extends Command
         {--trigger=5000 : input_tokens at which clearing fires}
         {--keep=3 : tool uses retained by each edit}
         {--steps=24 : max agent steps}
-        {--control : ALSO run the unreserved positive control}';
+        {--control : ALSO run the unreserved positive control}
+        {--approved-run= : Exact owner-approved GO reference}';
 
     protected $description = 'Assert that a reserved tool stays reserved while the context window is compacted';
 
     public function handle(CompactionReservationProbe $probe): int
+    {
+        return app(ApprovedCliRun::class)->run($this, 'cli.compaction-probe', [
+            'model' => (string) $this->option('model'), 'trigger' => (int) $this->option('trigger'),
+            'keep' => (int) $this->option('keep'), 'steps' => (int) $this->option('steps'), 'control' => (bool) $this->option('control'),
+        ], fn (): int => $this->executeApproved($probe));
+    }
+
+    private function executeApproved(CompactionReservationProbe $probe): int
     {
         $this->line('');
         $this->line('  COMPACTION vs RESERVATION — does a Prism guarantee survive the window shrinking?');

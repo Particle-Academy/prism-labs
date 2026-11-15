@@ -32,6 +32,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('compaction_probe_runs', function (Blueprint $table): void {
+            $table->dropIndex(['probe']);
             $table->dropColumn(['probe', 'looked', 'correct', 'fact_left_window', 'answer']);
         });
     }

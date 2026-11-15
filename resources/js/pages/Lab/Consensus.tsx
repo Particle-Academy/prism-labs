@@ -1,7 +1,8 @@
-import { useForm, usePoll } from '@inertiajs/react';
+import { router, useForm, usePoll } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { AgentReadiness } from '../../components/agent-readiness';
 import { LabShell } from '../../components/lab-shell';
+import { requestPaidRun } from '../../lib/paid-run';
 
 type AgentResponse = { id: string; agent: string; language: string; status: string; answer: string | null; failure_reason?: string | null; evidence: unknown; confidence: string | null; dissent: string | null };
 type Tally = { agents: number; responded: number; unavailable: number; dissenting: number };
@@ -30,8 +31,23 @@ export default function Consensus({ runs }: { runs: Run[] }) {
     const selected = runs.find(run => run.id === selectedId) ?? runs[0] ?? null;
 
     const request = useForm({ question: '', evidence: '' });
+    const [requesting, setRequesting] = useState(false);
+    const [requestError, setRequestError] = useState<string | null>(null);
     const review = useForm({ synthesis: '' });
     const abandon = useForm({ reason: '' });
+
+    async function startCollection() {
+        const snapshot = { ...request.data };
+        setRequesting(true); setRequestError(null); request.clearErrors();
+        try {
+            const id = await requestPaidRun('/lab/consensus', snapshot);
+            router.post('/lab/consensus', snapshot, {
+                headers: { 'X-Lab-Run-Id': id },
+                onSuccess: page => { setSelectedId((page.props.runs as Run[])[0]?.id ?? null); review.reset(); request.reset(); setCreating(false); },
+                onError: errors => request.setError(errors), onFinish: () => setRequesting(false),
+            });
+        } catch (failure) { setRequestError(failure instanceof Error ? failure.message : 'Collection was not started.'); setRequesting(false); }
+    }
 
     function choose(run: Run) {
         setSelectedId(run.id);
@@ -50,11 +66,12 @@ export default function Consensus({ runs }: { runs: Run[] }) {
 
         <AgentReadiness capability="consensus" />
 
-        {creating && <form className="lab-panel lab-draft-form" onSubmit={event => { event.preventDefault(); request.post('/lab/consensus', { onSuccess: page => { setSelectedId((page.props.runs as Run[])[0]?.id ?? null); review.reset(); request.reset(); setCreating(false); } }); }}>
+        {creating && <form className="lab-panel lab-draft-form" onSubmit={event => { event.preventDefault(); void startCollection(); }}>
             <Field label="Question" error={request.errors.question}><textarea className="lab-input" rows={5} value={request.data.question} onChange={e => request.setData('question', e.target.value)} /></Field>
             <Field label="Evidence brief · optional" error={request.errors.evidence}><textarea className="lab-input" rows={4} value={request.data.evidence} onChange={e => request.setData('evidence', e.target.value)} /></Field>
             <p className="lab-diagnostic-note">Each available parity agent receives the same question and evidence. Collection runs in the background and may take several minutes. The Overseer queue worker must be running.</p>
-            <button className="k-btn k-btn--grad" disabled={request.processing}>{request.processing ? 'Collecting responses…' : 'Start collection'}</button>
+            {requestError && <p role="alert">{requestError}</p>}
+            <button type="submit" className="k-btn k-btn--grad" disabled={requesting}>{requesting ? 'Collecting responses…' : 'Start collection'}</button>
         </form>}
 
         <section className="lab-consensus-grid">
@@ -85,7 +102,7 @@ export default function Consensus({ runs }: { runs: Run[] }) {
                                 <Field label="Prism.php synthesis · dissent must remain explicit" error={review.errors.synthesis}>
                                     <textarea className="lab-input" rows={12} value={review.data.synthesis} onChange={e => review.setData('synthesis', e.target.value)} />
                                 </Field>
-                                <button className="k-btn k-btn--grad mt-4" disabled={review.processing}>Mark reviewed</button>
+                                <button type="submit" className="k-btn k-btn--grad mt-4" disabled={review.processing}>Mark reviewed</button>
                             </form>
                             {/* Confirmed, because abandonment is terminal: the run
                                 can never be reviewed afterwards, and the 0L it
@@ -101,7 +118,7 @@ export default function Consensus({ runs }: { runs: Run[] }) {
                                 <Field label="Why · optional, and it goes into the 0Learning verbatim" error={abandon.errors.reason}>
                                     <input className="lab-input" value={abandon.data.reason} onChange={e => abandon.setData('reason', e.target.value)} />
                                 </Field>
-                                <button className="k-btn k-btn--ghost mt-4" disabled={abandon.processing}>Abandon without review</button>
+                                <button type="submit" className="k-btn k-btn--ghost mt-4" disabled={abandon.processing}>Abandon without review</button>
                             </form>
                         </>
                         : <div className="lab-synthesis">{selected.synthesis ?? (selected.status === 'abandoned'

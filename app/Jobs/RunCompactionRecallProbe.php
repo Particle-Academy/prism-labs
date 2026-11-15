@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Benchmarks\CompactionRecallProbe;
+use App\Lab\PaidRunContext;
+use App\Lab\PaidWorkRegistry;
 use App\Models\CompactionProbeRun;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -41,7 +43,25 @@ final class RunCompactionRecallProbe implements ShouldQueue
 
     public int $timeout = 1500;
 
+    public ?string $approvedRunId = null;
+
+    public ?string $paidWorkId = null;
+
+    public function __construct(?string $approvedRunId = null, ?string $paidWorkId = null)
+    {
+        $this->approvedRunId = $approvedRunId;
+        $this->paidWorkId = $paidWorkId;
+    }
+
     public function handle(CompactionRecallProbe $probe): void
+    {
+        app(PaidWorkRegistry::class)->run($this->paidWorkId, 'compaction.recall', $this->approvedRunId ?? '', [], function () use ($probe): void {
+            app(PaidRunContext::class)->requireActions(['benchmarks.compaction-recall', 'cli.compaction-recall']);
+            $this->executeApproved($probe);
+        });
+    }
+
+    private function executeApproved(CompactionRecallProbe $probe): void
     {
         $result = $probe->run();
         $with = $result['with_recall'];

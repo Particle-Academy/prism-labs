@@ -5,6 +5,11 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Benchmarks\BenchmarkCommentator;
+use App\Benchmarks\BenchmarkWork;
+use App\Lab\PaidRunContext;
+use App\Lab\PaidRunNotAuthorised;
+use App\Lab\PaidWorkRegistry;
+use App\Lab\SessionNotReady;
 use App\Models\BenchmarkRun;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -25,8 +30,14 @@ final class CallTheRunJob implements ShouldQueue
 
     public int $timeout = 90;
 
-    public function __construct(public readonly string $runId)
+    public ?string $paidWorkId = null;
+
+    public int $sequence = 1;
+
+    public function __construct(public readonly string $runId, ?string $paidWorkId = null, int $sequence = 1)
     {
+        $this->paidWorkId = $paidWorkId;
+        $this->sequence = $sequence;
         $this->onQueue('commentary');
     }
 
@@ -54,7 +65,22 @@ final class CallTheRunJob implements ShouldQueue
             return;
         }
 
-        $commentator->call($run);
+        try {
+            app(PaidWorkRegistry::class)->run($this->paidWorkId, 'benchmark.commentary', BenchmarkWork::commentaryKey($run->id, $this->sequence),
+                BenchmarkWork::commentaryPayload($run->id, $this->sequence), fn () => $this->executeApproved($run, $commentator));
+        } catch (PaidRunNotAuthorised|SessionNotReady) {
+            // Refusal and duplicate delivery schedule nothing and spend nothing.
+        }
+    }
+
+    private function executeApproved(BenchmarkRun $run, BenchmarkCommentator $commentator): void
+    {
+        BenchmarkWork::assertRun($run);
+        // Reserve this delivery, including an empty feed, before it can create
+        // a successor. This is delivery accounting, never provider invoicing.
+        app(PaidRunContext::class)->requireWork('benchmark.commentary', BenchmarkWork::commentaryKey($run->id, $this->sequence),
+            BenchmarkWork::commentaryPayload($run->id, $this->sequence));
+        $commentator->call($run, $this->sequence);
 
         // The broadcast KEEPS ITSELF GOING while the run is live.
         //
@@ -68,7 +94,8 @@ final class CallTheRunJob implements ShouldQueue
         // The chain ends by itself: a terminal run schedules nothing, so there
         // is no loop to stop and nothing to clean up if the worker dies.
         if (in_array($run->refresh()->status, ['queued', 'ready', 'running'], true)) {
-            self::dispatch($this->runId)->delay(now()->addSeconds(self::CADENCE_SECONDS));
+            $work = BenchmarkWork::bindCommentary($run, $this->sequence + 1);
+            self::dispatch($this->runId, $work->id, $this->sequence + 1)->delay(now()->addSeconds(self::CADENCE_SECONDS))->afterCommit();
         }
     }
 }

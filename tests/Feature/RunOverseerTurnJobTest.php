@@ -7,6 +7,10 @@ namespace Tests\Feature;
 use App\Http\Controllers\Lab\AgentConversationController;
 use App\Jobs\RunOverseerTurnJob;
 use App\Lab\LabSession;
+use App\Lab\PaidRunContext;
+use App\Lab\PaidWorkRegistry;
+use App\Lab\RunAuthority;
+use App\Models\LabPaidWork;
 use App\Models\OverseerTurn;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
@@ -14,6 +18,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Prism\Prism\Facades\Prism;
 use RuntimeException;
+use Tests\Concerns\ApprovesLabRuns;
 use Tests\TestCase;
 
 /**
@@ -27,11 +32,25 @@ use Tests\TestCase;
  */
 class RunOverseerTurnJobTest extends TestCase
 {
+    use ApprovesLabRuns;
     use RefreshDatabase;
 
     private function pendingTurn(string $status = OverseerTurn::QUEUED): OverseerTurn
     {
         return OverseerTurn::query()->create(['status' => $status, 'prompt' => 'where are we at with everything']);
+    }
+
+    private function approvedTurn(string $prompt = 'where are we at with everything'): OverseerTurn
+    {
+        return $this->withApprovedLabRun('agent.send', ['message' => $prompt], function () use ($prompt): OverseerTurn {
+            $intent = app(PaidRunContext::class)->authorizedRun(['agent.send']);
+            $turn = OverseerTurn::query()->create(['status' => OverseerTurn::QUEUED, 'prompt' => $prompt, 'approved_run_id' => $intent->id]);
+            $work = app(PaidWorkRegistry::class)->bind('overseer.turn', $turn->id,
+                ['prompt' => $turn->prompt, 'approved_run_id' => $turn->approved_run_id]);
+            $turn->forceFill(['paid_work_id' => $work->id])->save();
+
+            return $turn;
+        });
     }
 
     public function test_a_dead_job_marks_its_turn_failed_rather_than_leaving_it_pending(): void
@@ -106,13 +125,15 @@ class RunOverseerTurnJobTest extends TestCase
         // Prism fake. The first draft used an empty fake on the assumption it
         // throws; it does not — it answers with a default — and the turn landed
         // `answered`, which is how this test caught its own premise.
-        config()->set('prism.providers.anthropic.api_key', 'sk-not-a-real-key');
-        Http::fake(['*' => Http::response(['type' => 'error', 'error' => ['type' => 'api_error', 'message' => 'down']], 500)]);
-
-        $turn = $this->pendingTurn();
-        (new RunOverseerTurnJob($turn->id))->handle(app(LabSession::class));
+        $turn = $this->approvedTurn();
+        Http::fake(['https://api.anthropic.com/*' => Http::response(['type' => 'error', 'error' => ['type' => 'api_error', 'message' => 'down']], 500)]);
+        $this->beginApprovedJob('overseer');
+        (new RunOverseerTurnJob($turn->id, $turn->paid_work_id))->handle(app(LabSession::class));
 
         $this->assertSame(OverseerTurn::FAILED, $turn->refresh()->status);
+        $this->assertStringContainsString('provider is available', $turn->error);
+        Http::assertSent(fn ($request) => str_starts_with($request->url(), 'https://api.anthropic.com/'));
+        $this->assertNotNull(LabPaidWork::query()->findOrFail($turn->paid_work_id)->claimed_at);
     }
 
     public function test_the_request_only_dispatches_and_never_runs_the_turn(): void
@@ -125,10 +146,94 @@ class RunOverseerTurnJobTest extends TestCase
         Queue::fake();
         $fake = Prism::fake([]);
 
-        $response = app(AgentConversationController::class)->send(Request::create('/lab/agent', 'POST', ['message' => 'hello']));
+        $response = $this->withApprovedLabRun('agent.send', ['message' => 'hello'], fn () => app(AgentConversationController::class)->send(Request::create('/lab/agent', 'POST', ['message' => 'hello'])));
 
         $this->assertSame(202, $response->getStatusCode());
         Queue::assertPushedOn('overseer', RunOverseerTurnJob::class);
         $fake->assertCallCount(0);
+        $turn = OverseerTurn::query()->sole();
+        Queue::assertPushed(RunOverseerTurnJob::class, fn ($job) => $job->turnId === $turn->id && $job->paidWorkId === $turn->paid_work_id);
+        $this->assertSame($turn->approved_run_id, LabPaidWork::query()->findOrFail($turn->paid_work_id)->intent_id);
+    }
+
+    public function test_a_legacy_job_without_authority_refuses_before_a_builder(): void
+    {
+        $fake = Prism::fake([]);
+        $turn = $this->pendingTurn();
+        (new RunOverseerTurnJob($turn->id))->handle(app(LabSession::class));
+
+        $fake->assertCallCount(0);
+        $this->assertSame(OverseerTurn::FAILED, $turn->refresh()->status);
+        $this->assertStringContainsString('No turn was started', $turn->error);
+    }
+
+    public function test_a_queued_prompt_changed_after_approval_cannot_spend(): void
+    {
+        $fake = Prism::fake([]);
+        $turn = $this->approvedTurn();
+        $turn->forceFill(['prompt' => 'unapproved replacement'])->save();
+        $this->beginApprovedJob('overseer');
+        (new RunOverseerTurnJob($turn->id, $turn->paid_work_id))->handle(app(LabSession::class));
+
+        $fake->assertCallCount(0);
+        $this->assertSame(OverseerTurn::FAILED, $turn->refresh()->status);
+        $this->assertNull(LabPaidWork::query()->findOrFail($turn->paid_work_id)->claimed_at);
+    }
+
+    public function test_a_substituted_reference_cannot_authorise_another_turn(): void
+    {
+        $fake = Prism::fake([]);
+        $first = $this->approvedTurn('first');
+        $second = $this->approvedTurn('second');
+        $this->beginApprovedJob('overseer');
+        (new RunOverseerTurnJob($second->id, $first->paid_work_id))->handle(app(LabSession::class));
+
+        $fake->assertCallCount(0);
+        $this->assertSame(OverseerTurn::FAILED, $second->refresh()->status);
+        $this->assertNull(LabPaidWork::query()->findOrFail($first->paid_work_id)->claimed_at);
+        $this->assertNull(LabPaidWork::query()->findOrFail($second->paid_work_id)->claimed_at);
+    }
+
+    public function test_revocation_after_dispatch_stops_the_actual_job(): void
+    {
+        $fake = Prism::fake([]);
+        $turn = $this->approvedTurn();
+        $this->actingAs($this->authorityFixtureOwner, 'web');
+        app(RunAuthority::class)->revoke($turn->approved_run_id);
+        auth('web')->logout();
+        $this->beginApprovedJob('overseer');
+        (new RunOverseerTurnJob($turn->id, $turn->paid_work_id))->handle(app(LabSession::class));
+
+        $fake->assertCallCount(0);
+        $this->assertSame(OverseerTurn::FAILED, $turn->refresh()->status);
+        $this->assertNull(LabPaidWork::query()->findOrFail($turn->paid_work_id)->claimed_at);
+    }
+
+    public function test_an_approved_turn_runs_once_without_a_web_login_and_a_late_delivery_preserves_the_answer(): void
+    {
+        $fake = Prism::fake([]);
+        $turn = $this->approvedTurn();
+        $this->assertGuest('web');
+        $this->beginApprovedJob('overseer');
+        $job = new RunOverseerTurnJob($turn->id, $turn->paid_work_id);
+        $job->handle(app(LabSession::class));
+        $fake->assertCallCount(1);
+        $this->assertSame(OverseerTurn::ANSWERED, $turn->refresh()->status);
+        $answer = $turn->answer;
+
+        $job->handle(app(LabSession::class));
+        $fake->assertCallCount(1);
+        $this->assertSame(OverseerTurn::ANSWERED, $turn->refresh()->status);
+        $this->assertSame($answer, $turn->answer);
+    }
+
+    public function test_a_duplicate_delivery_cannot_restart_an_active_turn(): void
+    {
+        $fake = Prism::fake([]);
+        $turn = $this->approvedTurn();
+        $turn->forceFill(['status' => OverseerTurn::RUNNING])->save();
+        (new RunOverseerTurnJob($turn->id))->handle(app(LabSession::class));
+        $fake->assertCallCount(0);
+        $this->assertSame(OverseerTurn::RUNNING, $turn->refresh()->status);
     }
 }

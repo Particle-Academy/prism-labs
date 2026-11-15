@@ -8,6 +8,8 @@ use App\Http\Controllers\Controller;
 use App\Jobs\RunCompactionRecallProbe;
 use App\Jobs\RunCompactionReservationProbe;
 use App\Jobs\RunSummaryLossProbe;
+use App\Lab\PaidRunContext;
+use App\Lab\PaidWorkRegistry;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -52,7 +54,9 @@ final class CompactionProbeController extends Controller
      */
     public function recall(): RedirectResponse
     {
-        RunCompactionRecallProbe::dispatch();
+        $intent = app(PaidRunContext::class)->authorizedRun(['benchmarks.compaction-recall']);
+        $work = app(PaidWorkRegistry::class)->bind('compaction.recall', $intent->id, []);
+        RunCompactionRecallProbe::dispatch($intent->id, $work->id)->afterCommit();
 
         return back()->with(
             'status',
@@ -76,7 +80,9 @@ final class CompactionProbeController extends Controller
      */
     public function summaryLoss(): RedirectResponse
     {
-        RunSummaryLossProbe::dispatch();
+        $intent = app(PaidRunContext::class)->authorizedRun(['benchmarks.summary-loss']);
+        $work = app(PaidWorkRegistry::class)->bind('compaction.summary-loss', $intent->id, []);
+        RunSummaryLossProbe::dispatch($intent->id, $work->id)->afterCommit();
 
         return back()->with(
             'status',
@@ -104,12 +110,15 @@ final class CompactionProbeController extends Controller
         ]);
 
         $reserved = (bool) ($validated['reserved'] ?? true);
+        $trigger = (int) ($validated['trigger'] ?? 5000);
+        $keep = (int) ($validated['keep'] ?? 3);
+        $intent = app(PaidRunContext::class)->authorizedRun(['benchmarks.compaction-probe']);
+        $work = app(PaidWorkRegistry::class)->bind('compaction.reservation', $intent->id, compact('reserved', 'trigger', 'keep'));
 
         RunCompactionReservationProbe::dispatch(
             reserved: $reserved,
-            trigger: (int) ($validated['trigger'] ?? 5000),
-            keep: (int) ($validated['keep'] ?? 3),
-        );
+            trigger: $trigger, keep: $keep, approvedRunId: $intent->id, paidWorkId: $work->id,
+        )->afterCommit();
 
         return back()->with(
             'status',

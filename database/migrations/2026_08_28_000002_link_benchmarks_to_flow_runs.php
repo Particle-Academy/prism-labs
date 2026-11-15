@@ -17,6 +17,9 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('benchmark_runs', fn (Blueprint $table) => $table->dropColumn('workflow_run_id'));
+        Schema::table('benchmark_runs', function (Blueprint $table): void {
+            $table->dropIndex(['workflow_run_id']);
+            $table->dropColumn('workflow_run_id');
+        });
     }
 };

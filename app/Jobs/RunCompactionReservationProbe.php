@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Benchmarks\CompactionReservationProbe;
+use App\Lab\PaidRunContext;
+use App\Lab\PaidWorkRegistry;
 use App\Models\CompactionProbeRun;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -40,13 +42,31 @@ final class RunCompactionReservationProbe implements ShouldQueue
 
     public int $timeout = 1700;
 
+    public ?string $approvedRunId = null;
+
+    public ?string $paidWorkId = null;
+
     public function __construct(
         private readonly bool $reserved = true,
         private readonly int $trigger = 5000,
         private readonly int $keep = 3,
-    ) {}
+        ?string $approvedRunId = null,
+        ?string $paidWorkId = null,
+    ) {
+        $this->approvedRunId = $approvedRunId;
+        $this->paidWorkId = $paidWorkId;
+    }
 
     public function handle(CompactionReservationProbe $probe): void
+    {
+        app(PaidWorkRegistry::class)->run($this->paidWorkId, 'compaction.reservation', $this->approvedRunId ?? '',
+            ['reserved' => $this->reserved, 'trigger' => $this->trigger, 'keep' => $this->keep], function () use ($probe): void {
+                app(PaidRunContext::class)->requireActions(['benchmarks.compaction-probe', 'cli.compaction-probe']);
+                $this->executeApproved($probe);
+            });
+    }
+
+    private function executeApproved(CompactionReservationProbe $probe): void
     {
         $result = $probe->run(
             trigger: $this->trigger,

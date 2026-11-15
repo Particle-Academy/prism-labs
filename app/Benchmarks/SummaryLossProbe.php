@@ -207,6 +207,8 @@ final class SummaryLossProbe
         int $padding = 8,
         int $summaryWords = 60,
     ): array {
+        app(CompactionAuthority::class)->require('summary-loss', ['model' => $model, 'summarise_with' => $summariseWith,
+            'keep' => $keep, 'padding' => $padding, 'summary_words' => $summaryWords]);
         $withRecall = $this->attempt($model, $summariseWith, $keep, $padding, $summaryWords, true);
         $withoutRecall = $this->attempt($model, $summariseWith, $keep, $padding, $summaryWords, false);
 
@@ -266,6 +268,7 @@ final class SummaryLossProbe
         $looked = false;
 
         try {
+            app(CompactionAuthority::class)->check('summary-loss');
             $session->send(self::NUANCE);
 
             // Unrelated filler, to push the planted turn out of the window.
@@ -297,6 +300,7 @@ final class SummaryLossProbe
             for ($i = 0; $i < $padding; $i++) {
                 $topic = $topics[$i % count($topics)];
 
+                app(CompactionAuthority::class)->check('summary-loss');
                 $session->send($i < count($topics) ? $topic : $topic.' (asking again, round '.(intdiv($i, count($topics)) + 1).')');
             }
 
@@ -305,6 +309,7 @@ final class SummaryLossProbe
             // dropped nuance can be RECOVERED, not whether a model spontaneously
             // decides to check — that is a question about disposition and wants
             // its own probe.
+            app(CompactionAuthority::class)->check('summary-loss');
             $response = $session->send(
                 'Earlier in this conversation I told you WHY we moved supplier invoicing '
                 .'from monthly to weekly. That has almost certainly dropped out of your '

@@ -6,13 +6,15 @@ namespace Tests\Feature;
 
 use App\Benchmarks\BenchmarkDesigner;
 use App\Benchmarks\BenchmarkRunReconciler;
-use App\Benchmarks\ProofRecorder;
 use App\Http\Controllers\Lab\BenchmarkController;
+use App\Lab\ModelPolicy;
 use App\Models\BenchmarkLane;
 use App\Models\BenchmarkRun;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Queue;
 use PHPUnit\Framework\Attributes\Group;
+use Tests\Concerns\ApprovesBenchmarks;
 use Tests\TestCase;
 
 /**
@@ -27,7 +29,16 @@ use Tests\TestCase;
 #[Group('dogfood')]
 class BenchmarkResultsTest extends TestCase
 {
+    use ApprovesBenchmarks;
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->prepareBenchmarkAuthority();
+        app(ModelPolicy::class)->allow(['anthropic:claude-sonnet-5']);
+        Queue::fake();
+    }
 
     /** @return array{0: BenchmarkRun, 1: BenchmarkLane} */
     private function completedRun(): array
@@ -36,13 +47,13 @@ class BenchmarkResultsTest extends TestCase
         $spec = $designer->draft('results', 'application', 'standard', ['acceptance' => ['x']], ['working' => 10], [[
             'language' => 'php', 'harness' => 'cli', 'provider' => 'anthropic', 'model' => 'claude-sonnet-5',
         ]], ['cost' => 1]);
-        $run = $designer->launch($designer->approve($designer->requestApproval($spec)));
+        $run = $this->dispatchApprovedDraft($spec);
         $run->forceFill(['status' => 'running'])->save();
 
         $lane = $run->lanes()->firstOrFail();
         $lane->forceFill(['status' => 'running'])->save();
 
-        app(ProofRecorder::class)->complete($lane, [
+        $this->submitBenchmarkProof($lane, [
             'spec_digest' => $spec->refresh()->digest,
             'working_artifact' => 'index.php',
             'checks' => ['basic_arithmetic_correct' => 'hand-traced 2+3*4 = 14'],
@@ -119,7 +130,7 @@ class BenchmarkResultsTest extends TestCase
         $spec = $designer->draft('no proof', 'application', 'standard', ['acceptance' => ['x']], ['working' => 10], [[
             'language' => 'php', 'harness' => 'cli', 'provider' => 'anthropic', 'model' => 'claude-sonnet-5',
         ]], ['cost' => 1]);
-        $run = $designer->launch($designer->approve($designer->requestApproval($spec)));
+        $run = $this->dispatchApprovedDraft($spec);
         $run->lanes()->update(['status' => 'failed', 'finished_at' => now()]);
 
         $this->assertSame([], $this->props($run->refresh())['results']);

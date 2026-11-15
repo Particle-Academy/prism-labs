@@ -6,6 +6,7 @@ namespace Tests\Feature;
 
 use App\Http\Controllers\Lab\AgentConversationController;
 use App\Lab\LabSession;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Prism\Harness\Models\Thread;
@@ -29,7 +30,16 @@ class AgentConversationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_the_conversation_loads_for_a_fresh_visitor(): void
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->assertSame(':memory:', app('db')->connection()->getDatabaseName());
+        $owner = User::factory()->create();
+        config(['lab_authority.owner_user_id' => $owner->id]);
+        $this->actingAs($owner, 'web');
+    }
+
+    public function test_the_conversation_loads_for_a_fresh_owner_visit(): void
     {
         $response = app(AgentConversationController::class)
             ->show(Request::create('/lab/agent'), app(LabSession::class));

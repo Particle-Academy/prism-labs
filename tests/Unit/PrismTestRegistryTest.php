@@ -11,10 +11,12 @@ class PrismTestRegistryTest extends TestCase
     {
         $cases = (new PrismTestRegistry)->all();
 
-        $this->assertCount(12, $cases);
-        $this->assertSame(['text', 'streaming'], $cases->where('provider', 'perplexity')->pluck('feature')->all());
+        $this->assertCount(20, $cases);
+        $this->assertSame(['text', 'streaming'], $cases->where('provider', 'perplexity')->reject(fn ($case) => $case->feature === 'deep_research')->pluck('feature')->all());
+        $this->assertCount(8, $cases->where('feature', 'deep_research'));
+        $this->assertTrue($cases->where('feature', 'deep_research')->every(fn ($case) => $case->costly));
         $this->assertSame(
-            ['embeddings', 'images', 'streaming', 'structured', 'text', 'tools'],
+            ['deep_research', 'embeddings', 'images', 'streaming', 'structured', 'text', 'tools'],
             $cases->pluck('feature')->unique()->sort()->values()->all(),
         );
         $this->assertTrue($cases->firstWhere('id', 'openai.images')->costly);

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tasks;
 
 use App\Lab\LabSession;
+use App\Lab\PaidRunContext;
 use App\Lab\ProviderRegistry;
 use Prism\Harness\Enums\TaskOutcome;
 use Prism\Harness\Enums\TaskState;
@@ -64,6 +65,7 @@ final class TaskAgentProbe
      */
     public function run(): array
     {
+        app(PaidRunContext::class)->requireActions(['tasks.agent']);
         $provider = (string) config('team.tasks.provider', 'anthropic');
         $model = (string) config('team.tasks.model', 'claude-sonnet-5');
 

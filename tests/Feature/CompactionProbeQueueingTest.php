@@ -8,8 +8,10 @@ use App\Http\Controllers\Lab\CompactionProbeController;
 use App\Jobs\RunCompactionRecallProbe;
 use App\Jobs\RunCompactionReservationProbe;
 use App\Jobs\RunSummaryLossProbe;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Queue;
+use Tests\Concerns\ApprovesLabRuns;
 use Tests\TestCase;
 
 /**
@@ -26,11 +28,15 @@ use Tests\TestCase;
  */
 class CompactionProbeQueueingTest extends TestCase
 {
+    use ApprovesLabRuns;
+    use RefreshDatabase;
+
     public function test_the_reservation_probe_is_queued_not_run_inline(): void
     {
         Queue::fake();
 
-        $response = (new CompactionProbeController)->store(new Request(['reserved' => true]));
+        $response = $this->withApprovedLabRun('benchmarks.compaction-probe', ['reserved' => true],
+            fn () => (new CompactionProbeController)->store(new Request(['reserved' => true])));
 
         Queue::assertPushed(RunCompactionReservationProbe::class);
         $this->assertSame(302, $response->getStatusCode());
@@ -40,7 +46,8 @@ class CompactionProbeQueueingTest extends TestCase
     {
         Queue::fake();
 
-        (new CompactionProbeController)->store(new Request(['reserved' => false]));
+        $this->withApprovedLabRun('benchmarks.compaction-probe', ['reserved' => false],
+            fn () => (new CompactionProbeController)->store(new Request(['reserved' => false])));
 
         Queue::assertPushed(RunCompactionReservationProbe::class);
     }
@@ -49,8 +56,8 @@ class CompactionProbeQueueingTest extends TestCase
     {
         Queue::fake();
 
-        (new CompactionProbeController)->recall();
-        (new CompactionProbeController)->summaryLoss();
+        $this->withApprovedLabRun('benchmarks.compaction-recall', [], fn () => (new CompactionProbeController)->recall());
+        $this->withApprovedLabRun('benchmarks.summary-loss', [], fn () => (new CompactionProbeController)->summaryLoss());
 
         Queue::assertPushed(RunCompactionRecallProbe::class);
         Queue::assertPushed(RunSummaryLossProbe::class);

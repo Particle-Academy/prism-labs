@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Context\TableContextRecall;
 use App\Context\TableEvictionSink;
+use App\Lab\PaidRunContext;
 use Illuminate\Support\ServiceProvider;
 use Prism\Harness\Contracts\ContextRecall;
 use Prism\Harness\Contracts\EvictionSink;
@@ -15,6 +16,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->scoped(PaidRunContext::class);
         // The Lab's answer to the harness's two open contracts.
         //
         // The harness ships no sink but the one that discards, and no recall at

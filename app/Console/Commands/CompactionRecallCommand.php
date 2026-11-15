@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Benchmarks\CompactionRecallProbe;
+use App\Lab\ApprovedCliRun;
 use Illuminate\Console\Command;
 
 /**
@@ -22,11 +23,22 @@ final class CompactionRecallCommand extends Command
         {--keep=6 : messages kept in the window}
         {--padding=8 : filler turns used to push turn one out}
         {--summarise-with= : swap KeepRecentTurns for SummarisingCompaction, using this model}
-        {--summary-words=200 : how many words the summary may use — tighten it to force real loss}';
+        {--summary-words=200 : how many words the summary may use — tighten it to force real loss}
+        {--approved-run= : Exact owner-approved GO reference}';
 
     protected $description = 'Assert that a fact evicted by compaction can still be recalled';
 
     public function handle(CompactionRecallProbe $probe): int
+    {
+        $summary = $this->option('summarise-with');
+
+        return app(ApprovedCliRun::class)->run($this, 'cli.compaction-recall', [
+            'model' => (string) $this->option('model'), 'keep' => (int) $this->option('keep'), 'padding' => (int) $this->option('padding'),
+            'summarise_with' => is_string($summary) && $summary !== '' ? $summary : null, 'summary_words' => (int) $this->option('summary-words'),
+        ], fn (): int => $this->executeApproved($probe));
+    }
+
+    private function executeApproved(CompactionRecallProbe $probe): int
     {
         $this->line('');
         $this->line('  COMPACTION vs RECALL — is an evicted turn still reachable?');

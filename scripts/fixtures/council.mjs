@@ -1,0 +1,23 @@
+// Synthetic native wire fixtures. No real account, Change, census or version claim.
+export function createCouncilFixture() {
+    const ref = 'CC-prism-0001', address = 'member@synthetic';
+    const change = { ref, title: '<img src=x onerror="throw 1"> synthetic only', state: 'awaiting_owner', classes: ['declared-breaking'], packages: [{ ecosystem: 'composer', name: 'particle-academy/prism-harness' }], initiation_source: 'agent_request', initiator: 'synthetic@fixture', whitelisted: false, current_round: null, deadline: null, petitions: { total: 0, answered: 0, conflicts: 0, queued: 0 }, approved_unopposed: false, approved_with_notes: false, late_conflict: false, blocking_below_threshold: false, decided_by: null, updated_at: null, summary: 'Synthetic proposal; no real Change.', approach: 'A frozen synthetic approach.', evidence: {}, links: {}, pros: 'Synthetic pro.', cons: 'Synthetic con.', silence_overrides: {}, decision_reason: null, decided_at: null };
+    const threshold = { value: 1, source: 'config' };
+    const member = { address, name: 'Synthetic member', workspace: 'synthetic', project_name: 'Synthetic project', project_description: '<img src=x onerror="throw 1"> '+ 'long synthetic description '.repeat(30), project_url: 'javascript:alert(1)', weight: 1, silence_policy: 'escalate', whitelisted: false, internal: false, source: 'declared', census_at: null, census_request: null, reachable: null, notes: null, packages: [{ ecosystem: 'pypi', name: 'prism-ai-core', version: '1.2.3' }], watches: [], package_count: 1, stats: { petitions: 1, cast: 1, approve: 0, conflict: 1, abstain: 0, missed: 0, pending: 0, withdrawn: 0, last_vote_at: null }, removed_at: null };
+    const showPath = '/council/changes/' + ref, detailPath = '/council/api/v1/changes/' + ref, memberPath = '/council/members/' + address, memberApi = '/council/api/v1/members/' + address;
+    const audit = [{ seq: 1, at: '2026-11-10T00:00:00Z', actor: 'owner:123', type: 'synthetic.'+'x'.repeat(180), data: { note: '<script>synthetic</script>'+'y'.repeat(300) }, hash: 'a'.repeat(64) }];
+    const detail = () => ({ change, rounds: [], open_conflicts: [], decisions: [], audit, owner_actions: change.state === 'awaiting_owner' ? ['approve_initiation', 'reject_initiation'] : [] });
+    const memberList = () => ({ members: member.removed_at ? [] : [member], former_members: member.removed_at ? [member] : [], blocking_threshold: threshold });
+    const memberDetail = () => ({ member, blocking_threshold: threshold, record: [{ petition: 1, change: { ref, title: 'Synthetic record', state: 'awaiting_revision' }, round: 1, tier: 'required', delivery: 'sent', outcome: 'conflict', verdict: 'conflict', vote_status: 'counted', late: false, reason: 'Synthetic impact '.repeat(25), impact: [], severity: 'blocker', queued_at: null, sent_at: null, replied_at: null, withdrawn: false }] });
+    const host = { url: '/lab/owner', label: 'Back to the Lab' };
+    function page(path) {
+        if (path === showPath) return { component: 'Council/Show', props: { detail: detail(), pollMs: 1, host, endpoints: { index: '/council', detail: detailPath, owner: detailPath + '/owner', changeSilencePolicy: detailPath + '/silence-policy', consumers: '/council/api/v1/consumers', members: '/council/members' } } };
+        if (path === '/council') return { component: 'Council/Index', props: { changes: [change], consumers: [], filters: {}, pollMs: 15000, host, canSetPolicy: true, endpoints: { changes: '/council/api/v1/changes', show: '/council/changes', consumers: '/council/api/v1/consumers', index: '/council', members: '/council/members' } } };
+        if (path === '/council/members') return { component: 'Council/Members', props: { ...memberList(), pollMs: 15000, host, canSetPolicy: true, endpoints: { index: '/council', members: '/council/members', api: '/council/api/v1/members', threshold: '/council/api/v1/settings/blocking-threshold', show: '/council/changes' } } };
+        if (path === memberPath) return { component: 'Council/Member', props: { detail: memberDetail(), pollMs: 15000, host, canSetPolicy: true, endpoints: { index: '/council', members: '/council/members', detail: memberApi, consumers: '/council/api/v1/consumers', show: '/council/changes' } } };
+        if (path === '/lab/owner') return { component: 'Lab/Owner', props: { configured: false, isOwner: false, csrfToken: 'synthetic-council-csrf', canUseCouncil: false } };
+        throw Error('Unexpected synthetic page: '+path);
+    }
+    return { change, member, threshold, showPath, detailPath, memberPath, memberApi, detail, memberList, memberDetail, page };
+}
+

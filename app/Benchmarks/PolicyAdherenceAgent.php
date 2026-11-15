@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Benchmarks;
 
+use App\Lab\PaidRunContext;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
@@ -51,6 +52,10 @@ final class PolicyAdherenceAgent
         array $messages,
         ?array $contextManagement = null,
     ): array {
+        app(PaidRunContext::class)->requireInput(['benchmarks.policy-turn'], [
+            'provider' => $provider, 'model' => $model, 'policy' => $policy, 'tools' => $tools,
+            'messages' => $messages, 'context_management' => $contextManagement,
+        ], ['context_management' => null]);
         $pending = Prism::text()
             ->using(Provider::from($provider), $model)
             // ONE step. The benchmark drives the loop, because it owns the

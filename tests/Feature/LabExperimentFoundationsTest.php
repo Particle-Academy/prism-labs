@@ -8,6 +8,7 @@ use App\Benchmarks\BenchmarkDesigner;
 use App\Benchmarks\BenchmarkFuse;
 use App\Benchmarks\BenchmarkLaneExecutor;
 use App\Benchmarks\BenchmarkRunReconciler;
+use App\Benchmarks\BenchmarkWork;
 use App\Benchmarks\BenchmarkWorkflow;
 use App\Benchmarks\LaneActivity;
 use App\Benchmarks\LaneWorkspace;
@@ -17,16 +18,28 @@ use App\Http\Controllers\Lab\AgentConversationController;
 use App\Http\Controllers\Lab\BenchmarkController;
 use App\Jobs\RunOverseerTurnJob;
 use App\Lab\LabSession;
+use App\Lab\ModelCatalogue;
+use App\Lab\ModelPolicy;
+use App\Lab\PaidRunContext;
+use App\Lab\PaidWorkRegistry;
 use App\Learnings\Learning;
 use App\Models\BenchmarkLane;
+use App\Models\BenchmarkRun;
+use App\Models\BenchmarkSpec;
 use App\Models\ConsensusRun;
 use App\Models\LabOperation;
 use App\Models\OverseerTurn;
+use App\Models\User;
 use App\Telemetry\OperationLedger;
+use Closure;
+use FancyFlow\Laravel\FancyFlowManager;
 use FancyFlow\Laravel\Jobs\AdvanceWorkflowJob;
 use FancyFlow\Laravel\Models\WorkflowRun;
+use FancyFlow\Runtime\ExecutionContext;
+use FancyFlow\Runtime\RunIdentity;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Route;
@@ -42,13 +55,67 @@ use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
 use Prism\Workspace\Exceptions\PathRefused;
-use ReflectionMethod;
+use Prism\Workspace\Exceptions\WorkspaceFailed;
+use Tests\Concerns\ApprovesBenchmarks;
 use Tests\TestCase;
 
 #[Group('dogfood')]
 final class LabExperimentFoundationsTest extends TestCase
 {
+    use ApprovesBenchmarks;
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->prepareBenchmarkAuthority();
+        $this->cacheModelRoster(includeOpenAI: true);
+        // Explicit historical listing fixtures keep the original planning and
+        // rejected-ID learning tests; these aliases are never a live-provider claim.
+        foreach (['anthropic' => ['sonnet', 'claude-sonnet-4-20250514'], 'openai' => ['gpt']] as $provider => $ids) {
+            $listing = Cache::get('lab.model-listing.v1.'.$provider);
+            foreach ($ids as $id) {
+                $listing['models'][] = ['id' => $id, 'name' => $id, 'created_at' => null];
+            }
+            Cache::put('lab.model-listing.v1.'.$provider, $listing, 600);
+        }
+        app(ModelPolicy::class)->allow(app(ModelCatalogue::class)->keys());
+        $this->authorityFixtureOwner = User::factory()->create();
+        config(['lab_authority.owner_user_id' => $this->authorityFixtureOwner->id]);
+        $this->actingAs($this->authorityFixtureOwner, 'web');
+        Queue::fake();
+    }
+
+    private function withApprovedSpec(BenchmarkSpec $spec, Closure $operation): mixed
+    {
+        $designer = app(BenchmarkDesigner::class);
+        if ($spec->refresh()->status === 'draft') {
+            $spec = $designer->approve($designer->requestApproval($spec));
+        }
+
+        return $this->withApprovedLabRun('benchmarks.launch', [], fn () => $operation($spec), $spec->id);
+    }
+
+    private function launchSpec(BenchmarkSpec $spec, bool $dispatch = false): BenchmarkRun
+    {
+        return $this->withApprovedSpec($spec, function (BenchmarkSpec $approved) use ($dispatch): BenchmarkRun {
+            $run = app(BenchmarkDesigner::class)->launch($approved);
+            if ($dispatch) {
+                app(BenchmarkWorkflow::class)->dispatch($run);
+            }
+
+            return $run->refresh();
+        });
+    }
+
+    private function executeLane(BenchmarkLane $lane): void
+    {
+        $workflow = WorkflowRun::query()->findOrFail($lane->workflow_run_id);
+        $node = app(FancyFlowManager::class)->toGraph($workflow->schema)->nodes[0];
+        $this->beginBenchmarkJob('default');
+        app(BenchmarkLaneExecutor::class)->execute(new ExecutionContext($node, [], fn () => null,
+            run: new RunIdentity($workflow->run_key)));
+    }
 
     /**
      * The turn is ACCEPTED by the request and RUN by a worker, and the
@@ -76,7 +143,8 @@ final class LabExperimentFoundationsTest extends TestCase
             ]))]);
         $request = Request::create('/lab/agent', 'POST', ['message' => 'Help me design a benchmark.']);
 
-        $accepted = app(AgentConversationController::class)->send($request);
+        $accepted = $this->withApprovedLabRun('agent.send', ['message' => 'Help me design a benchmark.'],
+            fn () => app(AgentConversationController::class)->send($request));
 
         // ACCEPTED, not answered. A 200 here would mean the turn ran in the
         // request again.
@@ -88,7 +156,12 @@ final class LabExperimentFoundationsTest extends TestCase
 
         // The worker's half, run inline here because a test has no queue
         // process. This is the only place the model is called.
-        app(RunOverseerTurnJob::class, ['turnId' => $turnId])->handle(app(LabSession::class));
+        $job = Queue::pushed(RunOverseerTurnJob::class)->sole();
+        $this->assertSame($turnId, $job->turnId);
+        auth('web')->logout();
+        $this->beginBenchmarkJob('overseer');
+        $job->handle(app(LabSession::class));
+        $this->actingAs($this->authorityFixtureOwner, 'web');
 
         $settled = app(AgentConversationController::class)->turn(OverseerTurn::query()->findOrFail($turnId));
         $history = app(AgentConversationController::class)->show(Request::create('/lab/agent'), app(LabSession::class));
@@ -119,7 +192,7 @@ final class LabExperimentFoundationsTest extends TestCase
 
         $this->assertSame(1, $spec->revision);
         $this->assertSame(64, strlen($spec->digest));
-        $run = $designer->launch($designer->approve($designer->requestApproval($spec)));
+        $run = $this->launchSpec($spec);
 
         $this->assertSame('queued', $run->status);
         $this->assertCount(2, BenchmarkLane::query()->where('benchmark_run_id', $run->id)->get());
@@ -140,8 +213,7 @@ final class LabExperimentFoundationsTest extends TestCase
         $this->assertCount(3, $spec->lane_matrix);
 
         Queue::fake();
-        $run = $designer->launch($designer->approve($designer->requestApproval($spec)));
-        app(BenchmarkWorkflow::class)->dispatch($run);
+        $run = $this->launchSpec($spec, dispatch: true);
 
         $this->assertDatabaseCount('benchmark_runs', 1);
         $this->assertDatabaseCount('benchmark_lanes', 3);
@@ -158,8 +230,7 @@ final class LabExperimentFoundationsTest extends TestCase
         $spec = $designer->draft('fuse', 'application', 'standard', ['acceptance' => ['stops']], ['working' => 10], [[
             'language' => 'php', 'harness' => 'prism-harness', 'provider' => 'anthropic', 'model' => 'sonnet',
         ]], ['cost' => 1]);
-        $run = $designer->launch($designer->approve($designer->requestApproval($spec)));
-        app(BenchmarkWorkflow::class)->dispatch($run);
+        $run = $this->launchSpec($spec, dispatch: true);
 
         $fuse = app(BenchmarkFuse::class);
         $fuse->trip($run);
@@ -177,7 +248,7 @@ final class LabExperimentFoundationsTest extends TestCase
         $spec = $designer->draft('settlement', 'application', 'standard', ['acceptance' => ['settles']], ['working' => 10], [[
             'language' => 'php', 'harness' => 'prism-harness', 'provider' => 'anthropic', 'model' => 'sonnet',
         ]], ['cost' => 1]);
-        $run = $designer->launch($designer->approve($designer->requestApproval($spec)));
+        $run = $this->launchSpec($spec);
         $run->forceFill(['status' => 'running', 'started_at' => now()])->save();
         $run->lanes()->update(['status' => 'failed', 'finished_at' => now()]);
 
@@ -197,7 +268,7 @@ final class LabExperimentFoundationsTest extends TestCase
         $spec = $designer->draft('total failure', 'application', 'standard', ['acceptance' => ['learns']], ['working' => 10], [[
             'language' => 'php', 'harness' => 'prism-harness', 'provider' => 'anthropic', 'model' => 'claude-opus-5',
         ]], ['cost' => 1]);
-        $run = $designer->launch($designer->approve($designer->requestApproval($spec)));
+        $run = $this->launchSpec($spec);
         $run->forceFill(['status' => 'running', 'started_at' => now()])->save();
         $run->lanes()->update(['status' => 'failed', 'finished_at' => now()]);
 
@@ -219,8 +290,7 @@ final class LabExperimentFoundationsTest extends TestCase
         $spec = $designer->draft('stopped', 'application', 'standard', ['acceptance' => ['stops']], ['working' => 10], [[
             'language' => 'php', 'harness' => 'prism-harness', 'provider' => 'anthropic', 'model' => 'claude-opus-5',
         ]], ['cost' => 1]);
-        $run = $designer->launch($designer->approve($designer->requestApproval($spec)));
-        app(BenchmarkWorkflow::class)->dispatch($run);
+        $run = $this->launchSpec($spec, dispatch: true);
 
         app(BenchmarkFuse::class)->trip($run);
 
@@ -238,7 +308,7 @@ final class LabExperimentFoundationsTest extends TestCase
         $spec = $designer->draft('dead model', 'application', 'standard', ['acceptance' => ['names it']], ['working' => 10], [[
             'language' => 'php', 'harness' => 'prism-harness', 'provider' => 'anthropic', 'model' => 'claude-sonnet-4-20250514',
         ]], ['cost' => 1]);
-        $run = $designer->launch($designer->approve($designer->requestApproval($spec)));
+        $run = $this->launchSpec($spec);
         $run->forceFill(['status' => 'running', 'started_at' => now()])->save();
 
         $lane = $run->lanes()->firstOrFail();
@@ -264,7 +334,7 @@ final class LabExperimentFoundationsTest extends TestCase
             ['language' => 'php', 'harness' => 'cli', 'provider' => 'anthropic', 'model' => 'claude-opus-5'],
             ['language' => 'php', 'harness' => 'cli', 'provider' => 'openai', 'model' => 'gpt-4.1-mini'],
         ], ['cost' => 1]);
-        $run = $designer->launch($designer->approve($designer->requestApproval($spec)));
+        $run = $this->launchSpec($spec);
 
         $lanes = $run->lanes()->orderBy('ordinal')->get();
         $lanes[0]->forceFill(['status' => 'failed', 'finished_at' => now()])->save();
@@ -289,7 +359,7 @@ final class LabExperimentFoundationsTest extends TestCase
         $spec = $designer->draft('heartbeat', 'application', 'standard', ['acceptance' => ['x']], ['working' => 10], [
             ['language' => 'php', 'harness' => 'cli', 'provider' => 'anthropic', 'model' => 'claude-opus-5'],
         ], ['cost' => 1]);
-        $run = $designer->launch($designer->approve($designer->requestApproval($spec)));
+        $run = $this->launchSpec($spec);
         $lane = $run->lanes()->firstOrFail();
         $lane->forceFill(['status' => 'running', 'started_at' => now()->subMinutes(5)])->save();
 
@@ -332,17 +402,17 @@ final class LabExperimentFoundationsTest extends TestCase
         $spec = $designer->draft('budget honoured', 'application', 'standard', ['acceptance' => ['x']], ['working' => 10], [[
             'language' => 'php', 'harness' => 'cli', 'provider' => 'anthropic', 'model' => 'claude-opus-5',
         ]], ['max_turns' => 20, 'cost' => 1]);
-        $run = $designer->launch($designer->approve($designer->requestApproval($spec)));
+        $run = $this->launchSpec($spec, dispatch: true);
         $lane = $run->lanes()->firstOrFail();
-        $lane->forceFill(['status' => 'running', 'workspace_path' => storage_path('framework/testing/ws')])->save();
 
         try {
-            (new ReflectionMethod(BenchmarkLaneExecutor::class, 'run'))
-                ->invoke(app(BenchmarkLaneExecutor::class), $lane, $spec->refresh());
-        } catch (Throwable) {
-            // The proof step is not what this test is about; the request is.
+            $this->executeLane($lane);
+            $this->fail('This fixture supplies no proof file, so the lane must fail closed.');
+        } catch (WorkspaceFailed $failure) {
+            $this->assertStringContainsString('PROOF_OF_WORKING.json', $failure->getMessage());
         }
 
+        $fake->assertCallCount(1);
         $fake->assertRequest(function (array $requests): void {
             $this->assertSame(20, $requests[0]->maxSteps(), 'The spec promised 20 turns, so the run must get 20 — not the mode constant.');
         });
@@ -358,7 +428,7 @@ final class LabExperimentFoundationsTest extends TestCase
         // The tell is the PAIR: the model still wanted a tool (`ToolCalls`) and
         // the loop had no steps left. `Stop` on the last step is a real finish.
         config(['prism-harness.agent.modes.benchmark.tools' => ['workspace_list']]);
-        Prism::fake([
+        $fake = Prism::fake([
             TextResponseFake::make()->withText('cut off')
                 ->withFinishReason(FinishReason::ToolCalls)
                 ->withSteps(collect(array_fill(0, 3, new Step(
@@ -372,17 +442,17 @@ final class LabExperimentFoundationsTest extends TestCase
         $spec = $designer->draft('truncated', 'application', 'standard', ['acceptance' => ['x']], ['working' => 10], [[
             'language' => 'php', 'harness' => 'cli', 'provider' => 'anthropic', 'model' => 'claude-opus-5',
         ]], ['max_turns' => 3, 'cost' => 1]);
-        $run = $designer->launch($designer->approve($designer->requestApproval($spec)));
+        $run = $this->launchSpec($spec, dispatch: true);
         $lane = $run->lanes()->firstOrFail();
-        $lane->forceFill(['status' => 'running', 'workspace_path' => storage_path('framework/testing/ws')])->save();
 
         try {
-            (new ReflectionMethod(BenchmarkLaneExecutor::class, 'run'))
-                ->invoke(app(BenchmarkLaneExecutor::class), $lane, $spec->refresh());
-        } catch (Throwable) {
-            // Reaching the proof step is not what this test is about.
+            $this->executeLane($lane);
+            $this->fail('This fixture supplies no proof file, so the lane must fail closed.');
+        } catch (WorkspaceFailed $failure) {
+            $this->assertStringContainsString('PROOF_OF_WORKING.json', $failure->getMessage());
         }
 
+        $fake->assertCallCount(1);
         $truncation = $lane->activities()->where('kind', 'agent.truncated')->first();
 
         $this->assertNotNull($truncation, 'A lane stopped at the ceiling must not be indistinguishable from one that finished.');
@@ -397,10 +467,8 @@ final class LabExperimentFoundationsTest extends TestCase
         $spec = $designer->draft('cleanup', 'application', 'standard', ['acceptance' => ['cleans']], ['working' => 10], [[
             'language' => 'php', 'harness' => 'prism-harness', 'provider' => 'anthropic', 'model' => 'sonnet',
         ]], ['cost' => 1]);
-        $spec = $designer->approve($designer->requestApproval($spec));
-        $queued = $designer->launch($spec);
-        $settled = $designer->launch($spec);
-        app(BenchmarkWorkflow::class)->dispatch($settled);
+        $queued = $this->launchSpec($spec);
+        $settled = $this->launchSpec($spec, dispatch: true);
         app(BenchmarkFuse::class)->trip($settled);
 
         $this->assertSame(1, app(BenchmarkFuse::class)->clear('queued'));
@@ -418,7 +486,7 @@ final class LabExperimentFoundationsTest extends TestCase
         $spec = $designer->draft('inspect', 'application', 'standard', ['acceptance' => ['visible']], ['working' => 10], [[
             'language' => 'php', 'harness' => 'prism-harness', 'provider' => 'anthropic', 'model' => 'sonnet',
         ]], ['cost' => 1]);
-        $run = $designer->launch($designer->approve($designer->requestApproval($spec)));
+        $run = $this->launchSpec($spec);
         $lane = BenchmarkLane::query()->firstOrFail();
         $workspace = app(LaneWorkspace::class);
         $workspace->provision($lane);
@@ -450,7 +518,7 @@ final class LabExperimentFoundationsTest extends TestCase
         $spec = $designer->draft('incremental', 'application', 'standard', ['acceptance' => ['x']], ['working' => 10], [[
             'language' => 'php', 'harness' => 'cli', 'provider' => 'anthropic', 'model' => 'claude-opus-5',
         ]], ['cost' => 1]);
-        $run = $designer->launch($designer->approve($designer->requestApproval($spec)));
+        $run = $this->launchSpec($spec);
         $lane = $run->lanes()->firstOrFail();
 
         $activity = app(LaneActivity::class);
@@ -496,7 +564,7 @@ final class LabExperimentFoundationsTest extends TestCase
         $spec = $designer->draft('cursor ties', 'application', 'standard', ['acceptance' => ['x']], ['working' => 10], [[
             'language' => 'php', 'harness' => 'cli', 'provider' => 'anthropic', 'model' => 'claude-opus-5',
         ]], ['cost' => 1]);
-        $run = $designer->launch($designer->approve($designer->requestApproval($spec)));
+        $run = $this->launchSpec($spec);
         $lane = $run->lanes()->firstOrFail();
 
         // Deliberately out of key order and all on one second.
@@ -522,7 +590,7 @@ final class LabExperimentFoundationsTest extends TestCase
         $spec = $designer->draft('tool stream', 'application', 'standard', ['acceptance' => ['visible']], ['working' => 10], [[
             'language' => 'php', 'harness' => 'prism-harness', 'provider' => 'anthropic', 'model' => 'sonnet',
         ]], ['cost' => 1]);
-        $run = $designer->launch($designer->approve($designer->requestApproval($spec)));
+        $run = $this->launchSpec($spec);
         $lane = BenchmarkLane::query()->firstOrFail();
         app(OperationLedger::class)->start('tool.call', [
             'benchmark_run_id' => $run->id,
@@ -541,7 +609,7 @@ final class LabExperimentFoundationsTest extends TestCase
         $spec = $designer->draft('media inspection', 'video', 'standard', ['acceptance' => ['playable']], ['working' => 10], [[
             'language' => 'php', 'harness' => 'prism-harness', 'provider' => 'anthropic', 'model' => 'sonnet',
         ]], ['cost' => 1]);
-        $run = $designer->launch($designer->approve($designer->requestApproval($spec)));
+        $run = $this->launchSpec($spec);
         $lane = BenchmarkLane::query()->firstOrFail();
         $workspace = app(LaneWorkspace::class);
         $workspace->provision($lane);
@@ -562,7 +630,7 @@ final class LabExperimentFoundationsTest extends TestCase
         $spec = $designer->draft('active cleanup', 'application', 'standard', ['acceptance' => ['safe']], ['working' => 10], [[
             'language' => 'php', 'harness' => 'prism-harness', 'provider' => 'anthropic', 'model' => 'sonnet',
         ]], ['cost' => 1]);
-        $run = $designer->launch($designer->approve($designer->requestApproval($spec)));
+        $run = $this->launchSpec($spec);
         $run->forceFill(['status' => 'running'])->save();
 
         Route::get('/test/run/{run}', fn () => null)->name('lab.benchmark-runs.show');
@@ -580,14 +648,19 @@ final class LabExperimentFoundationsTest extends TestCase
         $spec = $designer->draft('proof', 'application', 'standard', ['acceptance' => ['passes']], ['working' => 10], [[
             'language' => 'php', 'harness' => 'prism-harness', 'provider' => 'anthropic', 'model' => 'sonnet',
         ]], ['max_turns' => 10]);
-        $run = $designer->launch($designer->approve($designer->requestApproval($spec)));
+        $run = $this->launchSpec($spec, dispatch: true);
         $lane = BenchmarkLane::query()->where('benchmark_run_id', $run->id)->firstOrFail();
         $lane->forceFill(['status' => 'running', 'started_at' => now()])->save();
 
-        app(ProofRecorder::class)->complete($lane, [
-            'spec_digest' => $spec->digest, 'working_artifact' => 'artifact://local/todo',
-            'checks' => ['test' => 'pass'], 'zero_learning' => 'Stable handles were the main friction.',
-        ], [['kind' => 'test', 'payload' => ['exit_code' => 0]]], 9.5);
+        $this->beginBenchmarkJob('default');
+        app(PaidWorkRegistry::class)->run($lane->paid_work_id, 'benchmark.lane', $lane->id, BenchmarkWork::lanePayload($lane),
+            function () use ($lane, $spec): void {
+                app(PaidRunContext::class)->requireWork('benchmark.lane', $lane->id, BenchmarkWork::lanePayload($lane));
+                app(ProofRecorder::class)->complete($lane, [
+                    'spec_digest' => $spec->refresh()->digest, 'working_artifact' => 'artifact://local/todo',
+                    'checks' => ['test' => 'pass'], 'zero_learning' => 'Stable handles were the main friction.',
+                ], [['kind' => 'test', 'payload' => ['exit_code' => 0]]], 9.5);
+            });
 
         $this->assertDatabaseHas('benchmark_lanes', ['id' => $lane->id, 'status' => 'completed']);
         $this->assertDatabaseCount('benchmark_receipts', 1);

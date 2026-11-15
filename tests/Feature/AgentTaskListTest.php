@@ -8,6 +8,7 @@ use App\Http\Controllers\Lab\TaskListController;
 use App\Lab\LabSession;
 use App\Learnings\Learning;
 use App\Learnings\Severity;
+use App\Models\User;
 use App\Tasks\TaskListProbe;
 use App\Tasks\TaskProbeLearningRecorder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -32,6 +33,15 @@ use Tests\TestCase;
 class AgentTaskListTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->assertSame(':memory:', app('db')->connection()->getDatabaseName());
+        $owner = User::factory()->create();
+        config(['lab_authority.owner_user_id' => $owner->id]);
+        $this->actingAs($owner, 'web');
+    }
 
     public function test_every_security_property_holds_against_the_real_package(): void
     {

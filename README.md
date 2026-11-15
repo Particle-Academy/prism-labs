@@ -69,6 +69,21 @@ uses live provider calls; live calls require the operator's explicit action.
 CI, dependency currency, the evidence loop, and required local workers are
 documented in [Dogfood evidence and CI](docs/dogfood-ci.md).
 
+The Lab owns its database name through `LAB_DB_DATABASE`. Workspace
+`DB_DATABASE` and `DB_URL` cannot select it. SQLite defaults to this app's
+`database/database.sqlite`; server adapters default to `prism_labs`. Create a
+dedicated database before migrating, and use a database account restricted to
+that database. Server host, port and credentials still use the `DB_*` fields.
+If the Sandbox uses a different name or SQLite location from the workspace
+defaults, declare `LAB_SANDBOX_DB_DATABASE` or `LAB_SANDBOX_SQLITE_DATABASE`.
+The Lab refuses a shared identity before application providers register.
+
+An old cached configuration must be removed from `bootstrap/cache/config.php`
+before the first boot with these settings, then regenerated with the dedicated
+namespace. Tests force anonymous in-memory SQLite and reject file or server
+connections, including late named and on-demand connections. Tests do not
+require a running database service.
+
 ```bash
 composer install
 npm install
@@ -81,6 +96,11 @@ npm run build
 Then serve it. Every provider key is optional — the Lab reports an
 unconfigured provider and names the variable to set, rather than hiding it.
 
+Home and `/lab/preflight` report queue worker heartbeats, actual database
+identity/setup, provider key presence and core's observed main checks. See
+[session preflight](docs/session-preflight.md) for the refusal states and
+verification limits. Readiness does not grant approval or launch authority.
+
 ## Local only, by construction
 
 Routes sit behind `EnsurePrismLabIsLocal`, which checks the **raw socket
@@ -91,3 +111,12 @@ would then accept whatever an attacker claimed. There is also an
 
 Both stay even though this app is never deployed. They are what keeps that
 true by construction rather than by intention.
+
+## Change council
+
+The owner-only ledger is at `/council`; its single email must belong to the same
+configured `LAB_OWNER_USER_ID`. Council 0.7.1 records that verified numeric ID
+through the native actor hook; historical email actors remain unchanged.
+All four pages and native APIs share the same owner boundary. Prism's census
+scope is configured per ecosystem; fixture checks do not claim a live census.
+See [setup, clerk procedure and operational holds](docs/change-council.md).
