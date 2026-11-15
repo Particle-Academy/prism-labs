@@ -9,6 +9,7 @@ use App\Http\Controllers\Lab\ChatController;
 use App\Http\Controllers\Lab\CockpitController;
 use App\Http\Controllers\Lab\CompactionProbeController;
 use App\Http\Controllers\Lab\ConsensusController;
+use App\Http\Controllers\Lab\DriftController;
 use App\Http\Controllers\Lab\EvidenceController;
 use App\Http\Controllers\Lab\HumanPlusFixtureController;
 use App\Http\Controllers\Lab\ModelPolicyController;
@@ -147,6 +148,9 @@ if (app()->environment('local')) {
         Route::get('/lab/tests', [TestSuiteController::class, 'show'])->name('lab.tests');
         Route::post('/lab/tests', [TestSuiteController::class, 'run'])->middleware([RequireApprovedRun::class, 'throttle:10,1'])->name('lab.tests.run');
         Route::get('/lab/threads', [ThreadController::class, 'show'])->name('lab.threads');
+        // Read-only: the provider watcher's files plus at most three cached,
+        // unauthenticated GitHub calls. Throttled for GitHub's 60/hour, not cost.
+        Route::get('/lab/drift', [DriftController::class, 'show'])->middleware('throttle:30,1')->name('lab.drift');
         Route::get('/lab/telemetry', [TelemetryController::class, 'show'])->name('lab.telemetry');
         Route::get('/lab/models', [ModelPolicyController::class, 'show'])->name('lab.models');
         Route::post('/lab/models/refresh', [ModelPolicyController::class, 'refresh'])->middleware('throttle:5,1')->name('lab.models.refresh');

@@ -1,0 +1,18 @@
+{
+  "provider": "groq",
+  "sources": {
+    "models-dev": {
+      "ok": true,
+      "note": "",
+      "data": {
+        "latest": "",
+        "entries": [
+          {
+            "id": "llama",
+            "title": "llama"
+          }
+        ]
+      }
+    }
+  }
+}
