@@ -8,6 +8,7 @@ const primary = [
     ['/lab/models', 'Models'],
     ['/lab/consensus', 'Consensus'],
     ['/lab/evidence', 'Evidence'],
+    ['/lab/drift', 'Drift'],
 ] as const;
 
 export function LabShell({ title, current, eyebrow, children }: { title: string; current: string; eyebrow?: string; children: ReactNode }) {

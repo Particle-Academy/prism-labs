@@ -1,0 +1,32 @@
+{
+  "generated_at": "2026-11-15T13:00:00Z",
+  "has_drift": true,
+  "compared": true,
+  "compared_sources": 8,
+  "uncompared_sources": 0,
+  "change_count": 3,
+  "changes": [
+    {
+      "provider": "openai",
+      "source": "openapi-spec",
+      "type": "added",
+      "subject": "commit c1",
+      "detail": "new release/commit/tag upstream"
+    },
+    {
+      "provider": "anthropic",
+      "source": "models-dev",
+      "type": "added",
+      "subject": "claude-x",
+      "detail": "new model exposed by the provider"
+    },
+    {
+      "provider": "mcp",
+      "source": "server-versions",
+      "type": "added",
+      "subject": "MCP schema 2026-07-28 is one of the 5 newest official versions",
+      "detail": "new release/commit/tag upstream"
+    }
+  ],
+  "dispatch": []
+}
