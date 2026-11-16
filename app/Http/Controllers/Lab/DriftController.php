@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Lab;
 
+use App\Billing\BillingPanel;
+use App\Billing\PriceMismatches;
 use App\Drift\ProviderWatchReader;
 use App\Drift\UpstreamDrift;
+use App\Drift\UpstreamPullRequests;
 use App\Http\Controllers\Controller;
 use Carbon\CarbonImmutable;
 use Inertia\Inertia;
@@ -37,6 +40,12 @@ final class DriftController extends Controller
         $data['overall'] = self::overall($data['latest'], $data['providers']);
         $data['baseline']['status'] = self::baselineStatus($data['baseline']['days']);
         $data['upstream'] = $upstream->read(is_array($upstreamWatch) ? $upstreamWatch : null);
+
+        // G-291: recorded vs billed, and configured vs catalogue prices. Not
+        // folded into `overall`, which is the watcher's drift verdict.
+        $data['billing'] = app(BillingPanel::class)->read(CarbonImmutable::now());
+        $data['prices'] = app(PriceMismatches::class)->read((string) config('lab.provider_watch_path'));
+        $data['upstreamPulls'] = app(UpstreamPullRequests::class)->read(CarbonImmutable::now());
 
         return $data;
     }
