@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Telemetry;
 
+use App\Billing\UsageRecorder;
 use Illuminate\Events\Dispatcher;
 use Prism\Prism\Events\Telemetry\GenerationCompleted;
 use Prism\Prism\Events\Telemetry\GenerationFailed;
@@ -16,7 +17,11 @@ final readonly class PrismTelemetrySubscriber
 {
     private const ERROR_EVENT = 'Prism\\Prism\\Events\\Telemetry\\GenerationErrored';
 
-    public function __construct(private OperationLedger $ledger) {}
+    /**
+     * The usage recorder (G-291) rides the same events: this subscriber is the
+     * one place every Prism provider call in the Lab process is observed.
+     */
+    public function __construct(private OperationLedger $ledger, private UsageRecorder $usage) {}
 
     public function subscribe(Dispatcher $events): void
     {
@@ -38,12 +43,14 @@ final readonly class PrismTelemetrySubscriber
     public function completed(GenerationCompleted $event): void
     {
         $this->ledger->completeGeneration($event->context, $event->durationMs, $event->usage, $event->finishReason?->value);
+        $this->usage->completed($event->context, $event->usage);
     }
 
     public function failed(GenerationFailed $event): void
     {
         $failureUsage = get_object_vars($event)['failureUsage'] ?? null;
         $this->ledger->failGeneration($event->context, $event->durationMs, $event->exception, is_object($failureUsage) ? $failureUsage : null);
+        $this->usage->failed($event->context, is_object($failureUsage) ? $failureUsage : null);
     }
 
     public function errored(object $event): void
@@ -58,6 +65,7 @@ final readonly class PrismTelemetrySubscriber
         if ($context instanceof TelemetryContext && is_float($duration)) {
             $failureUsage = $data['failureUsage'] ?? null;
             $this->ledger->errorGeneration($context, $duration, is_object($failureUsage) ? $failureUsage : null);
+            $this->usage->failed($context, is_object($failureUsage) ? $failureUsage : null);
         }
     }
 
@@ -67,6 +75,7 @@ final readonly class PrismTelemetrySubscriber
             'step_index' => $event->context->stepIndex,
             'finish_reason' => $event->finishReason?->value,
         ], $event->usage);
+        $this->usage->step($event->context);
     }
 
     public function tool(ToolInvoked $event): void

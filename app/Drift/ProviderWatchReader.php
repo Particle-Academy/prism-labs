@@ -185,6 +185,8 @@ class ProviderWatchReader
                     'source' => $c['source'],
                     'type' => $c['type'],
                     'subject' => $c['subject'],
+                    // e.g. "input 3.00→2.50 /Mtok" on a models-dev price change.
+                    'detail' => $c['detail'],
                     'contract' => self::isContract($c),
                 ], $own ?? []),
             ];
@@ -310,6 +312,49 @@ class ProviderWatchReader
             'committedAt' => $committed?->toIso8601String(),
             'days' => $committed === null ? null : (int) floor($committed->diffInDays($now, true)),
         ];
+    }
+
+    /**
+     * The watcher's latest models-dev price snapshot per provider (G-291),
+     * USD per million tokens: input, output, cache_read, cache_write, each a
+     * float or null ("not published", never free).
+     *
+     * A provider maps to null when its models-dev source is unreadable, failed
+     * its last poll, or predates price recording: none of those is "no prices".
+     *
+     * @return array<string, array<string, array<string, float|null>>|null>
+     */
+    public function catalogPrices(string $path): array
+    {
+        $prices = [];
+        foreach ($this->states($path) as $provider => $state) {
+            $source = $state['sources']['models-dev'] ?? null;
+            if (! is_array($source)) {
+                continue;
+            }
+            $snapshot = $source['data']['prices'] ?? null;
+            if (($source['ok'] ?? null) !== true || ! is_array($snapshot)) {
+                $prices[$provider] = null;
+
+                continue;
+            }
+            $models = [];
+            foreach ($snapshot as $model => $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                $fields = [];
+                foreach (['input', 'output', 'cache_read', 'cache_write'] as $field) {
+                    $value = $row[$field] ?? null;
+                    $fields[$field] = is_int($value) || is_float($value) ? (float) $value : null;
+                }
+                $models[(string) $model] = $fields;
+            }
+            $prices[$provider] = $models;
+        }
+        ksort($prices, SORT_STRING);
+
+        return $prices;
     }
 
     /** @return array<string, array<string, mixed>|null> */
