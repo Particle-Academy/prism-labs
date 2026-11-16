@@ -356,6 +356,8 @@ final class BillingCalibrationTest extends TestCase
     public function test_an_anthropic_day_past_the_refresh_point_is_unknown(): void
     {
         $this->disable('openai');
+        // Recording began well before both days, so only freshness decides.
+        $this->record('anthropic', 'claude-sonnet-5', 0, 0, 0, 0, 0.0, '2026-11-02');
         $this->fakeAnthropic([[self::DAY, 'claude-sonnet-5', 1, 0, 0, 0, 1, 1]], [[self::DAY, 'claude-sonnet-5', '1.000000']], refreshedAt: '2026-11-13T20:00:00Z');
 
         app(BillingReconciler::class)->run(CarbonImmutable::now());
@@ -363,6 +365,40 @@ final class BillingCalibrationTest extends TestCase
         $this->assertSame('unknown', $this->verdict('anthropic', '*', 'tokens'));
         $this->assertSame('billing_not_refreshed', DB::table('billing_reconciliations')->where('provider', 'anthropic')->whereDate('day', self::DAY)->value('reason'));
         $this->assertSame('ok', $this->verdict('anthropic', '*', 'tokens', '2026-11-12'), 'an earlier, refreshed day still compares');
+    }
+
+    public function test_a_billed_day_before_the_recorder_ever_wrote_is_unknown_not_red(): void
+    {
+        // The live failure: the recorder has written nothing, the provider billed
+        // real spend, and the panel called the day red against a recorded zero.
+        $this->disable('openai');
+        $this->fakeAnthropic([[self::DAY, 'claude-sonnet-5', 5000, 0, 0, 900, 1, 1]], [[self::DAY, 'claude-sonnet-5', '450.000000']]);
+
+        app(BillingReconciler::class)->run(CarbonImmutable::now());
+
+        foreach (['tokens', 'cost'] as $metric) {
+            $row = DB::table('billing_reconciliations')->where(['provider' => 'anthropic', 'model' => '*', 'metric' => $metric])->whereDate('day', self::DAY)->first();
+            $this->assertNotNull($row, $metric);
+            $this->assertSame('unknown', $row->status, $metric);
+            $this->assertSame('not_recording_yet', $row->reason, $metric);
+            $this->assertNull($row->recorded, "{$metric}: no recorded side, so no recorded zero");
+        }
+    }
+
+    public function test_recording_coverage_starts_at_the_first_recorded_day(): void
+    {
+        $this->disable('openai');
+        $this->record('anthropic', 'claude-sonnet-5', 0, 0, 0, 0, 0.0, '2026-11-12');
+        $this->fakeAnthropic(
+            [['2026-11-11', 'claude-sonnet-5', 5000, 0, 0, 900, 1, 1], ['2026-11-13', 'claude-sonnet-5', 5000, 0, 0, 900, 1, 1]],
+            [['2026-11-11', 'claude-sonnet-5', '450.000000'], ['2026-11-13', 'claude-sonnet-5', '450.000000']],
+        );
+
+        app(BillingReconciler::class)->run(CarbonImmutable::now());
+
+        $this->assertSame('unknown', $this->verdict('anthropic', '*', 'tokens', '2026-11-11'), 'before the recorder started');
+        $this->assertSame('flagged', $this->verdict('anthropic', '*', 'tokens', '2026-11-13'), 'after it started, unrecorded spend is drift');
+        $this->assertSame('flagged', $this->verdict('anthropic', '*', 'cost', '2026-11-13'));
     }
 
     public function test_recorded_cost_that_harness_could_not_price_is_unknown_not_compared(): void

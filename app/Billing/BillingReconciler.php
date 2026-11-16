@@ -74,10 +74,17 @@ final class BillingReconciler
             }
         }
 
+        // The recorded side only exists from the recorder's first row on. A day
+        // before it has no recorded side at all, so it is unknown, never zero:
+        // comparing it would flag every billed day before the Lab could record.
+        $recordingSince = DB::table('provider_usage_records')->min('day');
+        $recordingSince = $recordingSince === null ? null : CarbonImmutable::parse((string) $recordingSince, 'UTC')->toDateString();
+
         foreach ($days as $day) {
             $rows = match (true) {
                 $missing !== null => $this->blank('not_configured', $missing),
                 $period === null => $this->blank('unknown', $failure ?? 'fetch_failed'),
+                $recordingSince === null || $day < $recordingSince => $this->blank('unknown', 'not_recording_yet'),
                 default => $this->compareDay($provider, $day, $period),
             };
             $this->store($provider, $day, $rows, $now);
