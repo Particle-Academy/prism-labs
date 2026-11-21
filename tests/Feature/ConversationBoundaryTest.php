@@ -20,6 +20,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use Prism\Harness\Voice\VoiceExchange;
 use Prism\Prism\Audio\AudioResponse;
 use Prism\Prism\Audio\TextResponse as TranscriptResponse;
+use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Testing\TextResponseFake;
 use Prism\Prism\ValueObjects\GeneratedAudio;
@@ -93,16 +94,40 @@ final class ConversationBoundaryTest extends TestCase
         return [['provider', 'openai'], ['model', 'other-model'], ['feature', 'research'], ['prompt', 'Other question']];
     }
 
-    public function test_stale_session_model_mode_and_step_overrides_cannot_expand_this_chat(): void
+    #[DataProvider('chatStepBoundaries')]
+    public function test_stale_session_model_mode_and_step_overrides_cannot_expand_this_chat(int $ceiling, bool $continue, int $expectedCalls): void
     {
         app(LabSession::class)->resolveScope('lab:agent')->usingProvider('openai')->usingModel('stale-model')->usingMode('research')->usingMaxSteps(999);
-        config(['prism-harness.agent.max_steps_ceiling' => 3]);
-        $fake = Prism::fake([TextResponseFake::make()->withText('Owned answer')]);
+        config(['prism-harness.agent.max_steps_ceiling' => $ceiling]);
+        $responses = [];
+        // Leave responses beyond the ceiling available. A terminal sixth reply
+        // also keeps a ceiling-bypass mutant from failing by fake exhaustion.
+        for ($index = 0; $index < 6; $index++) {
+            $responses[] = TextResponseFake::make()->withText('Owned answer '.$index)
+                ->withFinishReason($continue && $index < 5 ? FinishReason::Pause : FinishReason::Stop);
+        }
+        $fake = Prism::fake($responses);
         $this->withApprovedLabRun('chat.run', $this->chatInput(), fn () => app(LabConversation::class)->chat(...array_values($this->chatInput())));
-        $fake->assertRequest(function (array $requests): void {
-            $this->assertSame('owned-model', $requests[0]->model());
-            $this->assertSame(3, $requests[0]->maxSteps());
+        $fake->assertCallCount($expectedCalls);
+        $fake->assertRequest(function (array $requests) use ($expectedCalls): void {
+            $this->assertCount($expectedCalls, $requests);
+            foreach ($requests as $request) {
+                $this->assertSame('owned-model', $request->model());
+                // Harness admits one call at a time; the aggregate count above
+                // proves the effective ceiling, independently of this shape.
+                $this->assertSame(1, $request->maxSteps());
+            }
         });
+        $state = app(LabSession::class)->resolveScope('lab:agent')->state();
+        $this->assertSame('anthropic', $state['provider']);
+        $this->assertSame('owned-model', $state['model']);
+        $this->assertSame('chat', $state['mode']);
+        $this->assertSame($ceiling, $state['max_steps']);
+    }
+
+    public static function chatStepBoundaries(): array
+    {
+        return ['continue-to-ceiling' => [3, true, 3], 'single-step-ceiling' => [1, true, 1], 'terminal-positive' => [3, false, 1]];
     }
 
     public function test_exact_voice_preserves_native_transcript_model_and_audio(): void

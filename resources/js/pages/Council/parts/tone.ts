@@ -41,6 +41,7 @@ export function severityTone(severity: string): Tone {
 export function sourceTone(source: string): Tone {
     if (source === 'census') return 'green';
     if (source === 'declared') return 'blue';
+    if (source === 'invited') return 'violet';
     return 'zinc';
 }
 

@@ -1,9 +1,28 @@
 import { Head, Link } from '@inertiajs/react';
-import { Badge, Button, Callout, Card, Heading, Input, Select, StatList, Table, Text } from '@particle-academy/react-fancy';
+import { Badge, Button, Callout, Card, Heading, Input, NumberField, Select, StatList, Table, Text } from '@particle-academy/react-fancy';
 import { useMemo, useState } from 'react';
-import { type ConsumerRow, type HostLink, send, type Summary, usePoll } from './parts/api';
+import { type ConsumerRow, type HostLink, type MemberRow, send, refusal, type Summary, usePoll } from './parts/api';
 import { navVariant } from './parts/nav';
-import { label, POLICIES, STATES, stateTone } from './parts/tone';
+import { label, POLICIES, sourceTone, STATES, stateTone } from './parts/tone';
+
+/** The invite API's answer: 201 a new member, 200 `invited: false` for a current one. */
+type InviteAnswer = { invited: boolean; member: MemberRow; consumer: ConsumerRow };
+
+/** name@workspace, as the API checks it. The server is the judge; this only words the mistake early. */
+const ADDRESS = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}@[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
+
+/** What an invitation answer means, in words. There is no accept/decline: only the census request and its answer. */
+function inviteMessage(answer: InviteAnswer): string {
+    const m = answer.member;
+    if (!answer.invited) return `${m.address} is already a member. Nothing was changed; set its weight or policy on its own page.`;
+    const request = m.census_request;
+
+    return `Invited ${m.address} (weight ${m.weight}, ${label(m.silence_policy)}). ${
+        request === null
+            ? 'No census request was queued.'
+            : `Its invitation, a census request, is ${request.delivery === 'sent' ? 'sent' : 'queued for the clerk to send over AgentInbox'}.`
+    } It is petitioned on nothing until it answers with its packages.`;
+}
 
 type Props = {
     changes: Summary[];
@@ -11,16 +30,19 @@ type Props = {
     filters: { state?: string; package?: string; class?: string };
     pollMs: number;
     host: HostLink;
+    /** Draw the Changes/Members row; false when the host renders the pages inside its own navigation. */
+    showNav?: boolean;
     /** Whether the hook allows `owner` for this viewer. Display only: the API asks again. */
     canSetPolicy: boolean;
-    endpoints: { changes: string; show: string; consumers: string; index: string; members: string };
+    /** `invite` (0.9.0): POST an invitation here. */
+    endpoints: { changes: string; show: string; consumers: string; index: string; members: string; invite: string };
 };
 
 /**
  * Council/Index: every Change, filterable, polled slowly. Built only from Fancy
  * components. Nothing here renders text as HTML.
  */
-export default function Index({ changes: initial, consumers: initialConsumers, filters, pollMs, host, canSetPolicy, endpoints }: Props) {
+export default function Index({ changes: initial, consumers: initialConsumers, filters, pollMs, host, showNav = true, canSetPolicy, endpoints }: Props) {
     const [state, setState] = useState(filters.state ?? '');
     const [pkg, setPkg] = useState(filters.package ?? '');
     const [cls, setCls] = useState(filters.class ?? '');
@@ -34,7 +56,44 @@ export default function Index({ changes: initial, consumers: initialConsumers, f
         if (answer.ok) {
             setConsumers((rows) => rows.map((row) => (row.address === address ? answer.json.consumer : row)));
         }
-        setMessage(answer.ok ? `Silence policy for ${address} saved.` : `Refused: ${answer.json.error?.code ?? answer.status}`);
+        setMessage(answer.ok ? `Silence policy for ${address} saved.` : refusal(answer));
+    };
+
+    // Inviting an agent (owner only). The API is the judge of every field; the
+    // step-up ceremony runs inside send() through the host's handler.
+    const [inviting, setInviting] = useState(false);
+    const [invite, setInvite] = useState<{ address: string; weight: number | null; policy: string; project: string }>({
+        address: '',
+        weight: 1,
+        policy: 'escalate',
+        project: '',
+    });
+    const [inviteBusy, setInviteBusy] = useState(false);
+    const submitInvite = async () => {
+        const address = invite.address.trim();
+        if (!ADDRESS.test(address)) {
+            setMessage('The address is name@workspace, as AgentInbox shows it (for example helper@my-workspace).');
+            return;
+        }
+        if (invite.weight === null || !Number.isInteger(invite.weight) || invite.weight < 0) {
+            setMessage('The weight is a whole number, 0 or more. 0 is advisory.');
+            return;
+        }
+        setInviteBusy(true);
+        const answer = await send<InviteAnswer>('POST', endpoints.invite, {
+            address,
+            weight: invite.weight,
+            silence_policy: invite.policy,
+            ...(invite.project.trim() !== '' ? { project_name: invite.project.trim() } : {}),
+        });
+        setInviteBusy(false);
+        if (answer.ok) {
+            const row = answer.json.consumer;
+            setConsumers((rows) => (rows.some((r) => r.address === row.address) ? rows : [...rows, row].sort((a, b) => a.address.localeCompare(b.address))));
+            setInviting(false);
+            setInvite({ address: '', weight: 1, policy: 'escalate', project: '' });
+        }
+        setMessage(answer.ok ? inviteMessage(answer.json) : refusal(answer));
     };
 
     const query = new URLSearchParams({ ...(state ? { state } : {}), ...(pkg ? { package: pkg } : {}), ...(cls ? { class: cls } : {}) }).toString();
@@ -69,12 +128,16 @@ export default function Index({ changes: initial, consumers: initialConsumers, f
                                     {host.label}
                                 </Button>
                             )}
-                            <Button data-action="council-nav-changes" href={endpoints.index} as={Link} variant={navVariant('changes', 'changes')} size="sm" id="council-nav-changes">
-                                Changes
-                            </Button>
-                            <Button data-action="council-nav-members" href={endpoints.members} as={Link} variant={navVariant('changes', 'members')} size="sm" id="council-nav-members">
-                                Members
-                            </Button>
+                            {showNav && (
+                                <>
+                                    <Button data-action="council-nav-changes" href={endpoints.index} as={Link} variant={navVariant('changes', 'changes')} size="sm" id="council-nav-changes">
+                                        Changes
+                                    </Button>
+                                    <Button data-action="council-nav-members" href={endpoints.members} as={Link} variant={navVariant('changes', 'members')} size="sm" id="council-nav-members">
+                                        Members
+                                    </Button>
+                                </>
+                            )}
                         </div>
                         <Heading as="h1" size="2xl" weight="semibold">
                             Change council
@@ -241,13 +304,76 @@ export default function Index({ changes: initial, consumers: initialConsumers, f
 
                 <Card>
                     <Card.Body className="space-y-3">
-                        <Heading as="h2" size="lg" weight="semibold">
-                            Consumers
-                        </Heading>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <Heading as="h2" size="lg" weight="semibold">
+                                Consumers
+                            </Heading>
+                            {canSetPolicy && (
+                                <Button data-action="invite-agent" id="council-invite-agent" size="sm" variant={inviting ? 'ghost' : 'default'} onClick={() => setInviting((v) => !v)}>
+                                    Invite agent
+                                </Button>
+                            )}
+                        </div>
                         <Text color="muted" size="sm">
                             Who gets petitioned, and what happens when a required voter stays silent. The policy here applies to every Change; a
                             Change's own page can override it for that Change only.
                         </Text>
+                        {canSetPolicy && inviting && (
+                            <Card data-testid="council-invite">
+                                <Card.Body className="space-y-3">
+                                    <Text size="sm">
+                                        Adds the agent to the council and queues a census request to it, which the clerk sends over AgentInbox. Its answer
+                                        lists the packages it installs, and those decide which Changes it is required to vote on. Until it answers it is
+                                        petitioned on nothing. You confirm with your passkey.
+                                    </Text>
+                                    <div className="grid gap-3 md:grid-cols-2">
+                                        <Input
+                                            data-field="invite-address"
+                                            id="council-invite-address"
+                                            label="Agent address"
+                                            description="name@workspace, as AgentInbox shows it."
+                                            placeholder="helper@my-workspace"
+                                            value={invite.address}
+                                            onValueChange={(address) => setInvite((v) => ({ ...v, address }))}
+                                        />
+                                        <Input
+                                            data-field="invite-project-name"
+                                            id="council-invite-project-name"
+                                            label="Project (optional)"
+                                            placeholder="What the agent's app is called"
+                                            value={invite.project}
+                                            onValueChange={(project) => setInvite((v) => ({ ...v, project }))}
+                                        />
+                                        <NumberField
+                                            data-field="invite-weight"
+                                            id="council-invite-weight"
+                                            label="Weight"
+                                            description="Its share of a blocking conflict. 0 is advisory."
+                                            min={0}
+                                            step={1}
+                                            value={invite.weight}
+                                            onValueChange={(weight) => setInvite((v) => ({ ...v, weight }))}
+                                        />
+                                        <Select
+                                            data-field="invite-silence-policy"
+                                            id="council-invite-silence-policy"
+                                            label="When it stays silent"
+                                            value={invite.policy}
+                                            onValueChange={(policy) => setInvite((v) => ({ ...v, policy }))}
+                                            list={POLICIES}
+                                        />
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <Button data-action="submit-invite" id="council-submit-invite" onClick={() => void submitInvite()} loading={inviteBusy} disabled={inviteBusy}>
+                                            Invite
+                                        </Button>
+                                        <Button data-action="cancel-invite" id="council-cancel-invite" variant="ghost" onClick={() => setInviting(false)} disabled={inviteBusy}>
+                                            Cancel
+                                        </Button>
+                                    </div>
+                                </Card.Body>
+                            </Card>
+                        )}
                         <Table className="overflow-x-auto" data-testid="council-consumers">
                             <Table.Head>
                                 <Table.Row>
@@ -273,8 +399,8 @@ export default function Index({ changes: initial, consumers: initialConsumers, f
                                                         whitelisted
                                                     </Badge>
                                                 )}
-                                                <Badge color="slate" variant="outline" size="sm">
-                                                    {c.source}
+                                                <Badge color={sourceTone(c.source)} variant="outline" size="sm" data-source={c.source}>
+                                                    {c.source === 'invited' && c.census_at === null ? 'invited: no census yet' : c.source}
                                                 </Badge>
                                             </div>
                                         </Table.Cell>

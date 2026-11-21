@@ -127,6 +127,19 @@ return [
         'to' => 'prism@prism',
     ],
 
+    /*
+    | Genie stamps a raw message's `from` with the sender's agent id
+    | (`agent_<hex>`), not the `name@workspace` address a petition or census
+    | request went to. Map each member's agent id to its address here, or
+    | `council:ingest --genie-json` refuses its reply as `unmapped_agent`. A
+    | mapped id must still equal the petitioned address exactly. The package
+    | validates the map at boot. Empty by default: the Lab ingests no Genie
+    | votes today, and real agent ids are not committed here.
+    */
+    'genie' => [
+        'agent_addresses' => [],
+    ],
+
     // The optional routes: JSON API under {prefix}/api/v1 and the lab pages at
     // {prefix}. Every route asks the host's authorization hook (default: deny).
     'routes' => [

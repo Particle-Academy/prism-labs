@@ -102,6 +102,54 @@ final class CouncilLedgerIntegrationTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_a_genie_agent_id_sender_is_resolved_only_through_the_configured_map(): void
+    {
+        // Synthetic ids: the Lab commits no real Genie agent id.
+        $member = 'agent_00000000000000000000000000000001';
+        $stranger = 'agent_00000000000000000000000000000002';
+        $this->assertSame([], config('council.genie.agent_addresses'));
+        config(['council.whitelist.agents' => ['clerk@fixture'], 'council.origin' => 'prism']);
+        Consumer::query()->create([
+            'address' => 'consumer@fixture', 'packages' => [['ecosystem' => 'composer', 'name' => 'particle-academy/prism-harness', 'constraint' => '*']],
+            'watches' => [], 'source' => 'declared', 'silence_policy' => 'escalate', 'whitelisted' => false, 'internal' => false, 'census_at' => now(),
+        ]);
+        $this->assertSame(0, Artisan::call('council:propose', ['--file' => $this->input(json_encode($this->proposal(), JSON_THROW_ON_ERROR)), '--json' => true]));
+        $change = Change::query()->sole();
+        $this->assertSame(0, Artisan::call('council:petitions', ['--json' => true]));
+        $petition = Petition::query()->sole();
+        $this->assertSame(0, Artisan::call('council:petitions', ['--mark-sent' => $petition->id, '--result' => '{"ok":true,"messageId":"synthetic-send"}']));
+        $reply = $this->input("COUNCIL-REPLY v1\n".json_encode([
+            'change' => $change->ref, 'round' => 1, 'nonce' => $petition->nonce, 'digest' => $petition->round->approach_digest,
+            'verdict' => 'approve', 'impact' => [], 'alternative' => '', 'reason' => 'Synthetic consumer reply.',
+        ], JSON_THROW_ON_ERROR));
+
+        // Unmapped: the agent id is refused, and the refusal does not consume the message id.
+        $this->assertSame(0, Artisan::call('council:ingest', ['--from' => $member, '--message-id' => 'synthetic-agent-reply', '--file' => $reply]));
+        $this->assertStringContainsString('unmapped_agent', Artisan::output());
+        $this->assertSame(0, Vote::query()->where('status', 'counted')->count());
+
+        // Mapped to another address: the exact-sender check still refuses it.
+        config(['council.genie.agent_addresses' => [$member => 'consumer@fixture', $stranger => 'other@fixture']]);
+        $this->assertSame(0, Artisan::call('council:ingest', ['--from' => $stranger, '--message-id' => 'synthetic-agent-reply', '--file' => $reply]));
+        $this->assertStringContainsString('sender_mismatch', Artisan::output());
+        $this->assertSame(0, Vote::query()->where('status', 'counted')->count());
+
+        // Mapped to the petitioned address: the same message now counts, once.
+        $this->assertSame(0, Artisan::call('council:ingest', ['--from' => $member, '--message-id' => 'synthetic-agent-reply', '--file' => $reply]));
+        $this->assertStringContainsString('counted', Artisan::output());
+        $this->assertSame(1, Vote::query()->where('status', 'counted')->count());
+        $this->assertSame(0, Artisan::call('council:ingest', ['--from' => $member, '--message-id' => 'synthetic-agent-reply', '--file' => $reply]));
+        $this->assertStringContainsString('duplicate', Artisan::output());
+        $this->assertSame(1, Vote::query()->where('status', 'counted')->count());
+        $refusals = Vote::query()->where('genie_message_id', 'synthetic-agent-reply')->where('status', '!=', 'counted');
+        $this->assertSame(2, $refusals->count());
+        Http::assertNothingSent();
+        // DatabaseMigrations rolls back after this test, and the 0.9.1 down()
+        // cannot restore a unique genie_message_id over a refusal plus its
+        // accepted re-ingest (documented by the package). Remove the refusals.
+        $refusals->delete();
+    }
+
     public function test_seed_is_idempotent_and_does_not_rewrite_policy_whitelist_or_census(): void
     {
         $this->assertSame(0, Artisan::call('council:seed-consumers'));
@@ -215,6 +263,8 @@ final class CouncilLedgerIntegrationTest extends TestCase
             '2026_11_07_000000_add_council_members_weights_and_profiles',
             '2026_11_08_000000_add_council_removed_and_withdrawn',
             '2026_11_08_100000_create_council_census_tables',
+            // 0.9.1 indexes the census tables recreated above, so it belongs to the chain.
+            '2026_11_18_000000_council_replay_keys_on_accepted_messages',
         ];
         foreach ($names as $name) {
             $this->assertDatabaseHas('migrations', ['migration' => $name]);
