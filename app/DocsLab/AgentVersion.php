@@ -12,7 +12,7 @@ use Symfony\Component\Finder\Finder;
  * Which prism-agent-docs the lab is exercising, precisely enough to certify.
  *
  * The Lab installs the agent from the sibling working tree (a composer path
- * repository), so the version label alone ("dev-main as 0.1.2") and even the
+ * repository), so the version label alone ("dev-main as 0.1.5") and even the
  * commit reference can name code that is not what ran: the tree can carry
  * uncommitted edits. So a run also records `source_digest`, the sha256 over
  * every file the package ships (src/, resources/, composer.json), in path

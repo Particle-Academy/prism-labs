@@ -65,6 +65,18 @@ owner GO, and never in CI:
    `lab_call_reservations` against the intent's cap BEFORE it is sent, and
    settled at its real cost after. A call that would pass the cap is refused,
    the run stops, and nothing further is spent.
+4. When the run is over, passed, failed or aborted, the GO is **settled**
+   (`RunAuthority::settle`): its actual cost (settled calls at their charge, an
+   unsettled one at its worst case) stays allocated against the $5 session
+   limit, and the rest of the cap is released. Once, in one locked
+   transaction, and only when its `docs.lab` work row is finished. A settled
+   GO authorises nothing more. Only `cli.docs.run` is settleable
+   (`RunAuthority::SETTLEABLE`): its every paid call is on the ledger.
+
+GOs used before settlement existed kept their whole caps. `lab:settle-runs`
+lists them with what each would release; `lab:settle-runs --apply` settles them
+through the same path. It runs no SQL of its own, and a second run releases
+nothing.
 
 `lab:docs-run` cannot create, approve or widen an intent. Without a GO it
 prints `paid_call_not_authorised` and does nothing.
@@ -133,7 +145,7 @@ Format `prism-labs/docs-agent-certificate@1`, written to the table and to
   "sequence": 1,
   "previous": null,
   "issuer": "prism-labs",
-  "subject": { "package": "particle-academy/prism-agent-docs", "version": "0.1.2", "reference": "<commit>", "source_digest": "<sha256>" },
+  "subject": { "package": "particle-academy/prism-agent-docs", "version": "0.1.5", "reference": "<commit>", "source_digest": "<sha256>" },
   "evidence": {
     "run": "<run id>", "lane": "live", "intent": "<GO id>",
     "provider": "anthropic", "model": "...", "judge_model": "...", "cost_microusd": 123456,
@@ -168,6 +180,11 @@ to someone as evidence on its own, add a signature.
   approved run reserves and settles every call; the cap stops a run before an
   unaffordable call, both per scenario (harness budget) and across scenarios
   (the ledger); one GO, one plan, one run; a judge fail fails the scenario.
+- `RunSettlementTest`: a finished run releases its cap minus what it spent;
+  nothing is released twice; a run the cap stopped releases everything; an
+  aborted run is settled at what it spent; an unsettled call is kept at its
+  worst case; work in flight keeps the whole cap; `lab:settle-runs` lists
+  without changing and settles with `--apply`.
 - `FtqOwnerApprovalTest`: a GO recorded from an FTQ answer lets exactly one
   run; a second use, a wrong action, cap or plan, a reused question id and an
   expired GO are refused; local console only.

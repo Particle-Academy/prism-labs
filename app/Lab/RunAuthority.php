@@ -6,6 +6,7 @@ namespace App\Lab;
 
 use App\Benchmarks\CanonicalJson;
 use App\Models\LabAuthoritySession;
+use App\Models\LabPaidWork;
 use App\Models\LabRunIntent;
 use App\Models\User;
 use Closure;
@@ -18,6 +19,15 @@ use Illuminate\Validation\ValidationException;
 final readonly class RunAuthority
 {
     public const SESSION_LIMIT_MICROUSD = 5_000_000;
+
+    /**
+     * Actions whose every paid call is reserved and settled on
+     * lab_call_reservations, so the ledger IS the run's actual cost and the
+     * rest of the cap can be released when it finishes (settle()). An action
+     * is added only once that is shown for it; until then its GO keeps its
+     * whole cap, as before.
+     */
+    public const SETTLEABLE = ['cli.docs.run'];
 
     /** The recorded actor when the owner's consent arrived as a Genie ForceTheQuestion answer. */
     public const VIA_FTQ = 'owner via Genie FTQ';
@@ -209,6 +219,54 @@ final readonly class RunAuthority
             $intent->forceFill(['status' => 'revoked', 'revoked_at' => now()])->save();
 
             return $intent;
+        });
+    }
+
+    /**
+     * Settle a finished run at its actual cost and release the rest of its
+     * reservation (G-316: two docs-lab GOs that spent $0.26 and $0.28 kept
+     * their whole caps reserved, so $1 of the $5 session limit remained).
+     *
+     * Only for an action whose every paid call is metered on the reservation
+     * ledger (SETTLEABLE), and only once its run is over: consumed, running,
+     * and every paid-work row it bound finished, so nothing queued can still
+     * claim it. "Actual" is the ledger's own rule (LiveCostObserver::spentFor):
+     * settled calls at their charge, an unsettled call at its worst case. The
+     * reserve-before-call and settle-after accounting is unchanged; this only
+     * returns what the ledger shows was never spent.
+     *
+     * Idempotent, and nothing is released twice: the release and the
+     * `settled_at` stamp happen in one locked transaction, the stamp is a
+     * conditional write, and a settled intent returns unchanged. A settled
+     * intent is no longer `running`, so it authorises nothing more.
+     */
+    public function settle(string $id): LabRunIntent
+    {
+        return $this->locked($id, function (LabRunIntent $intent, LabAuthoritySession $session): LabRunIntent {
+            if ($intent->settled_at !== null) {
+                return $intent;
+            }
+            $this->require(in_array($intent->action, self::SETTLEABLE, true)
+                && $intent->status === 'running' && $intent->consumed_at !== null && $intent->revoked_at === null
+                && $intent->cap_microusd > 0 && $intent->cap_microusd <= self::SESSION_LIMIT_MICROUSD
+                && preg_match('/^[a-f0-9]{64}$/D', $intent->digest) === 1
+                && hash_equals($intent->digest, $this->digest($intent, $session)));
+            $this->assertGo($intent, $session);
+            $this->require(! LabPaidWork::query()->where('intent_id', $intent->id)->whereNull('finished_at')->exists());
+
+            $spent = 0;
+            foreach (DB::table('lab_call_reservations')->where('intent_id', $intent->id)->lockForUpdate()
+                ->get(['maximum_microusd', 'charged_microusd', 'settled_at']) as $row) {
+                $spent += (int) ($row->settled_at === null ? $row->maximum_microusd : $row->charged_microusd);
+            }
+            $this->require($spent >= 0 && $spent <= $intent->cap_microusd);
+
+            $updated = LabRunIntent::query()->whereKey($intent->id)->where('status', 'running')->whereNull('settled_at')
+                ->update(['status' => 'settled', 'settled_at' => now(), 'settled_microusd' => $spent, 'updated_at' => now()]);
+            $this->require($updated === 1);
+            $this->changeAllocation($session, $session->allocated_microusd - ($intent->cap_microusd - $spent));
+
+            return $intent->refresh();
         });
     }
 
