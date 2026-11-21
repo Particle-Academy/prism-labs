@@ -1,6 +1,6 @@
 {
     "id": "R2",
-    "version": 1,
+    "version": 2,
     "title": "Owner rule: the message is only \"The draft is ready.\" plus what could not be done",
     "origin": "Moic's owner, 2026-11-21 (G-316 owner rule 2)",
     "brief": "Change the heading to \"Proposal for Example Ltd\" and give the header different side margins from the body.",
@@ -14,7 +14,7 @@
         {"check": "limit_reported", "limit": "side-margins-shared"},
         {"check": "message", "ready": true, "limits": ["side-margins-shared"]}
     ],
-    "judge": "The heading now reads \"Proposal for Example Ltd\" and nothing else in the document changed. The person is told only that the draft is ready and that a Word header cannot have side margins different from the body, with the closest alternative offered; there is no description of what was built.",
+    "judge": "The heading now reads \"Proposal for Example Ltd\" and nothing else in the document changed. The person is told only that the draft is ready and, honestly, that THIS writer does not yet give the header side margins different from the body (never that Word, or a Word header, cannot), with a REAL alternative, one that would change the document: zero side margins for the whole page. Offering to keep the layout as it already is (the art inside the margins, as it is now) is not an alternative. The alternative is offered, not applied. There is no description of what was built. Source of truth, Fancy's corrected document parity matrix (prism envelope .ai/plans/docx-parity-matrix.md:42): \"Header art edge to edge while body keeps margins | Yes: anchored picture `wp:positionH relativeFrom=\"page\"`, or a negative `w:ind`/`w:tblInd` ... Pictures cannot (no anchor) and tables cannot (no `w:tblInd`)\"; and docx-parity-matrix.md:121: \"`side-margins-shared` | **last-word gap.** It is true that `w:pgMar` has one left/right pair per section. It is false that the header therefore cannot extend past them.\" So this is a gap in this writer (Fancy CC-fancy-0055), not something Word cannot do.",
     "scripted": [
         [
             {"tool": "report_limit", "arguments": {"limit": "side-margins-shared", "alternative": 1}},
