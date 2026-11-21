@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\ReconcileProviderBillingJob;
 use App\Lab\ApprovedCliRun;
 use App\Lab\BenchmarkStore;
 use App\Lab\PrismTestRegistry;
@@ -12,6 +13,10 @@ use Illuminate\Support\Facades\Schedule;
 // were missed or failed. Idempotent (dedup keys) so it can never double-count.
 // Requires the scheduler cron (`php artisan schedule:run`) and GITHUB_TOKEN.
 Schedule::command('gamification:backfill')->dailyAt('05:00')->withoutOverlapping();
+
+// G-291: recorded usage vs provider billing for every closed UTC day past the
+// grace period. Reads billing endpoints only; spends nothing.
+Schedule::job(new ReconcileProviderBillingJob)->dailyAt('07:00');
 
 // Local ledger arithmetic only. Feed push and the agent clerk are separate.
 Schedule::command('council:tally')->everyFifteenMinutes()->withoutOverlapping();

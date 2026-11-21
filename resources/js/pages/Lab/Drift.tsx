@@ -5,7 +5,7 @@ import { labBlurb } from '../../components/lab-nav';
 
 type Status = 'green' | 'amber' | 'red' | 'unknown';
 
-type ProviderChange = { source: string; type: string; subject: string; contract: boolean };
+type ProviderChange = { source: string; type: string; subject: string; detail: string; contract: boolean };
 
 type ProviderTile = {
     name: string;
@@ -19,6 +19,38 @@ type ProviderTile = {
 type Run = { generatedAt: string; changeCount: number; contractCount: number; catalogueCount: number };
 
 type WatchedCount = { count: number; lowerBound: boolean } | null;
+
+type Band = 'green' | 'amber' | 'red' | 'unknown' | 'not_configured';
+
+type BillingCell = { status: string; band: Band; reason: string | null; recorded: number | null; billed: number | null; deltaPercent: number | null };
+
+type BillingProvider = {
+    provider: string;
+    status: Band;
+    reason: string | null;
+    days: { day: string; band: Band; cost: BillingCell; tokens: BillingCell }[];
+};
+
+type PriceTile = {
+    provider: string;
+    model: string;
+    source: 'harness' | 'lab-list';
+    fields: { field: string; configured: number | null; catalogue: number }[];
+    reason: string | null;
+};
+
+type UpstreamPull = {
+    number: number;
+    title: string;
+    state: 'open' | 'merged' | 'closed';
+    createdAt: string;
+    updatedAt: string;
+    mergedAt: string | null;
+    url: string | null;
+    ageDays: number;
+    idleDays: number;
+    stale: boolean;
+};
 
 type Props = {
     overall: Status;
@@ -48,6 +80,30 @@ type Props = {
         forkRelease: string | null;
         openPulls: WatchedCount;
         openIssues: WatchedCount;
+    };
+    billing: {
+        thresholdPercent: number;
+        floorTokens: number;
+        floorUsd: number;
+        graceHours: number;
+        providers: BillingProvider[];
+    };
+    upstreamPulls: {
+        readable: boolean;
+        repo: string;
+        authors: string[];
+        counts: { open: number; merged: number; closed: number } | null;
+        mergeRate: number | null;
+        mergedPerWeek: number[];
+        lowerBound: boolean;
+        pulls: UpstreamPull[];
+    };
+    prices: {
+        status: 'ok' | 'mismatch' | 'unknown';
+        harnessConfiguredModels: number;
+        catalogueProviders: string[];
+        unreadableProviders: string[];
+        tiles: PriceTile[];
     };
 };
 
@@ -108,11 +164,140 @@ function ProviderCard({ tile }: { tile: ProviderTile }) {
                         {tile.changes.map((change, i) => (
                             <div key={i} className="flex items-start gap-2">
                                 <Badge color={change.contract ? 'red' : 'amber'} variant="outline" size="sm">{change.type === 'added' ? '+' : change.type === 'removed' ? '−' : '~'} {change.source}</Badge>
-                                <Text size="xs" color="muted" className="truncate" title={change.subject}>{change.subject}</Text>
+                                <Text size="xs" color="muted" className="truncate" title={change.detail ? `${change.subject} · ${change.detail}` : change.subject}>
+                                    {change.subject}{change.detail && <span className="font-mono"> · {change.detail}</span>}
+                                </Text>
                             </div>
                         ))}
                     </div>
                 )}
+            </Card.Body>
+        </Card>
+    );
+}
+
+const BAND_TONE: Record<Band, 'green' | 'amber' | 'red' | 'zinc' | 'slate'> = {
+    green: 'green',
+    amber: 'amber',
+    red: 'red',
+    unknown: 'zinc',
+    not_configured: 'slate',
+};
+
+const BAND_HEX: Record<Band, string> = { green: '#22c55e', amber: '#f59e0b', red: '#ef4444', unknown: '#a1a1aa', not_configured: '#94a3b8' };
+
+const BAND_LABEL: Record<Band, string> = { green: 'within', amber: 'approaching', red: 'flagged', unknown: UNKNOWN, not_configured: 'not configured' };
+
+function usd(value: number | null): string {
+    return value === null ? UNKNOWN : `$${value.toFixed(2)}`;
+}
+
+function cellText(label: string, cell: BillingCell, money: boolean): string {
+    if (cell.recorded === null || cell.billed === null) return `${label}: ${BAND_LABEL[cell.band]}${cell.reason ? ` (${cell.reason})` : ''}`;
+    const fmt = (v: number) => (money ? usd(v) : v.toLocaleString());
+    const pct = cell.deltaPercent === null ? 'billed 0' : `${cell.deltaPercent.toFixed(2)}%`;
+    return `${label}: recorded ${fmt(cell.recorded)} · billed ${fmt(cell.billed)} · Δ ${pct}`;
+}
+
+function BillingCard({ provider }: { provider: BillingProvider }) {
+    // Paired bars: recorded (slate) then billed, coloured by the day's cost
+    // delta. A day with no compared cost draws no bar: zero would be a reading.
+    const bars = provider.days.flatMap(d => (d.cost.recorded === null || d.cost.billed === null
+        ? []
+        : [
+            { label: `${d.day.slice(5)} rec`, value: d.cost.recorded, color: '#64748b' },
+            { label: `${d.day.slice(5)} billed`, value: d.cost.billed, color: BAND_HEX[d.cost.band] },
+        ]));
+    const notConfigured = provider.status === 'not_configured';
+
+    return (
+        <Card variant="outlined" padding="sm" data-testid={`billing-provider-${provider.provider}`} data-status={provider.status}>
+            <Card.Body className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                    <Text weight="semibold" className="font-mono">{provider.provider}</Text>
+                    <Badge color={BAND_TONE[provider.status]} variant="soft" size="sm" dot>
+                        {BAND_LABEL[provider.status]}{provider.reason ? ` · ${provider.reason}` : ''}
+                    </Badge>
+                </div>
+                {bars.length === 0
+                    ? <Badge color={notConfigured ? 'slate' : 'zinc'} variant="outline" size="sm">{notConfigured ? 'not configured' : `billed cost ${UNKNOWN}`}</Badge>
+                    : <Chart.Bar data={bars} height={160} />}
+                <div className="flex flex-wrap gap-1" data-testid={`billing-days-${provider.provider}`}>
+                    {provider.days.map(d => (
+                        <Tooltip key={d.day} content={`${d.day} · ${cellText('cost', d.cost, true)} · ${cellText('tokens', d.tokens, false)}`}>
+                            <Badge color={BAND_TONE[d.band]} variant="soft" size="sm" data-band={d.band}>{d.day.slice(5)}</Badge>
+                        </Tooltip>
+                    ))}
+                </div>
+            </Card.Body>
+        </Card>
+    );
+}
+
+function PriceTileCard({ tile }: { tile: PriceTile }) {
+    return (
+        <Card variant="outlined" padding="sm" data-testid={`price-mismatch-${tile.source}-${tile.provider}-${tile.model}`}>
+            <Card.Body className="space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                    <Text weight="semibold" className="truncate font-mono" title={tile.model}>{tile.model}</Text>
+                    <Badge color={tile.source === 'harness' ? 'red' : 'amber'} variant="outline" size="sm">{tile.source}</Badge>
+                </div>
+                <Text size="xs" color="muted">{tile.provider}</Text>
+                {tile.reason && <Badge color="zinc" variant="soft" size="sm">{tile.reason === 'not_in_catalogue' ? 'not in catalogue' : `catalogue ${UNKNOWN}`}</Badge>}
+                {tile.fields.map(f => (
+                    <Text key={f.field} size="xs" className="font-mono">
+                        {f.field} {f.configured === null ? 'unset' : f.configured.toFixed(2)} vs {f.catalogue.toFixed(2)} /Mtok
+                    </Text>
+                ))}
+            </Card.Body>
+        </Card>
+    );
+}
+
+const PR_TONE: Record<UpstreamPull['state'], 'green' | 'violet' | 'zinc'> = { open: 'green', merged: 'violet', closed: 'zinc' };
+
+function UpstreamPullsCard({ pulls }: { pulls: Props['upstreamPulls'] }) {
+    // Unknown, never zero: a failed search shows no counts at all.
+    const count = (value: number | undefined) => (pulls.counts === null || value === undefined ? UNKNOWN : `${value}${pulls.lowerBound ? '+' : ''}`);
+
+    return (
+        <Card className="mt-8" data-testid="drift-upstream-pulls">
+            <Card.Header>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                    <Heading as="h2" size="md">Our PRs to {pulls.repo}</Heading>
+                    <Text size="xs" color="muted">by {pulls.authors.length === 0 ? UNKNOWN : pulls.authors.join(', ')}</Text>
+                </div>
+            </Card.Header>
+            <Card.Body className="space-y-4">
+                <Grid cols={4} gap="md" responsive>
+                    <Stat value={count(pulls.counts?.open)} label="open" size="lg" />
+                    <Stat value={count(pulls.counts?.merged)} label="merged" size="lg" />
+                    <Stat value={count(pulls.counts?.closed)} label="closed unmerged" size="lg" />
+                    <div className="space-y-1">
+                        <Stat value={pulls.mergeRate === null ? (pulls.readable ? '—' : UNKNOWN) : `${pulls.mergeRate}%`} label="merge rate (of decided)" size="lg" />
+                        {pulls.readable && pulls.mergedPerWeek.length > 1 && (
+                            <Tooltip content={`merged, cumulative, last ${pulls.mergedPerWeek.length} weeks`}>
+                                <Chart.Sparkline data={pulls.mergedPerWeek} width={160} height={32} color="#8b5cf6" min={0} />
+                            </Tooltip>
+                        )}
+                    </div>
+                </Grid>
+                {!pulls.readable
+                    ? <Badge color="zinc" variant="soft">pull requests {UNKNOWN}</Badge>
+                    : (
+                        <div className="divide-y divide-[var(--k-hairline)]">
+                            {pulls.pulls.map(pr => (
+                                <div key={pr.number} className="flex flex-wrap items-center gap-2 py-1.5" data-testid={`upstream-pr-${pr.number}`} data-state={pr.state}>
+                                    <Badge color={PR_TONE[pr.state]} variant="soft" size="sm" dot>{pr.state}</Badge>
+                                    <Text size="sm" className="font-mono">#{pr.number}</Text>
+                                    <Text size="sm" className="min-w-0 flex-1 truncate" title={pr.title}>{pr.title}</Text>
+                                    <Badge color={pr.stale ? 'red' : 'slate'} variant="outline" size="sm">{pr.ageDays}d old{pr.stale ? ' · stale' : ''}</Badge>
+                                    <Badge color="slate" variant="outline" size="sm">{pr.idleDays}d since activity</Badge>
+                                    {pr.url && <Button href={pr.url} target="_blank" rel="noreferrer" variant="ghost" size="sm">GitHub ↗</Button>}
+                                </div>
+                            ))}
+                        </div>
+                    )}
             </Card.Body>
         </Card>
     );
@@ -133,7 +318,7 @@ function BigBadge({ status, children }: { status: Status; children: ReactNode })
 }
 
 export default function Drift(props: Props) {
-    const { overall, latest, providers, trend, mcp, baseline, upstream } = props;
+    const { overall, latest, providers, trend, mcp, baseline, upstream, upstreamPulls, billing, prices } = props;
 
     const runs = trend.runs;
     // react-fancy's StackedBar draws a tick for EVERY label and cannot thin
@@ -239,6 +424,46 @@ export default function Drift(props: Props) {
                         ))}
                     {mcp.unreadableServers.map(server => <Badge key={server} color="red" variant="outline" size="sm">{server} unreadable</Badge>)}
                 </Card.Body>
+            </Card>
+
+            <UpstreamPullsCard pulls={upstreamPulls} />
+
+            <Card className="mt-8" data-testid="drift-billing">
+                <Card.Header>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <Heading as="h2" size="md">Recorded vs billed</Heading>
+                        <Text size="xs" color="muted">
+                            last {billing.providers[0]?.days.length ?? 0} closed UTC days · flagged over {billing.thresholdPercent}% and {usd(billing.floorUsd)} / {billing.floorTokens.toLocaleString()} tokens · {billing.graceHours}h grace
+                        </Text>
+                    </div>
+                </Card.Header>
+                <Card.Body>
+                    <Grid cols={2} gap="md" responsive>
+                        {billing.providers.map(p => <BillingCard key={p.provider} provider={p} />)}
+                    </Grid>
+                </Card.Body>
+            </Card>
+
+            <Card className="mt-8" data-testid="drift-prices">
+                <Card.Header>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <Heading as="h2" size="md">Configured vs catalogue prices</Heading>
+                        <div className="flex flex-wrap gap-1">
+                            <Badge color={prices.status === 'ok' ? 'green' : prices.status === 'mismatch' ? 'red' : 'zinc'} variant="soft" size="sm" dot>
+                                {prices.status === 'unknown' ? `catalogue ${UNKNOWN}` : prices.status === 'ok' ? 'matching' : `${prices.tiles.length} mismatched`}
+                            </Badge>
+                            {prices.harnessConfiguredModels === 0 && <Badge color="slate" variant="outline" size="sm">harness rates not configured</Badge>}
+                            {prices.unreadableProviders.map(p => <Badge key={p} color="zinc" variant="outline" size="sm">{p} prices {UNKNOWN}</Badge>)}
+                        </div>
+                    </div>
+                </Card.Header>
+                {prices.tiles.length > 0 && (
+                    <Card.Body>
+                        <Grid cols={4} gap="md" responsive>
+                            {prices.tiles.map(tile => <PriceTileCard key={`${tile.source}-${tile.provider}-${tile.model}`} tile={tile} />)}
+                        </Grid>
+                    </Card.Body>
+                )}
             </Card>
         </LabShell>
     );
