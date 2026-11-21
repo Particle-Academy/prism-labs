@@ -1,0 +1,32 @@
+{
+  "generated_at": "2026-11-14T13:00:00Z",
+  "has_drift": true,
+  "compared": true,
+  "compared_sources": 8,
+  "uncompared_sources": 0,
+  "change_count": 3,
+  "changes": [
+    {
+      "provider": "openai",
+      "source": "openapi-spec",
+      "type": "added",
+      "subject": "commit c0",
+      "detail": ""
+    },
+    {
+      "provider": "mcp",
+      "source": "server-versions",
+      "type": "added",
+      "subject": "prism-mcp-ts does not serve MCP 2026-07-28, one of the 5 newest official versions (standing rule: support all of them)",
+      "detail": ""
+    },
+    {
+      "provider": "anthropic",
+      "source": "models-dev",
+      "type": "added",
+      "subject": "claude-x",
+      "detail": ""
+    }
+  ],
+  "dispatch": []
+}

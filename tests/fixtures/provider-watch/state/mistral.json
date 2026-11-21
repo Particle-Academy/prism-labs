@@ -1,0 +1,13 @@
+{
+  "provider": "mistral",
+  "sources": {
+    "models-dev": {
+      "ok": false,
+      "note": "HTTP 503",
+      "data": {
+        "latest": "",
+        "entries": []
+      }
+    }
+  }
+}

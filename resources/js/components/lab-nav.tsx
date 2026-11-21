@@ -73,6 +73,11 @@ export const LAB_SECTIONS: LabSection[] = [
         blurb: 'Latency and token cost across providers and models, tracked over time.',
     },
     {
+        href: '/lab/drift',
+        label: 'Drift',
+        blurb: 'Provider API drift from prism-provider-watch, MCP schema coverage, and how far our fork sits from upstream prism-php/prism.',
+    },
+    {
         href: '/lab/diagnostics',
         label: 'Diagnostics',
         blurb: 'Provider probes, raw telemetry, stored threads, and fixtures that support the Lab workflows.',

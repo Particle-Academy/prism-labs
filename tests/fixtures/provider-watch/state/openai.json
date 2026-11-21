@@ -1,0 +1,31 @@
+{
+  "provider": "openai",
+  "sources": {
+    "models-dev": {
+      "ok": true,
+      "note": "",
+      "data": {
+        "latest": "",
+        "entries": [
+          {
+            "id": "gpt-x",
+            "title": "gpt-x"
+          }
+        ]
+      }
+    },
+    "openapi-spec": {
+      "ok": true,
+      "note": "",
+      "data": {
+        "latest": "",
+        "entries": [
+          {
+            "id": "c1",
+            "title": "commit c1"
+          }
+        ]
+      }
+    }
+  }
+}

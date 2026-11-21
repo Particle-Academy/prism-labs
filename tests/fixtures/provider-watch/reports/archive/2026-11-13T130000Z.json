@@ -1,0 +1,25 @@
+{
+  "generated_at": "2026-11-13T13:00:00Z",
+  "has_drift": true,
+  "compared": true,
+  "compared_sources": 8,
+  "uncompared_sources": 0,
+  "change_count": 2,
+  "changes": [
+    {
+      "provider": "groq",
+      "source": "models-dev",
+      "type": "removed",
+      "subject": "old",
+      "detail": ""
+    },
+    {
+      "provider": "groq",
+      "source": "models-dev",
+      "type": "added",
+      "subject": "new",
+      "detail": ""
+    }
+  ],
+  "dispatch": []
+}

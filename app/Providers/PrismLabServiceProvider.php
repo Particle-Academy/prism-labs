@@ -6,6 +6,7 @@ namespace App\Providers;
 
 use App\Benchmarks\BenchmarkLaneExecutor;
 use App\Benchmarks\WorkspaceToolset;
+use App\Billing\UsageRecorder;
 use App\Context\TableContextRecall;
 use App\Context\TableEvictionSink;
 use App\Docs\DocsLibrary;
@@ -94,6 +95,9 @@ final class PrismLabServiceProvider extends ServiceProvider
     /** Register the actual service factories without creating a telemetry exporter. */
     public function bindLocalServices(): void
     {
+        // G-291: holds per-trace step counts between StepCompleted and completion.
+        $this->app->singleton(UsageRecorder::class);
+
         $this->app->singleton(TrustPolicy::class, fn (): TrustPolicy => TrustPolicy::allowing(config('capabilities.human_plus.allowed_tools', [])));
         $this->app->singleton(RelayTransport::class, function (): RelayTransport {
             $unverified = (bool) config('capabilities.human_plus.allow_unverified_egress', false);
