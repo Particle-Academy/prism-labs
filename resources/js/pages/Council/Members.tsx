@@ -1,7 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
 import { Badge, Button, Callout, Card, Heading, NumberField, StatList, Table, Text } from '@particle-academy/react-fancy';
 import { useMemo, useState } from 'react';
-import { type HostLink, type MemberRow, send, type Threshold, usePoll } from './parts/api';
+import { type HostLink, type MemberRow, send, refusal, type Threshold, usePoll } from './parts/api';
 import { compare, navVariant, nextSort, type Sort } from './parts/nav';
 import { censusRequestLabel, label, sourceTone } from './parts/tone';
 
@@ -12,6 +12,8 @@ type Props = {
     former_members?: MemberRow[];
     pollMs: number;
     host: HostLink;
+    /** Draw the Changes/Members row; false when the host renders the pages inside its own navigation. */
+    showNav?: boolean;
     /** Whether the hook allows `owner` for this viewer. Display only: the API asks again. */
     canSetPolicy: boolean;
     endpoints: { index: string; members: string; api: string; threshold: string; show: string };
@@ -40,7 +42,7 @@ const SORTERS: Record<Key, (m: MemberRow) => string | number | null> = {
  * the owner removed are listed apart, under Former members. Built only from
  * Fancy components; every member string is rendered as text.
  */
-export default function Members({ members: initial, blocking_threshold, former_members = [], pollMs, host, canSetPolicy, endpoints }: Props) {
+export default function Members({ members: initial, blocking_threshold, former_members = [], pollMs, host, showNav = true, canSetPolicy, endpoints }: Props) {
     const [data, setData, pollError] = usePoll<{ members: MemberRow[]; blocking_threshold: Threshold; former_members?: MemberRow[] }>(
         endpoints.api,
         { members: initial, blocking_threshold, former_members },
@@ -78,7 +80,7 @@ export default function Members({ members: initial, blocking_threshold, former_m
         if (answer.ok) {
             setData({ ...data, blocking_threshold: answer.json.blocking_threshold });
         }
-        setMessage(answer.ok ? `Blocking threshold set to ${answer.json.blocking_threshold.value}.` : `Refused: ${answer.json.error?.code ?? answer.status}`);
+        setMessage(answer.ok ? `Blocking threshold set to ${answer.json.blocking_threshold.value}.` : refusal(answer));
     };
 
     const totalWeight = data.members.filter((m) => !m.internal).reduce((n, m) => n + m.weight, 0);
@@ -93,12 +95,16 @@ export default function Members({ members: initial, blocking_threshold, former_m
                             {host.label}
                         </Button>
                     )}
-                    <Button data-action="council-nav-changes" href={endpoints.index} as={Link} variant={navVariant('members', 'changes')} size="sm" id="council-nav-changes">
-                        Changes
-                    </Button>
-                    <Button data-action="council-nav-members" href={endpoints.members} as={Link} variant={navVariant('members', 'members')} size="sm" id="council-nav-members">
-                        Members
-                    </Button>
+                    {showNav && (
+                        <>
+                            <Button data-action="council-nav-changes" href={endpoints.index} as={Link} variant={navVariant('members', 'changes')} size="sm" id="council-nav-changes">
+                                Changes
+                            </Button>
+                            <Button data-action="council-nav-members" href={endpoints.members} as={Link} variant={navVariant('members', 'members')} size="sm" id="council-nav-members">
+                                Members
+                            </Button>
+                        </>
+                    )}
                 </div>
                 <div className="flex flex-wrap items-end justify-between gap-4">
                     <div>

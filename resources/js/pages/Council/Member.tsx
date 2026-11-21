@@ -1,7 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
 import { Badge, Button, Callout, Card, Heading, Input, NumberField, Select, StatList, Table, Text, Textarea } from '@particle-academy/react-fancy';
 import { useState } from 'react';
-import { type HostLink, type MemberDetail, type MemberRow, type RecordRow, send, usePoll } from './parts/api';
+import { type HostLink, type MemberDetail, type MemberRow, type RecordRow, send, refusal, usePoll } from './parts/api';
 import { navVariant, safeUrl } from './parts/nav';
 import { censusRequestLabel, label, POLICIES, severityTone, sourceTone, verdictTone } from './parts/tone';
 
@@ -9,6 +9,8 @@ type Props = {
     detail: MemberDetail;
     pollMs: number;
     host: HostLink;
+    /** Draw the Changes/Members row; false when the host renders the pages inside its own navigation. */
+    showNav?: boolean;
     /** Whether the hook allows `owner` for this viewer. Display only: each PUT asks again. */
     canSetPolicy: boolean;
     endpoints: { index: string; members: string; detail: string; consumers: string; show: string };
@@ -21,7 +23,7 @@ type Props = {
  * agent-supplied and rendered as text; the project URL becomes a link only when
  * it is absolute http or https.
  */
-export default function Member({ detail: initial, pollMs, host, canSetPolicy, endpoints }: Props) {
+export default function Member({ detail: initial, pollMs, host, showNav = true, canSetPolicy, endpoints }: Props) {
     const [detail, setDetail, pollError] = usePoll<MemberDetail>(endpoints.detail, initial, pollMs);
     const [message, setMessage] = useState<string | null>(null);
     const m = detail.member;
@@ -42,12 +44,16 @@ export default function Member({ detail: initial, pollMs, host, canSetPolicy, en
                             {host.label}
                         </Button>
                     )}
-                    <Button data-action="council-nav-changes" href={endpoints.index} as={Link} variant={navVariant('members', 'changes')} size="sm" id="council-nav-changes">
-                        Changes
-                    </Button>
-                    <Button data-action="council-nav-members" href={endpoints.members} as={Link} variant={navVariant('members', 'members')} size="sm" id="council-nav-members">
-                        Members
-                    </Button>
+                    {showNav && (
+                        <>
+                            <Button data-action="council-nav-changes" href={endpoints.index} as={Link} variant={navVariant('members', 'changes')} size="sm" id="council-nav-changes">
+                                Changes
+                            </Button>
+                            <Button data-action="council-nav-members" href={endpoints.members} as={Link} variant={navVariant('members', 'members')} size="sm" id="council-nav-members">
+                                Members
+                            </Button>
+                        </>
+                    )}
                 </div>
 
                 <div className="flex flex-wrap items-end justify-between gap-4">
@@ -328,7 +334,7 @@ function OwnerControls({
         const answer = await send<{ member?: MemberRow; consumer?: unknown }>(method, path, body);
         setBusy(null);
         if (!answer.ok) {
-            onRefused(`Refused: ${answer.json.error?.code ?? answer.status}`);
+            onRefused(refusal(answer));
             return false;
         }
         if (answer.json.member) onSaved(answer.json.member, done);

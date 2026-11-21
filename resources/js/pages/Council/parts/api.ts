@@ -218,8 +218,60 @@ function xsrf(): Record<string, string> {
     return cookie ? { 'X-XSRF-TOKEN': decodeURIComponent(cookie.slice('XSRF-TOKEN='.length)) } : {};
 }
 
-/** Never throws: a request that did not arrive is status 0 with an error code. */
+/** The owner action a step-up challenge is bound to, as the API reports it. */
+export type StepUpAction = { action: string; ref: string | null; address: string | null; params: Record<string, unknown>; digest: string };
+
+/**
+ * A host's step-up ceremony (a passkey, a TOTP...): given the API's challenge
+ * and the action it is bound to, resolve the proof to send, or null to give up.
+ */
+export type StepUpHandler = (challenge: Record<string, unknown>, action: StepUpAction) => Promise<Record<string, unknown> | null>;
+
+let stepUpHandler: StepUpHandler | null = null;
+
+/** Set (or clear) the host's step-up handler. With none, a 428 comes back as is. */
+export function setStepUpHandler(handler: StepUpHandler | null): void {
+    stepUpHandler = handler;
+}
+
+/** A refused answer in words, for the pages' messages. */
+export function refusal(answer: Answer<unknown>): string {
+    const error = answer.json.error;
+    const code = error?.code ?? `http_${answer.status}`;
+    if (code === 'step_up_required') {
+        // A host may say what to do (enrol a passkey first, say) in its challenge.
+        const hint = (error?.step_up as { message?: unknown } | undefined)?.message;
+        return `Refused: this owner action needs a step-up confirmation, and none was given.${typeof hint === 'string' && hint !== '' ? ` ${hint}` : ''}`;
+    }
+    if (code === 'step_up_failed') return `Refused: the step-up confirmation was not accepted (${String(error?.reason ?? 'unknown')}).`;
+
+    return `Refused: ${code}`;
+}
+
+/**
+ * Never throws: a request that did not arrive is status 0 with an error code.
+ * A 428 `step_up_required` goes to the host's handler (setStepUpHandler) and the
+ * request is re-sent ONCE with `step_up: proof`; with no handler, or a handler
+ * that gives up or throws, the 428 is returned.
+ */
 export async function send<T>(method: 'GET' | 'POST' | 'PUT', url: string, body?: unknown): Promise<Answer<T>> {
+    const answer = await sendOnce<T>(method, url, body);
+    const error = answer.json.error;
+    if (method === 'GET' || answer.status !== 428 || error?.code !== 'step_up_required' || stepUpHandler === null) {
+        return answer;
+    }
+    let proof: Record<string, unknown> | null = null;
+    try {
+        proof = await stepUpHandler((error.step_up ?? {}) as Record<string, unknown>, error.action as StepUpAction);
+    } catch {
+        proof = null;
+    }
+    if (proof === null) return answer;
+
+    return sendOnce<T>(method, url, { ...((body ?? {}) as Record<string, unknown>), step_up: proof });
+}
+
+async function sendOnce<T>(method: 'GET' | 'POST' | 'PUT', url: string, body?: unknown): Promise<Answer<T>> {
     try {
         const res = await fetch(url, {
             method,

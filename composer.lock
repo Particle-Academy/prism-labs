@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "f4945b592d0c3261ebaeac45f57834f1",
+    "content-hash": "f8aa45b8e225daf1f0b6518d2831873d",
     "packages": [
         {
             "name": "brick/math",
@@ -3313,16 +3313,16 @@
         },
         {
             "name": "particle-academy/change-council",
-            "version": "v0.7.2",
+            "version": "v0.9.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/Particle-Academy/change-council.git",
-                "reference": "f7fddd4189a0cc48975ffb395177cbc95005d673"
+                "reference": "1fab5fad0d9801c2947e2712171232a4e479252a"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Particle-Academy/change-council/zipball/f7fddd4189a0cc48975ffb395177cbc95005d673",
-                "reference": "f7fddd4189a0cc48975ffb395177cbc95005d673",
+                "url": "https://api.github.com/repos/Particle-Academy/change-council/zipball/1fab5fad0d9801c2947e2712171232a4e479252a",
+                "reference": "1fab5fad0d9801c2947e2712171232a4e479252a",
                 "shasum": ""
             },
             "require": {
@@ -3374,10 +3374,10 @@
             ],
             "support": {
                 "issues": "https://github.com/Particle-Academy/change-council/issues",
-                "source": "https://github.com/Particle-Academy/change-council/tree/v0.7.2"
+                "source": "https://github.com/Particle-Academy/change-council/tree/v0.9.1"
             },
-            "time": "2026-11-12T05:30:34+00:00",
-            "published-time": "2026-11-12T05:40:06+00:00"
+            "time": "2026-11-19T02:22:29+00:00",
+            "published-time": "2026-11-19T02:29:49+00:00"
         },
         {
             "name": "particle-academy/fancy-flow-php",

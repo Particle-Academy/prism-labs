@@ -137,10 +137,10 @@ final class CouncilOwnerBoundaryTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_all_twenty_one_package_routes_have_the_complete_host_boundary(): void
+    public function test_all_twenty_two_package_routes_have_the_complete_host_boundary(): void
     {
         $routes = array_filter(Route::getRoutes()->getRoutesByName(), fn (string $name): bool => str_starts_with($name, 'council.'), ARRAY_FILTER_USE_KEY);
-        $this->assertCount(21, $routes);
+        $this->assertCount(22, $routes);
         foreach ($routes as $name => $route) {
             $middleware = $route->gatherMiddleware();
             foreach (['web', EnsurePrismLabIsLocal::class, RequireLabOwner::class, RequireCouncilOwner::class, 'throttle:60,1'] as $guard) {
@@ -193,7 +193,7 @@ final class CouncilOwnerBoundaryTest extends TestCase
             ['POST', '/council/api/v1/changes/CC-prism-0001/owner/override'], ['POST', '/council/api/v1/changes/CC-prism-0001/owner/revoke'],
             ['PUT', '/council/api/v1/changes/CC-prism-0001/silence-policy'], ['PUT', '/council/api/v1/consumers/synthetic@fixture/silence-policy'],
             ['GET', '/council/members'], ['GET', '/council/members/synthetic@fixture'],
-            ['GET', '/council/api/v1/members'], ['GET', '/council/api/v1/members/synthetic@fixture'],
+            ['GET', '/council/api/v1/members'], ['POST', '/council/api/v1/members'], ['GET', '/council/api/v1/members/synthetic@fixture'],
             ['PUT', '/council/api/v1/members/synthetic@fixture/weight'], ['PUT', '/council/api/v1/members/synthetic@fixture/project'],
             ['POST', '/council/api/v1/members/synthetic@fixture/remove'], ['PUT', '/council/api/v1/settings/blocking-threshold'],
         ];
