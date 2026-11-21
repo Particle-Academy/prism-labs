@@ -145,7 +145,7 @@ Format `prism-labs/docs-agent-certificate@1`, written to the table and to
   "sequence": 1,
   "previous": null,
   "issuer": "prism-labs",
-  "subject": { "package": "particle-academy/prism-agent-docs", "version": "0.1.5", "reference": "<commit>", "source_digest": "<sha256>" },
+  "subject": { "package": "particle-academy/prism-agent-docs", "version": "0.1.6", "reference": "<commit>", "source_digest": "<sha256>" },
   "evidence": {
     "run": "<run id>", "lane": "live", "intent": "<GO id>",
     "provider": "anthropic", "model": "...", "judge_model": "...", "cost_microusd": 123456,

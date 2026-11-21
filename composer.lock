@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "f9591f35631e218fc8ca9ef69e025352",
+    "content-hash": "b7ffa0cc95b9647a614ae0dc7a3ee71b",
     "packages": [
         {
             "name": "brick/math",
@@ -3691,7 +3691,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-agent-docs",
-                "reference": "a43a670c1fa56a6e6ba3d4c3a71715dca1474df6"
+                "reference": "e3702a3a8ec632474b68e0fb0012d4bfdb92dcc6"
             },
             "require": {
                 "ext-xmlreader": "*",
@@ -11626,8 +11626,8 @@
         {
             "package": "particle-academy/prism-agent-docs",
             "version": "dev-main",
-            "alias": "0.1.5",
-            "alias_normalized": "0.1.5.0"
+            "alias": "0.1.6",
+            "alias_normalized": "0.1.6.0"
         },
         {
             "package": "particle-academy/prism-browser",

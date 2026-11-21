@@ -1,6 +1,6 @@
 {
     "id": "S4",
-    "version": 1,
+    "version": 2,
     "title": "No margins for the header: do what can be done, offer the rest",
     "origin": "Moic's 0.1.2 live re-run, 2026-11-21: 1 of 3 runs set margins.header to 0 (G-316 header-distance variance)",
     "brief": "Use no margins for the header.",
@@ -16,7 +16,7 @@
         {"check": "limit_reported", "limit": "side-margins-shared"},
         {"check": "message", "ready": true, "limits": ["side-margins-shared"], "done": ["page.margins.header"]}
     ],
-    "judge": "The expressible part is done: the header distance (how far the header sits from the top edge) is zero, so the header art starts at the top of the page. The inexpressible part is offered, not applied: the person is told a Word header shares its side margins with the body, and offered zero side margins for the whole page; the side margins are unchanged. The header pictures and the footer are kept.",
+    "judge": "The expressible part is done and disclosed: the header distance (how far the header sits from the top edge) is zero, so the header art starts at the top of the page, and the message says so. The inexpressible part is offered, not applied: the person is told honestly that THIS writer does not yet let the header art reach past the side margins while the body keeps them (never that Word, or a Word header, cannot), and offered a REAL alternative, one that would change the document: zero side margins for the whole page. Offering to keep the layout as it already is (the art inside the margins, as it is now) is not an alternative. The side margins are unchanged. The header pictures and the footer are kept. Source of truth, Fancy's corrected document parity matrix (prism envelope .ai/plans/docx-parity-matrix.md:42): \"Header art edge to edge while body keeps margins | Yes: anchored picture `wp:positionH relativeFrom=\"page\"`, or a negative `w:ind`/`w:tblInd` ... Pictures cannot (no anchor) and tables cannot (no `w:tblInd`)\"; and docx-parity-matrix.md:121: \"`side-margins-shared` | **last-word gap.** It is true that `w:pgMar` has one left/right pair per section. It is false that the header therefore cannot extend past them.\" So this is a gap in this writer (Fancy CC-fancy-0055), not something Word cannot do.",
     "scripted": [
         [
             {"tool": "report_limit", "arguments": {"limit": "side-margins-shared", "alternative": 0}},
