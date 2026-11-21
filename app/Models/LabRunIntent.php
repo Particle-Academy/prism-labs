@@ -19,6 +19,7 @@ final class LabRunIntent extends Model
             'expires_at' => 'immutable_datetime', 'approved_at' => 'immutable_datetime',
             'go_at' => 'immutable_datetime', 'consumed_at' => 'immutable_datetime', 'revoked_at' => 'immutable_datetime',
             'acp_host_claimed_at' => 'immutable_datetime', 'acp_prompt_claimed_at' => 'immutable_datetime',
+            'settled_at' => 'immutable_datetime', 'settled_microusd' => 'integer',
         ];
     }
 }

@@ -14,6 +14,7 @@ use App\Models\DocsLabRun;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Http;
 use LastWord\Agent;
+use Prism\AgentDocs\Limits\LimitCatalog;
 use Tests\Concerns\DocsLabDatabase;
 use Tests\TestCase;
 
@@ -74,7 +75,11 @@ final class ScriptedLaneTest extends TestCase
         $this->assertSame(['report_limit', 'write_draft'], array_column($result->calls, 'tool'));
         $this->assertTrue($result->calls[1]['ok']);
         $this->assertSame('ready', $result->outcome);
-        $this->assertStringStartsWith('The draft is ready. The header now starts at the top edge of the page. A Word page has one pair of side margins', (string) $result->message);
+        // The limit's words are the agent's catalogue's (prism-agent-docs 0.1.5
+        // re-labelled this one a writer gap: "This writer does not yet ..."),
+        // so the expectation is built from it, never copied.
+        $this->assertStringStartsWith('The draft is ready. The header now starts at the top edge of the page. '
+            .LimitCatalog::load()->get('side-margins-shared')->statement, (string) $result->message);
         $this->assertSame(1, DocsLabRun::query()->count());
     }
 
