@@ -1,0 +1,32 @@
+{
+    "id": "S2",
+    "version": 1,
+    "title": "An edit must not start from an empty draft",
+    "origin": "Moic, 2026-11-21 (G-316 scenario 2)",
+    "brief": "Make the logo in the header about twice as big.",
+    "store": {"saved": "header-letterhead", "draft": "empty"},
+    "expect": [
+        {"check": "outcome", "in": ["ready"]},
+        {"check": "shown", "contains": ["THE DOCUMENT TO REVISE", "image:picture-1 in /page/header", "image:picture-2 in /page/header"]},
+        {"check": "never_problem", "code": "image_unknown"},
+        {"check": "draft_written"},
+        {"check": "store_draft_is_result"},
+        {"check": "base_version_is_saved"},
+        {"check": "pictures", "part": "/page/header", "pictures": ["logo", "divider"]},
+        {"check": "band_kept", "band": "footer"},
+        {"check": "body_empty"},
+        {"check": "message", "ready": true, "limits": []}
+    ],
+    "judge": "The writer started from the SAVED letterhead, not the empty pending draft: the new draft still has both header pictures and the page-number footer, the logo is larger than before, and the empty draft has been replaced.",
+    "scripted": [
+        [{"tool": "write_draft", "arguments": {"document": {
+            "page": {
+                "header": {"blocks": [
+                    {"type": "image", "src": "image:picture-1", "widthPx": 192, "heightPx": 96},
+                    {"type": "image", "src": "image:picture-2"}
+                ]}
+            }
+        }}}],
+        "Done."
+    ]
+}

@@ -1,0 +1,21 @@
+{
+    "id": "S3",
+    "version": 1,
+    "title": "Asked for a layout the format can't express, say so",
+    "origin": "Moic, 2026-11-21 (G-316 scenario 3)",
+    "brief": "Use no margins for the header.",
+    "store": {"saved": "body-letterhead", "draft": null},
+    "expect": [
+        {"check": "outcome", "in": ["limit", "ready"]},
+        {"check": "limit_reported", "limit": "side-margins-shared"},
+        {"check": "message", "ready": "either", "limits": ["side-margins-shared"]},
+        {"check": "margin_kept", "names": ["left", "right", "top", "bottom"]},
+        {"check": "draft_changed_if_written"},
+        {"check": "max_model_calls", "max": 4}
+    ],
+    "judge": "Within one short turn the person is told plainly that a Word header cannot have side margins different from the body, and offered the closest alternative (zero side margins for the whole page, or the art kept inside the margins). The alternative is offered, not applied: the side margins are unchanged. No draft that changes nothing is presented as the change.",
+    "scripted": [
+        [{"tool": "report_limit", "arguments": {"limit": "side-margins-shared", "alternative": 0}}],
+        "Done."
+    ]
+}

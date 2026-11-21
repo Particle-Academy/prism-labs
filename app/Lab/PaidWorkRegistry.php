@@ -22,6 +22,7 @@ final readonly class PaidWorkRegistry
         'compaction.summary-loss' => ['benchmarks.summary-loss', 'cli.compaction-summary-loss'],
         'benchmark.run' => ['benchmarks.launch'], 'benchmark.lane' => ['benchmarks.launch'],
         'benchmark.score' => ['benchmarks.launch'], 'benchmark.commentary' => ['benchmarks.launch'],
+        'docs.lab' => ['cli.docs.run'],
     ];
 
     public function __construct(private PaidRunContext $context, private RunAuthority $authority, private RunScopeFactory $scopes) {}
@@ -180,6 +181,9 @@ final readonly class PaidWorkRegistry
                 && ($payload['trigger'] ?? null) === (int) ($input['trigger'] ?? 5000)
                 && ($payload['keep'] ?? null) === (int) ($input['keep'] ?? 3),
             'compaction.recall', 'compaction.summary-loss' => $parent === null && $key === $intent->id && $payload === [],
+            // G-316: one live docs-lab run per approval, bound to its frozen plan.
+            'docs.lab' => $parent === null && $key === $intent->id && is_array($intent->payload['docs'] ?? null)
+                && CanonicalJson::encode($payload) === CanonicalJson::encode($intent->payload['docs']),
             'benchmark.run' => $parent === null && ($payload['spec_id'] ?? null) === $intent->resource
                 && ($payload['spec_digest'] ?? null) === ($intent->payload['benchmark']['digest'] ?? null)
                 && $this->matchesApprovedMatrix($intent, $payload['lanes'] ?? null),

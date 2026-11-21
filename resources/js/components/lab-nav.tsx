@@ -78,6 +78,11 @@ export const LAB_SECTIONS: LabSection[] = [
         blurb: 'Provider API drift from prism-provider-watch, MCP schema coverage, and how far our fork sits from upstream prism-php/prism.',
     },
     {
+        href: '/lab/docs',
+        label: 'Docs agent',
+        blurb: 'The prism-agent-docs lab: Moic\'s scenarios and the owner\'s rules as data, a free scripted lane and an owner-approved live lane that write and re-read real .docx files, graded by structural checks and a model judge, with hash-chained certificates.',
+    },
+    {
         href: '/lab/diagnostics',
         label: 'Diagnostics',
         blurb: 'Provider probes, raw telemetry, stored threads, and fixtures that support the Lab workflows.',

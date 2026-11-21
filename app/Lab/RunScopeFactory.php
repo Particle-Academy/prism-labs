@@ -9,6 +9,7 @@ use App\Benchmarks\CanonicalJson;
 use App\Benchmarks\CompactionAuthority;
 use App\Benchmarks\FrozenTestDefinition;
 use App\Benchmarks\RsiLaneProfile;
+use App\DocsLab\LivePlan;
 use App\Learnings\Learning;
 use App\Learnings\LearningBacklog;
 use App\Models\AcpTurn;
@@ -71,6 +72,10 @@ final readonly class RunScopeFactory
         }
         if ($action === 'evidence.send') {
             $payload['nudge'] = app(Nudge::class)->approvalSnapshot(app(LearningBacklog::class)->open(), true);
+        }
+        if ($action === 'cli.docs.run') {
+            // G-316: the owner approves the exact live plan, not a label for it.
+            $payload['docs'] = LivePlan::snapshot($input);
         }
         if (($compaction = CompactionAuthority::snapshot($action, $input)) !== null) {
             $payload['compaction'] = $compaction;

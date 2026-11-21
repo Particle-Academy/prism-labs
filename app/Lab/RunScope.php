@@ -15,7 +15,7 @@ final readonly class RunScope
         'benchmarks.policy-turn', 'chat.run', 'agent.send', 'agent.voice', 'acp.send', 'tests.run',
         'benchmarks.launch', 'benchmarks.compaction-probe', 'benchmarks.compaction-recall',
         'benchmarks.summary-loss', 'team.nudge', 'evidence.send',
-        'cli.compaction-probe', 'cli.compaction-recall', 'cli.compaction-summary-loss', 'cli.tests.run',
+        'cli.compaction-probe', 'cli.compaction-recall', 'cli.compaction-summary-loss', 'cli.tests.run', 'cli.docs.run',
     ];
 
     /** @param array<string, mixed> $payload */
