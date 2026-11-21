@@ -112,6 +112,42 @@ would then accept whatever an attacker claimed. There is also an
 Both stay even though this app is never deployed. They are what keeps that
 true by construction rather than by intention.
 
+## Owner approval from a Genie question
+
+A paid CLI run needs the owner's GO. The usual place to give it is the Lab
+page that prepares the run (for the docs-agent lab, `/lab/docs`). The owner
+can also approve in Genie by answering a ForceTheQuestion (FTQ). The local
+operator then records that answer as the GO:
+
+```bash
+php artisan lab:approve-from-ftq --question=q_<uuid> --answer="You: approved" \
+    --action=cli.docs.run --cap-usd=2 --scenario=all --judge
+```
+
+The command freezes the same plan the page would freeze, then goes through the
+same `RunAuthority` draft, approve and GO steps. Every check still applies: the
+plan digest is re-derived when the run starts, the cap is reserved against the
+session limit, the GO expires after 15 minutes and works once. The command adds
+four rules of its own:
+
+- The cap is required. It must be the cap the question stated.
+- The question id, the answer text and the actor ("owner via Genie FTQ") are
+  stored on the intent.
+- A question id gets one GO. A second attempt is refused, and a unique index
+  enforces this too.
+- It runs only from the console, and only in the `local` environment. No HTTP
+  route can record one.
+
+**The trust trade-off.** The Lab cannot check an FTQ answer cryptographically.
+It does not know that the question exists, that the owner answered it, or that
+the answer said yes. This path trusts whoever runs it on this machine. That is
+the same trust anyone with shell access here already has: they could edit the
+database or the code. The command does not make the GO stronger than the
+operator's word. What it adds is a record: which question, which answer, which
+cap, and a refusal if the same answer is used twice. Use the page when the
+owner is at the Lab, and use this path only for an answer the owner actually
+gave.
+
 ## Change council
 
 The owner-only ledger is at `/council`; its single email must belong to the same

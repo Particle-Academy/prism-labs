@@ -9,6 +9,7 @@ use App\Models\LabAuthoritySession;
 use App\Models\LabRunIntent;
 use App\Models\User;
 use Closure;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -17,6 +18,12 @@ use Illuminate\Validation\ValidationException;
 final readonly class RunAuthority
 {
     public const SESSION_LIMIT_MICROUSD = 5_000_000;
+
+    /** The recorded actor when the owner's consent arrived as a Genie ForceTheQuestion answer. */
+    public const VIA_FTQ = 'owner via Genie FTQ';
+
+    /** A Genie ForceTheQuestion id: `q_` and a lowercase UUID. */
+    public const QUESTION_ID = '/\Aq_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/';
 
     public function __construct(private OwnerIdentity $identity, private SessionPreflight $preflight) {}
 
@@ -53,7 +60,57 @@ final readonly class RunAuthority
 
     public function draft(RunScope $scope, string $capUsd): LabRunIntent
     {
-        $owner = $this->identity->requireOwner();
+        return $this->draftFor($this->identity->requireOwner(), $scope, $capUsd);
+    }
+
+    public function approve(string $id, string $expectedDigest): LabRunIntent
+    {
+        return $this->approveFor($this->identity->requireOwner(), $id, $expectedDigest);
+    }
+
+    public function go(string $id, string $expectedDigest, string $capUsd, string $confirmation): LabRunIntent
+    {
+        return $this->goFor($this->identity->requireOwner(), $id, $expectedDigest, $capUsd, $confirmation);
+    }
+
+    /**
+     * The owner's answer to a Genie ForceTheQuestion, recorded from the local
+     * CLI as a draft, approval and GO for exactly this scope and cap. These are
+     * the same three steps the page takes, with every check they make; only
+     * the channel the owner's consent arrived through differs, and that is
+     * recorded on the row (approved_via, owner_question_id, owner_answer).
+     *
+     * The Lab cannot verify an FTQ answer cryptographically. This trusts the
+     * local operator, exactly as far as anyone with shell access is trusted.
+     */
+    public function goFromOwnerAnswer(RunScope $scope, string $capUsd, string $questionId, string $answer): LabRunIntent
+    {
+        $this->require(app()->runningInConsole() && app()->environment('local')
+            && preg_match(self::QUESTION_ID, $questionId) === 1 && mb_check_encoding($answer, 'UTF-8')
+            && trim($answer) !== '' && mb_strlen($answer) <= 2000);
+        $owner = $this->identity->configuredOwner();
+        $this->require($owner instanceof User && $this->identity->matches($owner));
+
+        try {
+            return DB::transaction(function () use ($owner, $scope, $capUsd, $questionId, $answer): LabRunIntent {
+                // One question, one GO, ever: a reused id is refused here and,
+                // under a race, by the unique index.
+                $this->require(! LabRunIntent::query()->where('owner_question_id', $questionId)->exists());
+                $intent = $this->draftFor($owner, $scope, $capUsd, [
+                    'approved_via' => self::VIA_FTQ, 'owner_question_id' => $questionId, 'owner_answer' => $answer,
+                ]);
+                $this->approveFor($owner, $intent->id, $intent->digest);
+
+                return $this->goFor($owner, $intent->id, $intent->digest, $capUsd, 'GO');
+            }, 3);
+        } catch (UniqueConstraintViolationException) {
+            throw new PaidRunNotAuthorised;
+        }
+    }
+
+    /** @param array<string, string> $audit how the owner's consent arrived; audit only, never part of the digest */
+    private function draftFor(User $owner, RunScope $scope, string $capUsd, array $audit = []): LabRunIntent
+    {
         $cap = $this->parseCap($capUsd);
         // The logical Lab session survives cookie rotation, logout and refresh.
         // There is deliberately no browser-controlled reset/new-session seam.
@@ -63,16 +120,15 @@ final readonly class RunAuthority
             'id' => (string) Str::uuid7(), 'authority_session_id' => $session->id,
             'action' => $scope->action, 'resource' => $scope->resource, 'payload' => $scope->payload,
             'cap_microusd' => $cap, 'expires_at' => now()->addMinutes(15)->startOfSecond(), 'status' => 'draft',
+            ...$audit,
         ]);
         $intent->forceFill(['digest' => $this->digest($intent, $session)])->save();
 
         return $intent;
     }
 
-    public function approve(string $id, string $expectedDigest): LabRunIntent
+    private function approveFor(User $owner, string $id, string $expectedDigest): LabRunIntent
     {
-        $owner = $this->identity->requireOwner();
-
         return $this->locked($id, function (LabRunIntent $intent, LabAuthoritySession $session) use ($owner, $expectedDigest): LabRunIntent {
             $this->assertFrozen($intent, $session, $expectedDigest);
             $this->require($intent->status === 'draft' && $session->owner_user_id === $owner->id);
@@ -83,9 +139,8 @@ final readonly class RunAuthority
         });
     }
 
-    public function go(string $id, string $expectedDigest, string $capUsd, string $confirmation): LabRunIntent
+    private function goFor(User $owner, string $id, string $expectedDigest, string $capUsd, string $confirmation): LabRunIntent
     {
-        $owner = $this->identity->requireOwner();
         $cap = $this->parseCap($capUsd);
 
         return $this->locked($id, function (LabRunIntent $intent, LabAuthoritySession $session) use ($owner, $expectedDigest, $cap, $confirmation): LabRunIntent {

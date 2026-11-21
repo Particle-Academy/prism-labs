@@ -66,8 +66,15 @@ owner GO, and never in CI:
    settled at its real cost after. A call that would pass the cap is refused,
    the run stops, and nothing further is spent.
 
-The CLI cannot create, approve or widen an intent; without a GO it prints
-`paid_call_not_authorised` and does nothing.
+`lab:docs-run` cannot create, approve or widen an intent. Without a GO it
+prints `paid_call_not_authorised` and does nothing.
+
+The owner can also approve in Genie, by answering a ForceTheQuestion. The local
+operator records that answer with `lab:approve-from-ftq --action=cli.docs.run`,
+using the same scenario, model, judge and cap options. The plan, the checks and
+the single 15-minute GO are the same as on the page. The question id and the
+answer are stored on the intent for audit. The Lab cannot verify the answer
+itself, so this trusts the local operator; see the README.
 
 ## Grading
 
@@ -161,6 +168,9 @@ to someone as evidence on its own, add a signature.
   approved run reserves and settles every call; the cap stops a run before an
   unaffordable call, both per scenario (harness budget) and across scenarios
   (the ledger); one GO, one plan, one run; a judge fail fails the scenario.
+- `FtqOwnerApprovalTest`: a GO recorded from an FTQ answer lets exactly one
+  run; a second use, a wrong action, cap or plan, a reused question id and an
+  expired GO are refused; local console only.
 - `CertificatesTest` and `DocsLabPageTest`.
 
 The live lane is only ever exercised with Prism's fake in tests.

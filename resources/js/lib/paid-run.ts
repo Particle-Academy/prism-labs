@@ -31,7 +31,10 @@ export function requestPaidRun(path: string, payload: Record<string, unknown>): 
     });
 }
 
-/** CLI actions a page may prepare an approval for. The CLI itself can never create or approve one. */
+/**
+ * CLI actions a page may prepare an approval for. The paid CLI commands cannot create or approve one.
+ * The exception is `lab:approve-from-ftq`, which records the owner's Genie answer through the same server checks.
+ */
 const cliActions = ['cli.docs.run'] as const;
 
 /**

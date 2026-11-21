@@ -24,7 +24,9 @@ use InvalidArgumentException;
  *   php artisan lab:docs-run --lane=live --judge --approved-run=<GO id>
  *
  * The live lane is PAID and refused without the owner's exact GO for this
- * plan (prepare it at /lab/docs). The CLI can neither create nor approve one.
+ * plan (prepare it at /lab/docs). This command can neither create nor approve
+ * one. The only other way to get one is `lab:approve-from-ftq`, which records the
+ * owner's answer to a Genie question through the same RunAuthority steps.
  */
 final class DocsRunCommand extends Command
 {
