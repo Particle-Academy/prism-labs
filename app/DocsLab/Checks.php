@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\DocsLab;
 
+use InvalidArgumentException;
 use LastWord\Agent;
 use Prism\AgentDocs\DocsResult;
 use Prism\AgentDocs\Limits\LimitCatalog;
@@ -60,11 +61,24 @@ final class Checks
     /**
      * Every sentence the agent may say for these limits, exactly.
      *
+     * `$done` names the doable parts (`expressible[*].path` in the catalogue)
+     * the draft must have made. Their `done` sentences, in the catalogue's
+     * words and the order given, go between "The draft is ready." and the
+     * offer, as the agent composes it. Only in a ready message, and only the
+     * parts named: a check that names none allows no done sentence at all, so
+     * a draft that quietly makes a change the scenario did not expect fails.
+     *
      * @param  list<string>  $limits
+     * @param  list<string>  $done
      * @return list<string>
      */
-    public function allowedMessages(bool|string $ready, array $limits): array
+    public function allowedMessages(bool|string $ready, array $limits, array $done = []): array
     {
+        $said = '';
+        foreach ($done as $path) {
+            $said .= ' '.$this->doneSentence($path, $limits);
+        }
+
         $notes = [''];
         foreach ($limits as $id) {
             $limit = $this->catalog->get($id);
@@ -79,14 +93,33 @@ final class Checks
         $out = [];
         foreach ($notes as $note) {
             if ($ready === true || $ready === 'either') {
-                $out[] = trim(DocsResult::READY.' '.$note);
+                $out[] = trim(DocsResult::READY.$said.' '.$note);
             }
-            if (($ready === false || $ready === 'either') && $note !== '') {
+            // No draft, nothing done: a message without a draft never carries a done sentence.
+            if (($ready === false || $ready === 'either') && $note !== '' && $done === []) {
                 $out[] = $note;
             }
         }
 
         return array_values(array_unique($out));
+    }
+
+    /**
+     * The catalogue's sentence for a doable part of one of these limits.
+     *
+     * @param  list<string>  $limits
+     */
+    private function doneSentence(string $path, array $limits): string
+    {
+        foreach ($limits as $id) {
+            foreach ($this->catalog->get($id)->expressible as $part) {
+                if ($part->path === $path) {
+                    return $part->done;
+                }
+            }
+        }
+
+        throw new InvalidArgumentException('No limit in ['.implode(', ', $limits)."] has a doable part at [{$path}].");
     }
 
     /**
@@ -191,7 +224,7 @@ final class Checks
                 return [$changed, $changed ? 'the draft differs from the working copy' : 'a draft that changes nothing'];
 
             case 'message':
-                $allowed = $this->allowedMessages($check['ready'], (array) $check['limits']);
+                $allowed = $this->allowedMessages($check['ready'], (array) $check['limits'], array_values(array_map('strval', (array) ($check['done'] ?? []))));
                 $message = $result?->message ?? '';
 
                 return [in_array($message, $allowed, true), 'said: '.($message === '' ? '(nothing)' : $message)];

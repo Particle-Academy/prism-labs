@@ -74,7 +74,7 @@ final class ScriptedLaneTest extends TestCase
         $this->assertSame(['report_limit', 'write_draft'], array_column($result->calls, 'tool'));
         $this->assertTrue($result->calls[1]['ok']);
         $this->assertSame('ready', $result->outcome);
-        $this->assertStringStartsWith('The draft is ready. A Word page has one pair of side margins', (string) $result->message);
+        $this->assertStringStartsWith('The draft is ready. The header now starts at the top edge of the page. A Word page has one pair of side margins', (string) $result->message);
         $this->assertSame(1, DocsLabRun::query()->count());
     }
 
