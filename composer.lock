@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "f8aa45b8e225daf1f0b6518d2831873d",
+    "content-hash": "77dc4ffb1a8c56171ddc17debdf5417d",
     "packages": [
         {
             "name": "brick/math",
@@ -3456,12 +3456,75 @@
             "published-time": "2026-11-04T22:05:19+00:00"
         },
         {
+            "name": "particle-academy/last-word",
+            "version": "v0.21.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/Particle-Academy/last-word.git",
+                "reference": "86e1ba8f06a280abfd86fc92a941129622ce8134"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/Particle-Academy/last-word/zipball/86e1ba8f06a280abfd86fc92a941129622ce8134",
+                "reference": "86e1ba8f06a280abfd86fc92a941129622ce8134",
+                "shasum": ""
+            },
+            "require": {
+                "ext-dom": "*",
+                "ext-libxml": "*",
+                "ext-zip": "*",
+                "php": "^8.4"
+            },
+            "require-dev": {
+                "particle-academy/fancy-conformance": "0.45.0",
+                "pestphp/pest": "^3.0|^4.0"
+            },
+            "bin": [
+                "bin/last-word"
+            ],
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "LastWord\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Particle Academy",
+                    "homepage": "https://github.com/Particle-Academy"
+                }
+            ],
+            "description": "Standalone word-processing document read/write tool for agentic docs. Framework-agnostic PHP core that writes .docx (Office Open XML / WordprocessingML) from a JSON document model — headings, styled runs, nested lists, tables, code blocks, quotes, embedded images — reads them back with high fidelity, and bridges to/from GFM markdown so WYSIWYG editors round-trip Word files without converter sandwiches.",
+            "homepage": "https://github.com/Particle-Academy/last-word",
+            "keywords": [
+                "agentic",
+                "ai",
+                "document",
+                "document-creation",
+                "docx",
+                "markdown",
+                "office",
+                "particle-academy",
+                "word"
+            ],
+            "support": {
+                "issues": "https://github.com/Particle-Academy/last-word/issues",
+                "source": "https://github.com/Particle-Academy/last-word"
+            },
+            "time": "2026-11-14T19:29:28+00:00",
+            "published-time": "2026-11-14T22:21:55+00:00"
+        },
+        {
             "name": "particle-academy/prism",
             "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "../prism",
-                "reference": "926ab21035d432964eadc5e27f981479c7b6e958"
+                "reference": "4092a6fe34cc41d7a18d93a0a6cc63cdedad94b3"
             },
             "require": {
                 "ext-fileinfo": "*",
@@ -3623,12 +3686,94 @@
             "published-time": "2026-11-16T19:54:22+00:00"
         },
         {
+            "name": "particle-academy/prism-agent-docs",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "../prism-agent-docs",
+                "reference": "ecd875b5ca0cdbfeb21d51c393a973749a3b9e48"
+            },
+            "require": {
+                "particle-academy/last-word": ">=0.21 <1.0",
+                "particle-academy/prism": ">=0.150 <1.0",
+                "particle-academy/prism-harness": ">=0.26.3 <1.0",
+                "php": "^8.4"
+            },
+            "require-dev": {
+                "laravel/pint": "^1.30",
+                "orchestra/testbench": "^10.0 || ^11.0",
+                "pestphp/pest": "^4.0",
+                "phpstan/phpstan": "^2.0",
+                "rector/rector": "^2.7"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Prism\\AgentDocs\\PrismAgentDocsServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Prism\\AgentDocs\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "@php vendor/bin/pest"
+                ],
+                "types": [
+                    "@php vendor/bin/phpstan analyse"
+                ],
+                "format": [
+                    "@php vendor/bin/pint"
+                ],
+                "rector": [
+                    "@php vendor/bin/rector process --dry-run"
+                ]
+            },
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Wish Born",
+                    "email": "wish@impact.do"
+                }
+            ],
+            "description": "A Word-document subagent for prism-harness: edits an existing .docx or creates one through Fancy's last-word writer, keeps every picture and the letterhead, knows the format's limits and checks its own output before handing back.",
+            "homepage": "https://github.com/Particle-Academy/prism-agent-docs",
+            "keywords": [
+                "agents",
+                "ai",
+                "docx",
+                "harness",
+                "last-word",
+                "prism",
+                "word"
+            ],
+            "support": {
+                "issues": "https://github.com/Particle-Academy/prism-agent-docs/issues",
+                "source": "https://github.com/Particle-Academy/prism-agent-docs"
+            },
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
             "name": "particle-academy/prism-browser",
             "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "../prism-browser",
-                "reference": "ba55113af09a3cf8f5941f283024e49080acfbc0"
+                "reference": "7b0c7301b373b7f6c45dce749f4aa1e6eba2ae24"
             },
             "require": {
                 "ext-filter": "*",
@@ -3692,7 +3837,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-harness",
-                "reference": "d9a91ee76a912eb8e710ba69cce8d391c6aa0efd"
+                "reference": "fa6481784f581cc64193c399598074cd19a977ea"
             },
             "require": {
                 "laravel/framework": "^12.69.0|^13.30.0",
@@ -3767,7 +3912,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-human-plus",
-                "reference": "6b69d530f52bf904a7ce9a337bc56678f89c69d0"
+                "reference": "9cb22613a50df4a4376843a405b32d2b21eb3c05"
             },
             "require": {
                 "ext-curl": "*",
@@ -11477,6 +11622,12 @@
             "alias_normalized": "0.150.0.0"
         },
         {
+            "package": "particle-academy/prism-agent-docs",
+            "version": "dev-main",
+            "alias": "0.1.2",
+            "alias_normalized": "0.1.2.0"
+        },
+        {
             "package": "particle-academy/prism-browser",
             "version": "dev-main",
             "alias": "0.4.2",
@@ -11522,6 +11673,7 @@
     "minimum-stability": "dev",
     "stability-flags": {
         "particle-academy/prism": 20,
+        "particle-academy/prism-agent-docs": 20,
         "particle-academy/prism-browser": 20,
         "particle-academy/prism-harness": 20,
         "particle-academy/prism-human-plus": 20,

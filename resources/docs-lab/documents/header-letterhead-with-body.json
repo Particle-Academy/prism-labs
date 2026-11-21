@@ -1,0 +1,16 @@
+{
+    "about": "Scenario 1's letterhead with a short letter in the body, for the owner's whole-rewrite rule.",
+    "document": {
+        "blocks": [
+            {"type": "paragraph", "runs": [{"text": "Dear Ms Example,"}]},
+            {"type": "paragraph", "runs": [{"text": "Thank you for your letter of 3 November."}]}
+        ],
+        "page": {
+            "header": {"blocks": [
+                {"type": "image", "src": "png:logo", "widthPx": 96, "heightPx": 48},
+                {"type": "image", "src": "png:divider"}
+            ]},
+            "footer": {"center": "{page}"}
+        }
+    }
+}

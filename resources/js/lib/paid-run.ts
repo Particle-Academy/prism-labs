@@ -31,6 +31,25 @@ export function requestPaidRun(path: string, payload: Record<string, unknown>): 
     });
 }
 
+/** CLI actions a page may prepare an approval for. The CLI itself can never create or approve one. */
+const cliActions = ['cli.docs.run'] as const;
+
+/**
+ * Open the same human approval surface for a paid CLI run, and resolve with the
+ * GO reference the owner then passes as `--approved-run`. Nothing is launched
+ * from the browser.
+ */
+export function requestCliRun(action: (typeof cliActions)[number], payload: Record<string, unknown>): Promise<string> {
+    if (!cliActions.includes(action)) return Promise.reject(new Error('This CLI action has no reviewed paid-run scope.'));
+    const snapshot = JSON.parse(JSON.stringify(payload)) as Record<string, unknown>;
+    return new Promise((resolve, reject) => {
+        const event = new CustomEvent<PaidRunRequest>('lab:paid-run-request', {
+            cancelable: true, detail: { action, resource: 'lab:agent', payload: snapshot, resolve, reject },
+        });
+        if (window.dispatchEvent(event)) reject(new Error('The human approval surface is unavailable. Reload the Lab.'));
+    });
+}
+
 export async function paidFetch(path: string, options: RequestInit): Promise<Response> {
     if (options.method?.toUpperCase() !== 'POST' || typeof options.body !== 'string') {
         throw new Error('Paid requests require an exact JSON POST body.');

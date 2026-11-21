@@ -9,6 +9,7 @@ use App\Http\Controllers\Lab\ChatController;
 use App\Http\Controllers\Lab\CockpitController;
 use App\Http\Controllers\Lab\CompactionProbeController;
 use App\Http\Controllers\Lab\ConsensusController;
+use App\Http\Controllers\Lab\DocsLabController;
 use App\Http\Controllers\Lab\DriftController;
 use App\Http\Controllers\Lab\EvidenceController;
 use App\Http\Controllers\Lab\HumanPlusFixtureController;
@@ -151,6 +152,15 @@ if (app()->environment('local')) {
         // Read-only: the provider watcher's files plus at most three cached,
         // unauthenticated GitHub calls. Throttled for GitHub's 60/hour, not cost.
         Route::get('/lab/drift', [DriftController::class, 'show'])->middleware('throttle:30,1')->name('lab.drift');
+        // G-316: the docs-agent lab. Free scripted runs only; the live lane is
+        // approved here (run-intents) and run by `lab:docs-run --approved-run`.
+        Route::get('/lab/docs', [DocsLabController::class, 'show'])->middleware('throttle:30,1')->name('lab.docs');
+        Route::middleware(RequireLabOwner::class)->group(function (): void {
+            Route::post('/lab/docs/scripted', [DocsLabController::class, 'scripted'])->middleware('throttle:6,1')->name('lab.docs.scripted');
+            Route::get('/lab/docs/runs/{run}/{scenario}/{artefact}', [DocsLabController::class, 'artefact'])
+                ->whereUuid('run')->where('scenario', '[A-Z][0-9]')->where('artefact', '[a-z]+[.](docx|json)')
+                ->middleware('throttle:60,1')->name('lab.docs.artefact');
+        });
         Route::get('/lab/telemetry', [TelemetryController::class, 'show'])->name('lab.telemetry');
         Route::get('/lab/models', [ModelPolicyController::class, 'show'])->name('lab.models');
         Route::post('/lab/models/refresh', [ModelPolicyController::class, 'refresh'])->middleware('throttle:5,1')->name('lab.models.refresh');

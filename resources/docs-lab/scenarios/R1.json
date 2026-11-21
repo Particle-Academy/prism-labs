@@ -1,0 +1,27 @@
+{
+    "id": "R1",
+    "version": 1,
+    "title": "Owner rule: a whole rewrite that says nothing of the header keeps it",
+    "origin": "Moic's owner, 2026-11-21 (G-316 owner rule 1)",
+    "brief": "Rewrite the letter: thank Ms Example for yesterday's meeting and confirm that the work starts on 4 December.",
+    "store": {"saved": "header-letterhead-with-body", "draft": null},
+    "expect": [
+        {"check": "outcome", "in": ["ready"]},
+        {"check": "draft_written"},
+        {"check": "band_kept", "band": "header"},
+        {"check": "band_kept", "band": "footer"},
+        {"check": "pictures", "part": "/page/header", "pictures": ["logo", "divider"]},
+        {"check": "body_changed"},
+        {"check": "text_present", "text": "4 December"},
+        {"check": "message", "ready": true, "limits": []}
+    ],
+    "judge": "The body is a new letter thanking Ms Example for the meeting and confirming a 4 December start. The letterhead header (logo and divider) and the page-number footer are exactly as they were, because the request said nothing about them.",
+    "scripted": [
+        [{"tool": "write_draft", "arguments": {"document": {"blocks": [
+            {"type": "paragraph", "runs": [{"text": "Dear Ms Example,"}]},
+            {"type": "paragraph", "runs": [{"text": "Thank you for meeting us yesterday."}]},
+            {"type": "paragraph", "runs": [{"text": "I am glad to confirm that the work starts on 4 December."}]}
+        ]}}}],
+        "Done."
+    ]
+}

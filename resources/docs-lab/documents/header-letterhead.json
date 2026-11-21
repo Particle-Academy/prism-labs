@@ -1,0 +1,13 @@
+{
+    "about": "Moic scenario 1: an empty body; the logo and the 576x5 divider in the page header; a centred page number in the footer.",
+    "document": {
+        "blocks": [],
+        "page": {
+            "header": {"blocks": [
+                {"type": "image", "src": "png:logo", "widthPx": 96, "heightPx": 48},
+                {"type": "image", "src": "png:divider"}
+            ]},
+            "footer": {"center": "{page}"}
+        }
+    }
+}

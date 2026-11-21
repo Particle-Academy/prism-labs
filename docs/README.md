@@ -26,6 +26,7 @@ The rule from the envelope README applies here more than anywhere:
 | [agent-guide.md](agent-guide.md) | How an agent drives it — the Overseer, and the tools it holds |
 | [benchmarks-and-probes.md](benchmarks-and-probes.md) | What each probe asks, and how to read a verdict |
 | [operations.md](operations.md) | Running it: services, workers, queues, and the failure modes that look like other bugs |
+| [docs-agent-lab.md](docs-agent-lab.md) | The prism-agent-docs lab (G-316): scenarios, lanes, grading, records and the certificate format |
 
 ## Where the other documentation is
 

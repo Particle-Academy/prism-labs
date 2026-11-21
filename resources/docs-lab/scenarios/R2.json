@@ -1,0 +1,39 @@
+{
+    "id": "R2",
+    "version": 1,
+    "title": "Owner rule: the message is only \"The draft is ready.\" plus what could not be done",
+    "origin": "Moic's owner, 2026-11-21 (G-316 owner rule 2)",
+    "brief": "Change the heading to \"Proposal for Example Ltd\" and give the header different side margins from the body.",
+    "store": {"saved": "body-letterhead", "draft": null},
+    "expect": [
+        {"check": "outcome", "in": ["ready"]},
+        {"check": "draft_written"},
+        {"check": "text_present", "text": "Proposal for Example Ltd"},
+        {"check": "margin_kept", "names": ["left", "right", "top", "bottom"]},
+        {"check": "pictures", "part": "/blocks", "pictures": ["logo", "divider"]},
+        {"check": "limit_reported", "limit": "side-margins-shared"},
+        {"check": "message", "ready": true, "limits": ["side-margins-shared"]}
+    ],
+    "judge": "The heading now reads \"Proposal for Example Ltd\" and nothing else in the document changed. The person is told only that the draft is ready and that a Word header cannot have side margins different from the body, with the closest alternative offered; there is no description of what was built.",
+    "scripted": [
+        [
+            {"tool": "report_limit", "arguments": {"limit": "side-margins-shared", "alternative": 1}},
+            {"tool": "write_draft", "arguments": {"document": {"blocks": [
+                {"type": "table", "rows": [
+                    {"cells": [
+                        {"blocks": [{"type": "image", "src": "image:picture-1", "widthPx": 96, "heightPx": 48}]},
+                        {"blocks": [
+                            {"type": "paragraph", "runs": [{"text": "Prepared for: Example Ltd"}]},
+                            {"type": "paragraph", "runs": [{"text": "Prepared by: Office of the CFO"}]},
+                            {"type": "paragraph", "runs": [{"text": "Date: 21 November 2026"}]}
+                        ]}
+                    ]}
+                ]},
+                {"type": "image", "src": "image:picture-2"},
+                {"type": "heading", "level": 1, "runs": [{"text": "Proposal for Example Ltd"}]},
+                {"type": "paragraph", "runs": [{"text": "This proposal sets out the work and its cost."}]}
+            ]}}}
+        ],
+        "Done."
+    ]
+}

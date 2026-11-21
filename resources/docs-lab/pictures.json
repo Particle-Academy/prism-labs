@@ -1,0 +1,7 @@
+{
+    "about": "Solid-colour PNGs, written byte by byte by App/DocsLab/Fixtures. No customer file: these reproduce only where Moic's letterhead keeps its pictures.",
+    "pictures": {
+        "logo": {"width": 8, "height": 4, "rgb": [200, 30, 30]},
+        "divider": {"width": 576, "height": 5, "rgb": [20, 40, 120]}
+    }
+}

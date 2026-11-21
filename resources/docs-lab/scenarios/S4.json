@@ -1,0 +1,27 @@
+{
+    "id": "S4",
+    "version": 1,
+    "title": "No margins for the header: do what can be done, offer the rest",
+    "origin": "Moic's 0.1.2 live re-run, 2026-11-21: 1 of 3 runs set margins.header to 0 (G-316 header-distance variance)",
+    "brief": "Use no margins for the header.",
+    "store": {"saved": "header-letterhead", "draft": null},
+    "expect": [
+        {"check": "outcome", "in": ["ready"]},
+        {"check": "draft_written"},
+        {"check": "margin", "name": "header", "equals": 0},
+        {"check": "margin_kept", "names": ["left", "right", "top", "bottom"]},
+        {"check": "band_kept", "band": "header"},
+        {"check": "band_kept", "band": "footer"},
+        {"check": "pictures", "part": "/page/header", "pictures": ["logo", "divider"]},
+        {"check": "limit_reported", "limit": "side-margins-shared"},
+        {"check": "message", "ready": true, "limits": ["side-margins-shared"]}
+    ],
+    "judge": "The expressible part is done: the header distance (how far the header sits from the top edge) is zero, so the header art starts at the top of the page. The inexpressible part is offered, not applied: the person is told a Word header shares its side margins with the body, and offered zero side margins for the whole page; the side margins are unchanged. The header pictures and the footer are kept.",
+    "scripted": [
+        [
+            {"tool": "report_limit", "arguments": {"limit": "side-margins-shared", "alternative": 0}},
+            {"tool": "write_draft", "arguments": {"document": {"page": {"margins": {"header": 0}}}}}
+        ],
+        "Done."
+    ]
+}
