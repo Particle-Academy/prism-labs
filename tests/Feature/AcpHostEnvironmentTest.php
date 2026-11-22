@@ -122,10 +122,13 @@ final class AcpHostEnvironmentTest extends TestCase
         $this->assertTrue($repository->set('APP_CONFIG_CACHE', $selector));
         $before = app()->make('config_loaded_from_cache');
         app()->instance('config_loaded_from_cache', true);
+        // Codex: a Claude scope also freezes the active /lab/accounts account, which is a database read, and this
+        // fixture's connection must never be queried. The runtime digest is built the same way for both providers.
+        $input = ['prompt' => 'owned prompt', 'model' => 'haiku', 'provider' => 'codex'];
         try {
-            $first = app(RunScopeFactory::class)->fromAction('acp.send', 'lab:agent', ['prompt' => 'owned prompt', 'model' => 'haiku']);
+            $first = app(RunScopeFactory::class)->fromAction('acp.send', 'lab:agent', $input);
             file_put_contents($cache, "\n// owned cache changed\n", FILE_APPEND);
-            $second = app(RunScopeFactory::class)->fromAction('acp.send', 'lab:agent', ['prompt' => 'owned prompt', 'model' => 'haiku']);
+            $second = app(RunScopeFactory::class)->fromAction('acp.send', 'lab:agent', $input);
             $this->assertNotSame($first->payload['runtime']['source_digest'], $second->payload['runtime']['source_digest']);
         } finally {
             $repository->clear('APP_CONFIG_CACHE');

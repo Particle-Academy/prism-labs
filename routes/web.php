@@ -6,6 +6,7 @@ use App\Http\Controllers\Lab\AgentReadinessController;
 use App\Http\Controllers\Lab\BenchmarkController;
 use App\Http\Controllers\Lab\CapabilityController;
 use App\Http\Controllers\Lab\ChatController;
+use App\Http\Controllers\Lab\ClaudeAccountController;
 use App\Http\Controllers\Lab\CockpitController;
 use App\Http\Controllers\Lab\CompactionProbeController;
 use App\Http\Controllers\Lab\ConsensusController;
@@ -140,6 +141,19 @@ if (app()->environment('local')) {
         Route::get('/lab/acp', [AcpController::class, 'show'])->name('lab.acp');
         Route::post('/lab/acp', [AcpController::class, 'send'])->middleware([RequireApprovedRun::class, 'throttle:10,1'])->name('lab.acp.send');
         Route::get('/lab/acp/turn/{turn}', [AcpController::class, 'turn'])->middleware('throttle:240,1')->name('lab.acp.turn');
+        // Claude accounts for the Lab's Claude launches (prism-acp's claudeAccounts API). Owner-only, POST + CSRF for
+        // every change; the sign-in runs on the overseer queue and the page polls its state.
+        Route::middleware(RequireLabOwner::class)->group(function (): void {
+            Route::get('/lab/accounts', [ClaudeAccountController::class, 'show'])->middleware('throttle:60,1')->name('lab.accounts');
+            Route::post('/lab/accounts', [ClaudeAccountController::class, 'store'])->middleware('throttle:10,1')->name('lab.accounts.store');
+            Route::post('/lab/accounts/check', [ClaudeAccountController::class, 'check'])->middleware('throttle:30,1')->name('lab.accounts.check');
+            Route::post('/lab/accounts/active', [ClaudeAccountController::class, 'activate'])->middleware('throttle:30,1')->name('lab.accounts.active');
+            Route::get('/lab/accounts/{account}/login', [ClaudeAccountController::class, 'login'])->middleware('throttle:240,1')->name('lab.accounts.login');
+            Route::post('/lab/accounts/{account}/login', [ClaudeAccountController::class, 'signIn'])->middleware('throttle:10,1')->name('lab.accounts.sign-in');
+            Route::post('/lab/accounts/{account}/login/cancel', [ClaudeAccountController::class, 'cancel'])->middleware('throttle:30,1')->name('lab.accounts.cancel');
+            Route::post('/lab/accounts/{account}/logout', [ClaudeAccountController::class, 'signOut'])->middleware('throttle:10,1')->name('lab.accounts.sign-out');
+            Route::post('/lab/accounts/{account}/shared', [ClaudeAccountController::class, 'shared'])->middleware('throttle:10,1')->name('lab.accounts.shared');
+        });
         Route::get('/lab/capabilities', [CapabilityController::class, 'status'])->name('lab.capabilities');
         Route::get('/lab/human-plus-fixture', [HumanPlusFixtureController::class, 'show'])->name('lab.human-plus-fixture');
         Route::post('/lab/capabilities/browser', [CapabilityController::class, 'openBrowser'])->middleware([RequireLabOwner::class, 'throttle:10,1'])->name('lab.capabilities.browser.open');
