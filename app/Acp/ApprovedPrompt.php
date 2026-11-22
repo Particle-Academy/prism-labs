@@ -65,6 +65,14 @@ final class ApprovedPrompt
         $this->promptClaimed = true;
     }
 
+    /** The Claude account the owner approved this turn under: its directory, or null for the CLI's default account. */
+    public function claudeConfigDir(): ?string
+    {
+        $dir = $this->scope->payload['acp']['claude_account']['config_dir'] ?? null;
+
+        return is_string($dir) && $dir !== '' ? $dir : null;
+    }
+
     public function assertModel(string $model): void
     {
         if (! hash_equals($this->model, $model)) {

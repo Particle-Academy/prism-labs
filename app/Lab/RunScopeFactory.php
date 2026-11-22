@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Lab;
 
+use App\Acp\Accounts\ClaudeAccountDirectory;
 use App\Benchmarks\BenchmarkDesigner;
 use App\Benchmarks\CanonicalJson;
 use App\Benchmarks\CompactionAuthority;
@@ -93,6 +94,11 @@ final readonly class RunScopeFactory
             $payload['acp'] = ['provider' => $provider, 'model' => $model, 'workspace' => (string) config('acp.workspace'),
                 'driver' => config('acp.'.$provider), 'turn_seconds' => config('acp.turn_seconds'),
                 'session_seconds' => config('acp.session_seconds'), 'resume_session_id' => null];
+            if ($provider === 'claude') {
+                // The account decides the billing, so it is part of what the owner approves: switching accounts at
+                // /lab/accounts after approval changes this scope, and the host then refuses the GO.
+                $payload['acp']['claude_account'] = app(ClaudeAccountDirectory::class)->activeSelection();
+            }
             if (isset($input['continue'])) {
                 $prior = is_string($input['continue']) && Str::isUuid($input['continue']) ? AcpTurn::query()->find($input['continue']) : null;
                 if (! $prior instanceof AcpTurn || $prior->isPending() || ($prior->provider ?? 'claude') !== $provider

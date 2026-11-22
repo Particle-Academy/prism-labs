@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Acp\Accounts\ClaudeAccountDirectory;
 use App\Acp\ApprovedDriver;
 use App\Acp\ApprovedPrompt;
 use App\Acp\ConversationCodexTransport;
@@ -73,6 +74,8 @@ final class AcpAgentCommand extends Command
             cwd: (string) config('acp.workspace'),
             binary: (string) config('acp.claude.binary'),
             binaryArgs: array_values(array_map('strval', (array) config('acp.claude.binary_args'))),
+            // The account chosen with "Make active" at /lab/accounts, as frozen into this turn's approval.
+            parentEnv: ClaudeAccountDirectory::launchEnvironment(getenv(), $approval->claudeConfigDir()),
             permissionMode: 'dontAsk',
             permissionPrompts: ['*'],
             model: $approval->model,

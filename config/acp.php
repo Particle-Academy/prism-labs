@@ -31,4 +31,17 @@ return [
     'turn_seconds' => (int) env('LAB_ACP_TURN_SECONDS', 300),
 
     'session_seconds' => (int) env('LAB_ACP_SESSION_SECONDS', 60),
+
+    // /lab/accounts: added Claude accounts, each a CLI configuration directory the Lab owns. The Lab stores a label,
+    // the directory and which one is active -- never a credential; the CLI keeps its own sign-in in that directory.
+    // The page reaches prism-acp's TypeScript `claudeAccounts` API through scripts/claude-accounts.mjs.
+    'accounts' => [
+        'directory' => env('LAB_CLAUDE_ACCOUNTS_DIRECTORY', storage_path('app/claude-accounts')),
+        'node' => env('LAB_NODE_BINARY', 'node'),
+        // The built TypeScript package, from the sibling working tree, as the Lab consumes every sibling.
+        'module' => env('LAB_PRISM_ACP_MODULE', dirname(base_path()).'/prism-acp-ts/dist/index.js'),
+        'login_seconds' => (int) env('LAB_CLAUDE_LOGIN_SECONDS', 600),
+        // Where a sign-in in progress keeps its state (the URL, then the outcome) between the worker and the page.
+        'login_store' => env('LAB_CLAUDE_LOGIN_STORE', 'file'),
+    ],
 ];
