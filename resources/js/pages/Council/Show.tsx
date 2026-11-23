@@ -2,6 +2,7 @@ import { Head, Link } from '@inertiajs/react';
 import { Badge, Button, Callout, Card, Checkbox, CodeView, Heading, Modal, Select, Table, Tabs, Text, Textarea, Timeline } from '@particle-academy/react-fancy';
 import { useState } from 'react';
 import { type Detail, type Finding, type HostLink, type PetitionRow, type Policy, type RoundRow, send, refusal, usePoll, type Vote } from './parts/api';
+import { AUDIT_FILTERS, type AuditEvent, type AuditFilter, type AuditGroup, describeAuditEvent, filterAuditEvents, rawAuditRecord } from './parts/audit';
 import { navVariant } from './parts/nav';
 import { label, POLICIES, severityTone, stateTone, verdictTone } from './parts/tone';
 
@@ -136,16 +137,7 @@ export default function Show({ detail: initial, pollMs, host, showNav = true, en
                             <SilencePolicies detail={detail} onSet={setPolicy} />
                         </Tabs.Panel>
                         <Tabs.Panel value="audit">
-                            <Timeline
-                                data-testid="council-audit"
-                                className="min-w-0 [overflow-wrap:anywhere]"
-                                events={detail.audit.map((e) => ({
-                                    date: e.at.replace('T', ' ').slice(0, 19),
-                                    title: `${e.type} - ${e.actor}`,
-                                    description: `#${e.seq} ${JSON.stringify(e.data)}  hash ${e.hash.slice(0, 12)}`,
-                                    color: e.actor.startsWith('owner:') ? 'violet' : e.type.includes('escalat') || e.type.includes('conflict') ? 'amber' : 'zinc',
-                                }))}
-                            />
+                            <AuditTrail events={detail.audit} />
                         </Tabs.Panel>
                     </Tabs.Panels>
                 </Tabs>
@@ -162,6 +154,134 @@ export default function Show({ detail: initial, pollMs, host, showNav = true, en
                     }}
                 />
             </div>
+        </>
+    );
+}
+
+const AUDIT_ACCENT: Record<AuditGroup, string> = {
+    decision: 'border-violet-500 dark:border-violet-400',
+    vote: 'border-blue-500 dark:border-blue-400',
+    system: 'border-zinc-200 dark:border-zinc-700',
+};
+
+/** The hash-chained log, readable: a filter, then one row per event. Nothing here writes. */
+function AuditTrail({ events }: { events: AuditEvent[] }) {
+    const [filter, setFilter] = useState<AuditFilter>('all');
+    const shown = filterAuditEvents(events, filter);
+    const count = (value: AuditFilter) => filterAuditEvents(events, value).length;
+
+    return (
+        <div className="min-w-0 space-y-4" data-surface="council-audit-trail" data-audit-filter={filter}>
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Filter the audit log">
+                {AUDIT_FILTERS.map((f) => (
+                    <Button data-action={`audit-filter-${f.value}`} key={f.value} id={`council-audit-filter-${f.value}`} size="sm" variant={filter === f.value ? 'default' : 'ghost'} aria-pressed={filter === f.value} onClick={() => setFilter(f.value)}>
+                        {f.label} ({count(f.value)})
+                    </Button>
+                ))}
+            </div>
+            {shown.length === 0 ? (
+                <Text color="muted">No events of this kind on this Change.</Text>
+            ) : (
+                <Timeline data-testid="council-audit" className="min-w-0 [overflow-wrap:anywhere]" animated={false}>
+                    {shown.map((event) => (
+                        <AuditRow key={event.seq} event={event} />
+                    ))}
+                </Timeline>
+            )}
+        </div>
+    );
+}
+
+function AuditRow({ event }: { event: AuditEvent }) {
+    const [open, setOpen] = useState(false);
+    const [rawOpen, setRawOpen] = useState(false);
+    const [copied, setCopied] = useState<'copied' | 'failed' | null>(null);
+    const view = describeAuditEvent(event);
+    const detailsId = `council-audit-details-${event.seq}`;
+    const rawId = `council-audit-raw-${event.seq}`;
+
+    const copy = async (value: string) => {
+        try {
+            await navigator.clipboard.writeText(value);
+            setCopied('copied');
+        } catch {
+            setCopied('failed');
+        }
+    };
+
+    return (
+        <Timeline.Item date={event.at.replace('T', ' ').slice(0, 19)} color={view.tone}>
+            <div className={`min-w-0 space-y-1 border-l-2 pl-3 ${AUDIT_ACCENT[view.group]}`} data-audit-row={event.seq} data-audit-type={event.type} data-audit-group={view.group} data-audit-quiet={view.quiet ? 'true' : undefined}>
+                <div className="flex flex-wrap items-center gap-2">
+                    <Text as="span" size="sm" weight={view.quiet ? 'normal' : 'semibold'} color={view.quiet ? 'muted' : 'default'}>
+                        {view.title}
+                    </Text>
+                    <Badge color={view.tone} variant="soft" size="sm" data-audit-status={view.status}>
+                        {view.status}
+                    </Badge>
+                </div>
+                <Text size="sm" color={view.quiet ? 'muted' : 'default'} className="whitespace-pre-wrap">
+                    {view.summary}
+                </Text>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <Text as="span" size="xs" color="muted" data-audit-actor={event.actor}>
+                        {event.actor}
+                    </Text>
+                    <Text as="span" size="xs" color="muted" className="font-mono" data-audit-seq={event.seq}>
+                        #{event.seq}
+                    </Text>
+                    <Text as="span" size="xs" color="muted" className="font-mono" title={event.hash} data-audit-hash={event.hash}>
+                        hash {event.hash.slice(0, 12)}
+                    </Text>
+                    <Button data-action="audit-toggle-details" id={`council-audit-toggle-${event.seq}`} size="xs" variant="ghost" aria-expanded={open} aria-controls={detailsId} onClick={() => setOpen((v) => !v)}>
+                        {open ? 'Hide details' : 'Details'}
+                    </Button>
+                </div>
+                {open && (
+                    <div id={detailsId} data-audit-details={event.seq} className="space-y-2 pt-2">
+                        <Table className="overflow-x-auto">
+                            <Table.Body>
+                                {view.facts.map((f, i) => (
+                                    <Table.Row key={`${i}-${f.label}`} data-audit-fact={f.label}>
+                                        <Table.Cell header className="w-44 align-top text-xs">
+                                            {f.label}
+                                        </Table.Cell>
+                                        <Table.Cell>
+                                            <Text as="span" size="sm" className="whitespace-pre-wrap [overflow-wrap:anywhere]">{f.value}</Text>
+                                        </Table.Cell>
+                                    </Table.Row>
+                                ))}
+                            </Table.Body>
+                        </Table>
+                        <Button data-action="audit-toggle-raw" id={`council-audit-raw-toggle-${event.seq}`} size="xs" variant="ghost" aria-expanded={rawOpen} aria-controls={rawId} onClick={() => setRawOpen((v) => !v)}>
+                            {rawOpen ? 'Hide raw record' : 'Raw record'}
+                        </Button>
+                        {rawOpen && (
+                            <div id={rawId} data-audit-raw={event.seq} className="space-y-2">
+                                <AuditRawRecord value={rawAuditRecord(event)} seq={event.seq} copied={copied} onCopy={copy} />
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+        </Timeline.Item>
+    );
+}
+
+function AuditRawRecord({ value, seq, copied, onCopy }: { value: string; seq: number; copied: 'copied' | 'failed' | null; onCopy: (value: string) => void }) {
+    return (
+        <>
+            <div className="flex flex-wrap items-center gap-2">
+                <Button data-action="audit-copy-raw" id={`council-audit-copy-${seq}`} size="xs" variant="ghost" onClick={() => onCopy(value)}>
+                    Copy
+                </Button>
+                <Text as="span" size="xs" color={copied === 'failed' ? 'danger' : 'muted'} role="status">
+                    {copied === 'copied' ? 'Copied.' : copied === 'failed' ? 'Could not copy; select the text instead.' : ''}
+                </Text>
+            </div>
+            <Text as="div" size="xs" tabIndex={0} role="region" aria-label={`Raw audit record ${seq}`} className="max-h-80 overflow-auto rounded border border-zinc-200 p-2 font-mono whitespace-pre-wrap [overflow-wrap:anywhere] dark:border-zinc-700">
+                {value}
+            </Text>
         </>
     );
 }
