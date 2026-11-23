@@ -19,13 +19,19 @@ class ProviderFollowupConversation
 {
     public const RAW_ARGUMENTS = '{"query": ';
 
+    /** The tool call's item id. */
+    public const CALL_ITEM_ID = 'fc_followup_1';
+
+    /** The id that pairs a call with its result on providers that keep the two apart. */
+    public const CALL_RESULT_ID = 'call_followup_1';
+
     /** @return list<UserMessage|AssistantMessage|ToolResultMessage> */
     public function messages(): array
     {
         return [
             new UserMessage('Look up x.'),
-            new AssistantMessage('', [new ToolCall('call_followup_1', 'lookup', $this->arguments())]),
-            new ToolResultMessage([new ToolResult('call_followup_1', 'lookup', [], 'The arguments could not be read.')]),
+            new AssistantMessage('', [new ToolCall(self::CALL_ITEM_ID, 'lookup', $this->arguments(), self::CALL_RESULT_ID)]),
+            new ToolResultMessage([new ToolResult(self::CALL_ITEM_ID, 'lookup', [], 'The arguments could not be read.', self::CALL_RESULT_ID)]),
             new UserMessage('Reply with OK.'),
         ];
     }

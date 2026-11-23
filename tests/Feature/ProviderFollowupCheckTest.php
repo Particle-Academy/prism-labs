@@ -49,6 +49,11 @@ final class ProviderFollowupCheckTest extends TestCase
 
     private bool $anthropicStreamTruncated = false;
 
+    /** @var list<array<string, mixed>> Every request body sent to OpenAI. */
+    private array $openaiBodies = [];
+
+    private ?string $openaiRefusedParam = null;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -317,6 +322,82 @@ final class ProviderFollowupCheckTest extends TestCase
         $this->assertSame((int) $intent->refresh()->payload['followup']['targets']['anthropic']['worst_case_microusd'], $stream['cost_microusd'], 'An unknown cost is charged at its worst case.');
     }
 
+    public function test_the_openai_request_carries_one_real_matching_call_id(): void
+    {
+        $this->assertSame(0, $this->approve());
+
+        [$exit, $report] = $this->check($this->intent()->id);
+
+        $this->assertSame(0, $exit);
+        $this->assertCount(2, $this->openaiBodies);
+        foreach ($this->openaiBodies as $body) {
+            $calls = array_values(array_filter($body['input'], fn (array $item): bool => ($item['type'] ?? null) === 'function_call'));
+            $outputs = array_values(array_filter($body['input'], fn (array $item): bool => ($item['type'] ?? null) === 'function_call_output'));
+            $this->assertCount(1, $calls);
+            $this->assertCount(1, $outputs);
+            $this->assertIsString($calls[0]['call_id'] ?? null);
+            $this->assertNotSame('', $calls[0]['call_id']);
+            $this->assertSame($calls[0]['call_id'], $outputs[0]['call_id'] ?? null);
+            $this->assertStringStartsWith('fc', (string) $calls[0]['id']);
+        }
+        foreach ($report['results'] as $result) {
+            $this->assertTrue($result['accepted'], $result['provider'].' '.$result['mode']);
+        }
+    }
+
+    public function test_the_fixed_conversation_is_valid_wherever_a_core_sends_it(): void
+    {
+        $this->app->forgetInstance(ProviderFollowupConversation::class);
+        $messages = app(ProviderFollowupConversation::class)->messages();
+        $call = $messages[1]->toolCalls[0];
+        $result = $messages[2]->toolResults[0];
+        $this->assertIsString($call->resultId);
+        $this->assertSame($call->resultId, $result->toolCallResultId);
+        $this->assertSame($call->id, $result->toolCallId);
+        $this->assertNotSame($call->id, $call->resultId);
+
+        $this->assertSame(0, $this->approve());
+        [, $report] = $this->check($this->intent()->id);
+
+        foreach ($report['results'] as $sent) {
+            if ($sent['error_type'] !== 'request_not_built') {
+                $this->assertTrue($sent['accepted'], $sent['provider'].' '.$sent['mode'].' refused '.($sent['error_param'] ?? 'no field'));
+            }
+        }
+    }
+
+    public function test_a_rejection_records_which_field_was_refused(): void
+    {
+        $this->openaiRefusedParam = 'input[1].call_id';
+        $this->assertSame(0, $this->approve());
+
+        [, $report] = $this->check($this->intent()->id);
+
+        $openai = array_values(array_filter($report['results'], fn (array $r): bool => $r['provider'] === 'openai'));
+        $this->assertCount(2, $openai);
+        foreach ($openai as $result) {
+            $this->assertFalse($result['accepted']);
+            $this->assertSame('input.1.call_id', $result['error_param'] ?? null);
+        }
+        $this->assertStringNotContainsString('ECHOED-PROVIDER-TEXT', json_encode($report, JSON_THROW_ON_ERROR));
+    }
+
+    public function test_a_refused_field_outside_the_safe_pattern_is_not_recorded(): void
+    {
+        $this->openaiRefusedParam = 'input[1].<ECHOED-PROVIDER-TEXT> value';
+        $this->assertSame(0, $this->approve());
+
+        [, $report] = $this->check($this->intent()->id);
+
+        $openai = array_values(array_filter($report['results'], fn (array $r): bool => $r['provider'] === 'openai'));
+        $this->assertCount(2, $openai);
+        foreach ($openai as $result) {
+            $this->assertArrayHasKey('error_param', $result);
+            $this->assertNull($result['error_param']);
+        }
+        $this->assertStringNotContainsString('ECHOED', json_encode($report, JSON_THROW_ON_ERROR));
+    }
+
     public function test_a_tool_the_model_calls_never_runs(): void
     {
         $this->anthropicCallsTool = true;
@@ -415,9 +496,46 @@ final class ProviderFollowupCheckTest extends TestCase
         return implode('', array_map(fn (array $e): string => 'event: '.$e[0]."\ndata: ".json_encode($e[1])."\n\n", $events));
     }
 
+    /**
+     * What the Responses API checks on a replayed tool call: an item id in its
+     * own namespace, and one real call id shared by the call and its output.
+     *
+     * @param  array<string, mixed>  $body
+     */
+    private function invalidToolItem(array $body): ?string
+    {
+        $callId = null;
+        $answered = false;
+        foreach ($body['input'] ?? [] as $index => $item) {
+            if (($item['type'] ?? null) === 'function_call') {
+                if (! is_string($item['id'] ?? null) || ! str_starts_with($item['id'], 'fc')) {
+                    return "input[{$index}].id";
+                }
+                if (! is_string($item['call_id'] ?? null) || $item['call_id'] === '') {
+                    return "input[{$index}].call_id";
+                }
+                $callId = $item['call_id'];
+            }
+            if (($item['type'] ?? null) === 'function_call_output') {
+                if (! is_string($item['call_id'] ?? null) || $item['call_id'] !== $callId) {
+                    return "input[{$index}].call_id";
+                }
+                $answered = true;
+            }
+        }
+
+        return $answered ? null : 'input';
+    }
+
     private function openai(Request $request): mixed
     {
         $this->sent[] = 'api.openai.com';
+        $this->openaiBodies[] = $request->data();
+        $refused = $this->openaiRefusedParam ?? $this->invalidToolItem($request->data());
+        if ($refused !== null) {
+            return Http::response(['error' => ['type' => 'invalid_request_error', 'code' => 'invalid_type',
+                'param' => $refused, 'message' => 'ECHOED-PROVIDER-TEXT']], 400);
+        }
         $response = ['id' => 'resp_1', 'object' => 'response', 'created_at' => 1, 'status' => 'completed', 'model' => 'gpt-6-luna',
             'output' => [['type' => 'message', 'id' => 'msg_1', 'status' => 'completed', 'role' => 'assistant',
                 'content' => [['type' => 'output_text', 'text' => 'OK', 'annotations' => []]]]],
