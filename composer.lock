@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "60e6d186fa0ddff8a080a2df24c84795",
+    "content-hash": "c4a9f097ca0878bd7fd91a2bb9b01368",
     "packages": [
         {
             "name": "brick/math",
@@ -3524,7 +3524,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism",
-                "reference": "3506875d68496c89228c4c6091f91ec784f8a899"
+                "reference": "ed554ed4c224d010158d34564ef769c5e7fe5789"
             },
             "require": {
                 "ext-fileinfo": "*",
@@ -3839,11 +3839,11 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-harness",
-                "reference": "66cf2cbabbc7e8b5548b0095c0f091fee692dc0f"
+                "reference": "d57541e376a572902ad7557d38b6bf39059007d8"
             },
             "require": {
                 "laravel/framework": "^12.69.0|^13.30.0",
-                "particle-academy/prism": "^0.143 || ^0.144 || ^0.145 || ^0.146 || ^0.147 || ^0.148 || ^0.149 || ^0.150 || ^0.151",
+                "particle-academy/prism": "^0.152",
                 "php": "^8.2"
             },
             "require-dev": {
@@ -11620,8 +11620,8 @@
         {
             "package": "particle-academy/prism",
             "version": "dev-main",
-            "alias": "0.151.1",
-            "alias_normalized": "0.151.1.0"
+            "alias": "0.152.0",
+            "alias_normalized": "0.152.0.0"
         },
         {
             "package": "particle-academy/prism-agent-docs",
@@ -11638,8 +11638,8 @@
         {
             "package": "particle-academy/prism-harness",
             "version": "dev-main",
-            "alias": "0.26.4",
-            "alias_normalized": "0.26.4.0"
+            "alias": "0.26.5",
+            "alias_normalized": "0.26.5.0"
         },
         {
             "package": "particle-academy/prism-human-plus",
