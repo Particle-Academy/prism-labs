@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\DocsLab\LivePlan;
 use App\Lab\PaidRunNotAuthorised;
+use App\Lab\ProviderFollowupPlan;
 use App\Lab\RunAuthority;
 use App\Lab\RunScopeFactory;
 use Illuminate\Console\Command;
@@ -31,12 +32,12 @@ use Illuminate\Validation\ValidationException;
 final class ApproveFromFtqCommand extends Command
 {
     /** CLI actions an FTQ answer may approve. Each needs its plan builder below. */
-    public const ACTIONS = ['cli.docs.run'];
+    public const ACTIONS = ['cli.docs.run', ProviderFollowupPlan::ACTION];
 
     protected $signature = 'lab:approve-from-ftq
         {--question= : the Genie ForceTheQuestion id the owner answered (q_<uuid>)}
         {--answer= : the owner\'s answer text, verbatim, stored for audit}
-        {--action= : the paid CLI action the question approved (cli.docs.run)}
+        {--action= : the paid CLI action the question approved (cli.docs.run, cli.provider.followup-check)}
         {--cap-usd= : the USD cap the question stated; required, at most the session limit}
         {--scenario=all : cli.docs.run: all, or one of S1 S2 S3 S4 R1 R2}
         {--model='.LivePlan::DEFAULT_MODEL.' : cli.docs.run: the builder model (anthropic)}
@@ -67,6 +68,10 @@ final class ApproveFromFtqCommand extends Command
             return $this->refuse('--cap-usd is required and must equal the cap the question stated.');
         }
 
+        if ($action === ProviderFollowupPlan::ACTION) {
+            return $this->recordFollowup($authority, $scopes, $question, $answer, $cap);
+        }
+
         $input = DocsRunCommand::liveInput((string) $this->option('scenario'), (string) $this->option('model'),
             (bool) $this->option('judge'), $this->option('judge-model'));
         try {
@@ -83,6 +88,30 @@ final class ApproveFromFtqCommand extends Command
         $this->line(sprintf('  php artisan lab:docs-run --lane=live --scenario=%s --model=%s%s%s --approved-run=%s',
             $input['scenario'], $input['model'], $input['judge'] ? ' --judge' : '',
             $input['judge_model'] !== $input['model'] ? ' --judge-model='.$input['judge_model'] : '', $intent->id));
+
+        return self::SUCCESS;
+    }
+
+    /** The plan is fixed in code, so the docs-run options cannot shape this GO. */
+    private function recordFollowup(RunAuthority $authority, RunScopeFactory $scopes, string $question, string $answer, string $cap): int
+    {
+        if ($this->option('scenario') !== 'all' || $this->option('model') !== LivePlan::DEFAULT_MODEL
+            || $this->option('judge') || $this->option('judge-model') !== null) {
+            return $this->refuse('this action has a fixed plan and takes no scenario, model or judge.');
+        }
+        try {
+            $intent = $authority->goFromOwnerAnswer(
+                $scopes->fromAction(ProviderFollowupPlan::ACTION, 'lab:agent', ['question' => $question]), $cap, $question, $answer);
+        } catch (ValidationException $e) {
+            return $this->refuse(implode(' ', $e->validator->errors()->all()));
+        } catch (PaidRunNotAuthorised) {
+            return $this->refuse('the GO was not recorded (question already used, owner not configured, or the cap is above this action\'s limit or what the session has left).');
+        }
+
+        $this->info(sprintf('GO %s recorded for %s, cap $%.6f, %s, question %s.', $intent->id, $intent->action,
+            $intent->cap_microusd / 1_000_000, RunAuthority::VIA_FTQ, $question));
+        $this->line('Single use; expires '.$intent->expires_at->toIso8601String().'. Run:');
+        $this->line(sprintf('  php artisan lab:provider-followup-check --question=%s --approved-run=%s', $question, $intent->id));
 
         return self::SUCCESS;
     }

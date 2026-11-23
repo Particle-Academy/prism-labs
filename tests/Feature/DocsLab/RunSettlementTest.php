@@ -168,6 +168,6 @@ final class RunSettlementTest extends TestCase
 
     public function test_only_actions_metered_on_the_ledger_are_settleable(): void
     {
-        $this->assertSame(['cli.docs.run'], RunAuthority::SETTLEABLE);
+        $this->assertSame(['cli.docs.run', 'cli.provider.followup-check'], RunAuthority::SETTLEABLE);
     }
 }

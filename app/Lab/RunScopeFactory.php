@@ -78,6 +78,9 @@ final readonly class RunScopeFactory
             // G-316: the owner approves the exact live plan, not a label for it.
             $payload['docs'] = LivePlan::snapshot($input);
         }
+        if ($action === ProviderFollowupPlan::ACTION) {
+            $payload['followup'] = ProviderFollowupPlan::snapshot($input);
+        }
         if (($compaction = CompactionAuthority::snapshot($action, $input)) !== null) {
             $payload['compaction'] = $compaction;
         }

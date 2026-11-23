@@ -23,6 +23,7 @@ final readonly class PaidWorkRegistry
         'benchmark.run' => ['benchmarks.launch'], 'benchmark.lane' => ['benchmarks.launch'],
         'benchmark.score' => ['benchmarks.launch'], 'benchmark.commentary' => ['benchmarks.launch'],
         'docs.lab' => ['cli.docs.run'],
+        ProviderFollowupPlan::WORK_KIND => [ProviderFollowupPlan::ACTION],
     ];
 
     public function __construct(private PaidRunContext $context, private RunAuthority $authority, private RunScopeFactory $scopes) {}
@@ -184,6 +185,9 @@ final readonly class PaidWorkRegistry
             // G-316: one live docs-lab run per approval, bound to its frozen plan.
             'docs.lab' => $parent === null && $key === $intent->id && is_array($intent->payload['docs'] ?? null)
                 && CanonicalJson::encode($payload) === CanonicalJson::encode($intent->payload['docs']),
+            // One check per approval, bound to its frozen plan.
+            ProviderFollowupPlan::WORK_KIND => $parent === null && $key === $intent->id && is_array($intent->payload['followup'] ?? null)
+                && CanonicalJson::encode($payload) === CanonicalJson::encode($intent->payload['followup']),
             'benchmark.run' => $parent === null && ($payload['spec_id'] ?? null) === $intent->resource
                 && ($payload['spec_digest'] ?? null) === ($intent->payload['benchmark']['digest'] ?? null)
                 && $this->matchesApprovedMatrix($intent, $payload['lanes'] ?? null),

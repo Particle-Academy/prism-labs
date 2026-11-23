@@ -16,6 +16,7 @@ final readonly class RunScope
         'benchmarks.launch', 'benchmarks.compaction-probe', 'benchmarks.compaction-recall',
         'benchmarks.summary-loss', 'team.nudge', 'evidence.send',
         'cli.compaction-probe', 'cli.compaction-recall', 'cli.compaction-summary-loss', 'cli.tests.run', 'cli.docs.run',
+        'cli.provider.followup-check',
     ];
 
     /** @param array<string, mixed> $payload */
