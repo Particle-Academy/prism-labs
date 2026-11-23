@@ -98,7 +98,7 @@
         "open-telemetry/sdk": "^1.0",
         "particle-academy/change-council": "0.9.2",
         "particle-academy/fancy-flow-php": "0.66.0",
-        "particle-academy/prism": "dev-main as 0.151.0",
+        "particle-academy/prism": "dev-main as 0.151.1",
         "particle-academy/prism-acp": "0.1.2",
         "particle-academy/prism-agent-docs": "dev-main as 0.1.6",
         "particle-academy/prism-browser": "dev-main as 0.4.2",
