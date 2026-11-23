@@ -183,7 +183,7 @@ final class CouncilLedgerIntegrationTest extends TestCase
     {
         $this->assertSame(0, Artisan::call('council:pages-check'));
         $expected = PublishedPages::check(resource_path('js/pages/Council'));
-        $this->assertCount(7, $expected);
+        $this->assertCount(8, $expected);
         $this->assertSame(['current'], array_values(array_unique($expected)));
         $temporary = storage_path('framework/testing/council-stale-'.bin2hex(random_bytes(6)));
         mkdir($temporary, recursive: true);
