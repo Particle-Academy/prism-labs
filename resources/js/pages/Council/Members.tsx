@@ -1,9 +1,10 @@
 import { Head, Link } from '@inertiajs/react';
-import { Badge, Button, Callout, Card, Heading, NumberField, StatList, Table, Text } from '@particle-academy/react-fancy';
-import { useMemo, useState } from 'react';
+import { Badge, Button, Callout, Card, Heading, Input, NumberField, Select, StatList, Table, Text } from '@particle-academy/react-fancy';
+import { useEffect, useMemo, useState } from 'react';
 import { type HostLink, type MemberRow, send, refusal, type Threshold, usePoll } from './parts/api';
 import { compare, navVariant, nextSort, type Sort } from './parts/nav';
-import { censusRequestLabel, label, sourceTone } from './parts/tone';
+import { type Invite, useInvite } from './parts/invite';
+import { censusRequestLabel, label, POLICIES, sourceTone } from './parts/tone';
 
 type Props = {
     members: MemberRow[];
@@ -16,7 +17,8 @@ type Props = {
     showNav?: boolean;
     /** Whether the hook allows `owner` for this viewer. Display only: the API asks again. */
     canSetPolicy: boolean;
-    endpoints: { index: string; members: string; api: string; threshold: string; show: string };
+    /** `invite` (0.9.2): POST an invitation here. */
+    endpoints: { index: string; members: string; api: string; threshold: string; show: string; invite: string };
 };
 
 type Key = 'name' | 'project' | 'weight' | 'policy' | 'packages' | 'cast' | 'approve' | 'conflict' | 'abstain' | 'missed' | 'last_vote' | 'census';
@@ -35,6 +37,90 @@ const SORTERS: Record<Key, (m: MemberRow) => string | number | null> = {
     last_vote: (m) => m.stats.last_vote_at,
     census: (m) => m.census_at,
 };
+
+/**
+ * "Invite agent" (owner only): a toggle and the form, at #invite. The council
+ * page links here, and a visit to #invite opens the form. The logic is
+ * parts/invite.ts; this only draws it.
+ */
+function InviteAgent({ invite }: { invite: Invite }) {
+    const { open, setOpen, fields, update, busy, submit } = invite;
+
+    // Once, on arrival (setOpen is a state setter, so it never changes): the
+    // hash says where the visit came from, not state to follow.
+    useEffect(() => {
+        if (typeof window !== 'undefined' && window.location.hash === '#invite') setOpen(true);
+    }, [setOpen]);
+
+    return (
+        <div id="invite" className="scroll-mt-6 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <Text color="muted" size="sm">
+                    Add an agent to the council. It is petitioned on the Changes that touch the packages its census reports.
+                </Text>
+                <Button data-action="invite-agent" id="council-invite-agent" size="sm" variant={open ? 'ghost' : 'default'} onClick={() => setOpen((v) => !v)}>
+                    Invite agent
+                </Button>
+            </div>
+            {open && (
+                <Card data-testid="council-invite">
+                    <Card.Body className="space-y-3">
+                        <Text size="sm">
+                            Adds the agent to the council and queues a census request to it, which the clerk sends over AgentInbox. Its answer lists
+                            the packages it installs, and those decide which Changes it is required to vote on. Until it answers it is petitioned on
+                            nothing. You confirm with your passkey.
+                        </Text>
+                        <div className="grid gap-3 md:grid-cols-2">
+                            <Input
+                                data-field="invite-address"
+                                id="council-invite-address"
+                                label="Agent address"
+                                description="name@workspace, as AgentInbox shows it."
+                                placeholder="helper@my-workspace"
+                                value={fields.address}
+                                onValueChange={(address) => update('address', address)}
+                            />
+                            <Input
+                                data-field="invite-project-name"
+                                id="council-invite-project-name"
+                                label="Project (optional)"
+                                placeholder="What the agent's app is called"
+                                value={fields.project}
+                                onValueChange={(project) => update('project', project)}
+                            />
+                            <NumberField
+                                data-field="invite-weight"
+                                id="council-invite-weight"
+                                label="Weight"
+                                description="Its share of a blocking conflict. 0 is advisory."
+                                min={0}
+                                step={1}
+                                value={fields.weight}
+                                onValueChange={(weight) => update('weight', weight)}
+                            />
+                            <Select
+                                data-field="invite-silence-policy"
+                                id="council-invite-silence-policy"
+                                label="When it stays silent"
+                                value={fields.policy}
+                                onValueChange={(policy) => update('policy', policy)}
+                                list={POLICIES}
+                            />
+                        </div>
+                        <div className="flex gap-2">
+                            <Button data-action="submit-invite" id="council-submit-invite" onClick={() => void submit()} loading={busy} disabled={busy}>
+                                Invite
+                            </Button>
+                            <Button data-action="cancel-invite" id="council-cancel-invite" variant="ghost" onClick={() => setOpen(false)} disabled={busy}>
+                                Cancel
+                            </Button>
+                        </div>
+                    </Card.Body>
+                </Card>
+            )}
+        </div>
+    );
+}
 
 /**
  * Council/Members: every council member (consumer row) with its weight, silence
@@ -83,7 +169,17 @@ export default function Members({ members: initial, blocking_threshold, former_m
         setMessage(answer.ok ? `Blocking threshold set to ${answer.json.blocking_threshold.value}.` : refusal(answer));
     };
 
-    const totalWeight = data.members.filter((m) => !m.internal).reduce((n, m) => n + m.weight, 0);
+    // A new member joins the list at once; the poll then brings the server's answer.
+    const invite = useInvite(
+        endpoints.invite,
+        (answer) => {
+            if (!answer.invited || data.members.some((m) => m.address === answer.member.address)) return;
+            setData({ ...data, members: [...data.members, answer.member].sort((a, b) => a.address.localeCompare(b.address)) });
+        },
+        setMessage,
+    );
+
+    const totalWeight =data.members.filter((m) => !m.internal).reduce((n, m) => n + m.weight, 0);
 
     return (
         <>
@@ -156,6 +252,8 @@ export default function Members({ members: initial, blocking_threshold, former_m
                         </Card.Body>
                     </Card>
                 )}
+
+                {canSetPolicy && <InviteAgent invite={invite} />}
 
                 <Card>
                     <Card.Body>
