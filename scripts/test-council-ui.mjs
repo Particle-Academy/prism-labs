@@ -157,7 +157,7 @@ try {
     for (const tab of ['overview', 'rounds', 'evidence', 'silence', 'audit']) {
         await page.locator('#council-tab-' + tab).click();
         if (tab === 'audit') {
-            const auditTitle = page.getByText('synthetic.' + 'x'.repeat(180) + ' - owner:123', { exact: true });
+            const auditTitle = page.getByText('Synthetic ' + 'x'.repeat(180), { exact: true });
             await auditTitle.scrollIntoViewIfNeeded();
             await page.waitForFunction(() => {
                 const item = document.querySelector('[data-react-fancy-timeline-item]');

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "2727c5a54acff31c92aef7a4ee3e321e",
+    "content-hash": "60e6d186fa0ddff8a080a2df24c84795",
     "packages": [
         {
             "name": "brick/math",
@@ -3313,16 +3313,16 @@
         },
         {
             "name": "particle-academy/change-council",
-            "version": "v0.9.2",
+            "version": "v0.9.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/Particle-Academy/change-council.git",
-                "reference": "b4fb3541e73c5c7bd4cc4db5b2ad88637fa265f3"
+                "reference": "000e0ec7ea159f3e79b7bcc2d930b69b3729c3c3"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Particle-Academy/change-council/zipball/b4fb3541e73c5c7bd4cc4db5b2ad88637fa265f3",
-                "reference": "b4fb3541e73c5c7bd4cc4db5b2ad88637fa265f3",
+                "url": "https://api.github.com/repos/Particle-Academy/change-council/zipball/000e0ec7ea159f3e79b7bcc2d930b69b3729c3c3",
+                "reference": "000e0ec7ea159f3e79b7bcc2d930b69b3729c3c3",
                 "shasum": ""
             },
             "require": {
@@ -3374,10 +3374,10 @@
             ],
             "support": {
                 "issues": "https://github.com/Particle-Academy/change-council/issues",
-                "source": "https://github.com/Particle-Academy/change-council/tree/v0.9.2"
+                "source": "https://github.com/Particle-Academy/change-council/tree/v0.9.3"
             },
-            "time": "2026-11-23T01:42:07+00:00",
-            "published-time": "2026-11-23T03:24:07+00:00"
+            "time": "2026-11-23T05:52:38+00:00",
+            "published-time": "2026-11-23T06:06:56+00:00"
         },
         {
             "name": "particle-academy/fancy-flow-php",
@@ -3524,7 +3524,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism",
-                "reference": "2c9b906fe34428cf6c94b1a2ff2c22385a2d336f"
+                "reference": "3506875d68496c89228c4c6091f91ec784f8a899"
             },
             "require": {
                 "ext-fileinfo": "*",
@@ -11620,8 +11620,8 @@
         {
             "package": "particle-academy/prism",
             "version": "dev-main",
-            "alias": "0.151.0",
-            "alias_normalized": "0.151.0.0"
+            "alias": "0.151.1",
+            "alias_normalized": "0.151.1.0"
         },
         {
             "package": "particle-academy/prism-agent-docs",
