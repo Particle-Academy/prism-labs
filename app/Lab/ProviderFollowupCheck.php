@@ -41,6 +41,8 @@ final class ProviderFollowupCheck
 
     private ?string $errorType = null;
 
+    private ?string $errorParam = null;
+
     private bool $connectionFailed = false;
 
     private bool $sent = false;
@@ -76,6 +78,7 @@ final class ProviderFollowupCheck
                 $this->status = $event->response->status();
                 if ($this->status >= 400) {
                     $this->errorType = $this->sanitisedErrorType($event->response->json());
+                    $this->errorParam = $this->sanitisedErrorParam($event->response->json());
                 }
             });
             Event::listen(ConnectionFailed::class, function (): void {
@@ -140,6 +143,7 @@ final class ProviderFollowupCheck
     {
         $this->status = null;
         $this->errorType = null;
+        $this->errorParam = null;
         $this->connectionFailed = false;
         $this->sent = false;
         $usage = null;
@@ -190,6 +194,7 @@ final class ProviderFollowupCheck
                 $this->status !== null && $this->status < 300 => 'stream_error',
                 default => 'unclassified',
             }),
+            'error_param' => $accepted ? null : $this->errorParam,
             'input_tokens' => $accepted ? $usage?->promptTokens : null,
             'output_tokens' => $accepted ? $usage?->completionTokens : null,
             'cost_microusd' => (int) DB::table('lab_call_reservations')->where('call_id', $callId)->value('charged_microusd'),
@@ -214,6 +219,21 @@ final class ProviderFollowupCheck
         }
 
         return null;
+    }
+
+    /**
+     * The request field a provider refused, never its message. A list index
+     * such as `input[1].id` is written `input.1.id` so it fits the safe pattern.
+     */
+    private function sanitisedErrorParam(mixed $body): ?string
+    {
+        $param = is_array($body) && is_array($body['error'] ?? null) ? ($body['error']['param'] ?? null) : null;
+        if (! is_string($param)) {
+            return null;
+        }
+        $param = (string) preg_replace('/\[([0-9]{1,4})\]/', '.$1', $param);
+
+        return preg_match('/\A[A-Za-z0-9_.-]{1,64}\z/', $param) === 1 ? $param : null;
     }
 
     /** @param class-string $class */
