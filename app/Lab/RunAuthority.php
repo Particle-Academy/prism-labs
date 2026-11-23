@@ -27,7 +27,7 @@ final readonly class RunAuthority
      * is added only once that is shown for it; until then its GO keeps its
      * whole cap, as before.
      */
-    public const SETTLEABLE = ['cli.docs.run'];
+    public const SETTLEABLE = ['cli.docs.run', ProviderFollowupPlan::ACTION];
 
     /** The recorded actor when the owner's consent arrived as a Genie ForceTheQuestion answer. */
     public const VIA_FTQ = 'owner via Genie FTQ';
@@ -122,6 +122,13 @@ final readonly class RunAuthority
     private function draftFor(User $owner, RunScope $scope, string $capUsd, array $audit = []): LabRunIntent
     {
         $cap = $this->parseCap($capUsd);
+        if ($scope->action === ProviderFollowupPlan::ACTION) {
+            // Only an owner's recorded question can open this action, for that
+            // question and within the action's own ceiling.
+            $question = $scope->payload['input']['question'] ?? null;
+            $this->require($cap <= ProviderFollowupPlan::CAP_MICROUSD && is_string($question)
+                && ($audit['owner_question_id'] ?? null) === $question);
+        }
         // The logical Lab session survives cookie rotation, logout and refresh.
         // There is deliberately no browser-controlled reset/new-session seam.
         $session = LabAuthoritySession::query()->firstOrCreate(['owner_user_id' => $owner->id]);
