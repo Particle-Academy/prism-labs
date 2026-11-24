@@ -68,7 +68,11 @@ abstract class ProviderBilling
     {
         $timeout = (int) config('lab.billing.timeout_seconds', 20);
         try {
-            $response = $this->authorise(Http::timeout($timeout)->connectTimeout($timeout)->acceptJson(), $key)->get($url);
+            $response = $this->authorise(Http::timeout($timeout)->connectTimeout($timeout)->acceptJson(), $key)
+                ->withMiddleware(SameOriginRedirects::middleware())
+                ->get($url);
+        } catch (BillingUnavailable $refused) {
+            throw $refused;
         } catch (ConnectionException) {
             throw new BillingUnavailable('connection_failed');
         } catch (Throwable) {
