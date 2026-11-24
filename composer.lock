@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "b0908b710f83491b7ef339f67f7cb284",
+    "content-hash": "275f7f2143003e5a2ac08d7f99de89ba",
     "packages": [
         {
             "name": "brick/math",
@@ -3524,7 +3524,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism",
-                "reference": "b75aa5388b003d76c16cebca822e5eedf70029b8"
+                "reference": "1f4e7194403204782c86da75785dae5086aacd3f"
             },
             "require": {
                 "ext-fileinfo": "*",
@@ -3839,11 +3839,11 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-harness",
-                "reference": "4b028d8e144e85e4a385a85fa665f6a31a180b06"
+                "reference": "93a844fbc4298e037b4fe78b3f831e5ce307251b"
             },
             "require": {
                 "laravel/framework": "^12.69.0|^13.30.0",
-                "particle-academy/prism": "^0.153",
+                "particle-academy/prism": "^0.154",
                 "php": "^8.2"
             },
             "require-dev": {
@@ -11620,8 +11620,8 @@
         {
             "package": "particle-academy/prism",
             "version": "dev-main",
-            "alias": "0.153.0",
-            "alias_normalized": "0.153.0.0"
+            "alias": "0.154.0",
+            "alias_normalized": "0.154.0.0"
         },
         {
             "package": "particle-academy/prism-agent-docs",
@@ -11638,8 +11638,8 @@
         {
             "package": "particle-academy/prism-harness",
             "version": "dev-main",
-            "alias": "0.26.6",
-            "alias_normalized": "0.26.6.0"
+            "alias": "0.26.7",
+            "alias_normalized": "0.26.7.0"
         },
         {
             "package": "particle-academy/prism-human-plus",
