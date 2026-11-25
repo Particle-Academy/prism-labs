@@ -32,14 +32,14 @@ final class BenchmarkAuthorityTest extends TestCase
         $this->authorityFixtureOwner ??= User::factory()->create();
         config(['lab_authority.owner_user_id' => $this->authorityFixtureOwner->id]);
         DB::table('lab_settings')->updateOrInsert(['key' => 'benchmark.allowed_models'],
-            ['value' => json_encode(['anthropic:claude-sonnet-5', 'anthropic:claude-haiku-4-5-20251001'], JSON_THROW_ON_ERROR)]);
+            ['value' => json_encode(['anthropic:claude-sonnet-5', 'anthropic:claude-haiku-5-5'], JSON_THROW_ON_ERROR)]);
         $this->actingAs($this->authorityFixtureOwner, 'web');
         try {
             $designer = app(BenchmarkDesigner::class);
             $spec = $designer->draft('Owned benchmark '.BenchmarkSpec::query()->count(), 'research', 'standard',
                 ['outcome' => 'Owned outcome'], ['quality' => 100], [
                     ['language' => 'php', 'harness' => 'prism-harness', 'provider' => 'anthropic', 'model' => 'claude-sonnet-5'],
-                    ['language' => 'php', 'harness' => 'prism-harness', 'provider' => 'anthropic', 'model' => 'claude-haiku-4-5-20251001'],
+                    ['language' => 'php', 'harness' => 'prism-harness', 'provider' => 'anthropic', 'model' => 'claude-haiku-5-5'],
                 ], ['cost' => 1]);
 
             return $designer->approve($designer->requestApproval($spec));
@@ -163,7 +163,7 @@ final class BenchmarkAuthorityTest extends TestCase
         $this->withApprovedLabRun('benchmarks.launch', [], fn () => app(PaidWorkRegistry::class)->bind('benchmark.run', (string) Str::uuid(),
             ['spec_id' => $spec->id, 'spec_digest' => $spec->digest, 'lanes' => [
                 ['id' => (string) Str::uuid(), 'language' => 'php', 'harness' => 'prism-harness', 'provider' => 'anthropic', 'model' => 'unreviewed'],
-                ['id' => (string) Str::uuid(), 'language' => 'php', 'harness' => 'prism-harness', 'provider' => 'anthropic', 'model' => 'claude-haiku-4-5-20251001'],
+                ['id' => (string) Str::uuid(), 'language' => 'php', 'harness' => 'prism-harness', 'provider' => 'anthropic', 'model' => 'claude-haiku-5-5'],
             ]]), $spec->id);
     }
 

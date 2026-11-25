@@ -138,7 +138,7 @@ final class LiveLaneAuthorityTest extends TestCase
         $model = $this->scriptLive('S1');
 
         // A different model is a different plan: refused before any call.
-        $this->artisan('lab:docs-run', ['--lane' => 'live', '--scenario' => 'S1', '--judge' => true, '--model' => 'claude-haiku-4-5', '--approved-run' => $intent->id])
+        $this->artisan('lab:docs-run', ['--lane' => 'live', '--scenario' => 'S1', '--judge' => true, '--model' => 'claude-opus-5-5', '--approved-run' => $intent->id])
             ->expectsOutputToContain('paid_call_not_authorised')->assertFailed();
         $this->assertSame([], $model->requests());
 

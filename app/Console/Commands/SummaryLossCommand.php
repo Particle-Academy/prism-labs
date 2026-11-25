@@ -25,7 +25,7 @@ final class SummaryLossCommand extends Command
 {
     protected $signature = 'compaction:summary-loss
         {--model=claude-sonnet-5 : The model driving the conversation}
-        {--summarise-with=claude-haiku-4-5-20251001 : The model writing the summary}
+        {--summarise-with=claude-haiku-5-5 : The model writing the summary}
         {--keep=6 : messages kept verbatim in the window}
         {--padding=8 : filler turns used to push the planted turn out}
         {--summary-words=60 : the summary budget — tighten it to force real loss}

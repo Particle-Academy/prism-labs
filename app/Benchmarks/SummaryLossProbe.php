@@ -202,7 +202,7 @@ final class SummaryLossProbe
      */
     public function run(
         string $model = 'claude-sonnet-5',
-        string $summariseWith = 'claude-haiku-4-5-20251001',
+        string $summariseWith = 'claude-haiku-5-5',
         int $keep = 6,
         int $padding = 8,
         int $summaryWords = 60,

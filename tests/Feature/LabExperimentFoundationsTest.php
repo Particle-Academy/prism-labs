@@ -53,6 +53,8 @@ use Prism\Prism\Text\Step;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\ToolCall;
+use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
 use Prism\Workspace\Exceptions\PathRefused;
 use Prism\Workspace\Exceptions\WorkspaceFailed;
@@ -394,9 +396,20 @@ final class LabExperimentFoundationsTest extends TestCase
         // five-scene video, and had all of it discarded for want of a proof
         // file it never reached. That run read as a verdict on the model; it
         // was a verdict on the disagreement.
+        //
+        // Read the ceiling where it is ENFORCED. Since prism-harness G-285
+        // (durable cross-process cancel) the harness sends ONE model step per
+        // provider request and counts steps itself, so every request carries
+        // maxSteps 1 whatever the ceiling is. The ceiling is the number of
+        // requests the loop is allowed to make: a model that never stops
+        // calling tools gets exactly the spec's 20, not the mode's 10 and not
+        // the 25 the fixture would hand out.
         config(['prism-harness.agent.modes.benchmark.max_steps' => 10]);
         config(['prism-harness.agent.modes.benchmark.tools' => ['workspace_list']]);
-        $fake = Prism::fake([TextResponseFake::make()->withText('done')]);
+        $fake = Prism::fake(array_map(fn (int $i) => TextResponseFake::make()->withText('still working')
+            ->withFinishReason(FinishReason::ToolCalls)
+            ->withToolCalls([new ToolCall('call-'.$i, 'workspace_list', [])])
+            ->withToolResults([new ToolResult('call-'.$i, 'workspace_list', [], 'listed')]), range(1, 25)));
 
         $designer = app(BenchmarkDesigner::class);
         $spec = $designer->draft('budget honoured', 'application', 'standard', ['acceptance' => ['x']], ['working' => 10], [[
@@ -412,10 +425,13 @@ final class LabExperimentFoundationsTest extends TestCase
             $this->assertStringContainsString('PROOF_OF_WORKING.json', $failure->getMessage());
         }
 
-        $fake->assertCallCount(1);
+        $fake->assertCallCount(20);
         $fake->assertRequest(function (array $requests): void {
-            $this->assertSame(20, $requests[0]->maxSteps(), 'The spec promised 20 turns, so the run must get 20 — not the mode constant.');
+            $this->assertCount(20, $requests, 'The spec promised 20 turns, so the run must get 20 — not the mode constant.');
         });
+        $truncation = $lane->activities()->where('kind', 'agent.truncated')->first();
+        $this->assertNotNull($truncation, 'A model still calling tools at the ceiling was cut off there.');
+        $this->assertStringContainsString('20 of 20 steps', (string) $truncation->summary);
     }
 
     public function test_a_lane_cut_off_at_the_step_ceiling_does_not_report_itself_as_completed(): void
