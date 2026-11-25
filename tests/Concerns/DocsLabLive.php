@@ -37,7 +37,7 @@ trait DocsLabLive
         $this->prepareLabAuthority();
         $this->cacheModelRoster();
         DB::table('lab_settings')->updateOrInsert(['key' => 'benchmark.allowed_models'],
-            ['value' => json_encode(['anthropic:claude-sonnet-5-5', 'anthropic:claude-haiku-5-5'], JSON_THROW_ON_ERROR)]);
+            ['value' => json_encode(['anthropic:claude-sonnet-5-5', 'anthropic:claude-opus-5-5'], JSON_THROW_ON_ERROR)]);
     }
 
     /** The owner prepares, approves and gives GO for exactly this live input and cap. */
