@@ -15,22 +15,47 @@ final class ModelPrices
 
     private const ANTHROPIC_MODELS_SOURCE = 'https://platform.claude.com/docs/en/about-claude/models/overview';
 
-    /** @var list<string> Explicitly listed under Legacy models in the official overview. */
-    private const LEGACY_ANTHROPIC = ['claude-fable-5', 'claude-opus-5', 'claude-opus-4-8', 'claude-opus-4-7', 'claude-opus-4-6', 'claude-opus-4-5', 'claude-sonnet-5', 'claude-sonnet-4-6', 'claude-haiku-4-5', 'claude-haiku-4-5-20251001'];
+    /**
+     * When the Anthropic lifecycle labels below were last read from the
+     * deprecations page and the models overview. Kept apart from CHECKED_ON,
+     * which also dates every OpenAI price and label in
+     * resources/data/openai-model-prices.json: re-reading Anthropic's pages
+     * says nothing about OpenAI's.
+     */
+    public const ANTHROPIC_LIFECYCLE_CHECKED_ON = '2026-11-25';
+
+    private const ANTHROPIC_DEPRECATIONS_SOURCE = 'https://platform.claude.com/docs/en/about-claude/model-deprecations';
+
+    /**
+     * Retirement dates from the deprecations page. A deprecated model still
+     * answers until its date and is refused from then on, so the label turns
+     * to Retired on the date itself rather than waiting for the next re-read.
+     *
+     * @var array<string, string>
+     */
+    private const DEPRECATED_ANTHROPIC = [
+        'claude-opus-4-5' => '2027-01-22',
+        'claude-opus-4-5-20251101' => '2027-01-22',
+        'claude-sonnet-4-5' => '2026-11-30',
+        'claude-sonnet-4-5-20250929' => '2026-11-30',
+    ];
+
+    /**
+     * @var list<string> Active on the deprecations page, and listed under "All models" but not "Latest
+     *                   models" in the official overview: still served, no longer the recommended choice.
+     */
+    private const LEGACY_ANTHROPIC = ['claude-fable-5', 'claude-opus-5', 'claude-opus-4-8', 'claude-opus-4-7', 'claude-opus-4-6', 'claude-sonnet-5', 'claude-sonnet-4-6', 'claude-haiku-4-5', 'claude-haiku-4-5-20251001'];
 
     /** @return array{label: string, checked_on: string, source: string}|null */
     public function lifecycleForModel(string $provider, string $id): ?array
     {
-        $datedAnthropic = match ($id) {
-            'claude-opus-4-5-20251101' => ['Legacy', 'https://platform.claude.com/docs/en/models/opus-4-5/overview'],
-            'claude-sonnet-4-5', 'claude-sonnet-4-5-20250929' => ['Deprecated', 'https://platform.claude.com/docs/en/models/sonnet-4-5/overview'],
-            default => null,
-        };
-        if ($provider === 'anthropic' && $datedAnthropic !== null) {
-            return ['label' => $datedAnthropic[0], 'checked_on' => self::CHECKED_ON, 'source' => $datedAnthropic[1]];
+        if ($provider === 'anthropic' && isset(self::DEPRECATED_ANTHROPIC[$id])) {
+            $retired = now()->startOfDay()->gte(CarbonImmutable::parse(self::DEPRECATED_ANTHROPIC[$id]));
+
+            return ['label' => $retired ? 'Retired' : 'Deprecated', 'checked_on' => self::ANTHROPIC_LIFECYCLE_CHECKED_ON, 'source' => self::ANTHROPIC_DEPRECATIONS_SOURCE];
         }
         if ($provider === 'anthropic' && in_array($id, self::LEGACY_ANTHROPIC, true)) {
-            return ['label' => 'Legacy', 'checked_on' => self::CHECKED_ON, 'source' => self::ANTHROPIC_MODELS_SOURCE];
+            return ['label' => 'Legacy', 'checked_on' => self::ANTHROPIC_LIFECYCLE_CHECKED_ON, 'source' => self::ANTHROPIC_MODELS_SOURCE];
         }
         if ($provider === 'openai') {
             $quote = $this->openAiModels()[$id] ?? null;
