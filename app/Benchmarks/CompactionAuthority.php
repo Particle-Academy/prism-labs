@@ -46,7 +46,7 @@ final readonly class CompactionAuthority
             ],
             'summary-loss' => [
                 'model' => $cli ? (string) ($input['model'] ?? 'claude-sonnet-5') : 'claude-sonnet-5',
-                'summarise_with' => $cli ? (string) ($input['summarise_with'] ?? 'claude-haiku-4-5-20251001') : 'claude-haiku-4-5-20251001',
+                'summarise_with' => $cli ? (string) ($input['summarise_with'] ?? 'claude-haiku-5-5') : 'claude-haiku-5-5',
                 'keep' => $cli ? (int) ($input['keep'] ?? 6) : 6, 'padding' => $cli ? (int) ($input['padding'] ?? 8) : 8,
                 'summary_words' => $cli ? (int) ($input['summary_words'] ?? 60) : 60,
             ],
