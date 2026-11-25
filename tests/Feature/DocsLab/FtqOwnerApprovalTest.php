@@ -81,7 +81,7 @@ final class FtqOwnerApprovalTest extends TestCase
         foreach ([
             ['--scenario' => 'all', '--judge' => true],
             ['--scenario' => 'S1'],
-            ['--scenario' => 'S1', '--judge' => true, '--model' => 'claude-haiku-4-5'],
+            ['--scenario' => 'S1', '--judge' => true, '--model' => 'claude-haiku-5-5'],
         ] as $other) {
             $this->artisan('lab:docs-run', ['--lane' => 'live', ...$other, '--approved-run' => $intent->id])
                 ->expectsOutputToContain('paid_call_not_authorised')->assertFailed();

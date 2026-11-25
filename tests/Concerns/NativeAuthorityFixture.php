@@ -97,7 +97,7 @@ final class NativeAuthorityFixture
                 'input' => ['model' => 'claude-sonnet-5', 'keep' => 6, 'padding' => 8, 'summarise_with' => null, 'summary_words' => 200],
                 'argv' => ['compaction:recall'], 'changed' => ['compaction:recall', '--model=unreviewed'], 'exit' => 1],
             'summary' => ['action' => 'cli.compaction-summary-loss',
-                'input' => ['model' => 'claude-sonnet-5', 'summarise_with' => 'claude-haiku-4-5-20251001', 'keep' => 6, 'padding' => 8, 'summary_words' => 60],
+                'input' => ['model' => 'claude-sonnet-5', 'summarise_with' => 'claude-haiku-5-5', 'keep' => 6, 'padding' => 8, 'summary_words' => 60],
                 'argv' => ['compaction:summary-loss'], 'changed' => ['compaction:summary-loss', '--model=unreviewed'], 'exit' => 1],
             default => throw new RuntimeException('Unknown native CLI fixture.'),
         };
