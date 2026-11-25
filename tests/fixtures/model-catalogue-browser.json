@@ -68,7 +68,7 @@
                         },
                         "lifecycle": {
                             "label": "Legacy",
-                            "checked_on": "2026-11-04",
+                            "checked_on": "2026-11-25",
                             "source": "https:\/\/platform.claude.com\/docs\/en\/about-claude\/models\/overview"
                         }
                     },
@@ -101,7 +101,7 @@
                         },
                         "lifecycle": {
                             "label": "Legacy",
-                            "checked_on": "2026-11-04",
+                            "checked_on": "2026-11-25",
                             "source": "https:\/\/platform.claude.com\/docs\/en\/about-claude\/models\/overview"
                         }
                     },
@@ -4719,9 +4719,9 @@
                             "stale": false
                         },
                         "lifecycle": {
-                            "label": "Legacy",
-                            "checked_on": "2026-11-04",
-                            "source": "https:\/\/platform.claude.com\/docs\/en\/models\/opus-4-5\/overview"
+                            "label": "Deprecated",
+                            "checked_on": "2026-11-25",
+                            "source": "https:\/\/platform.claude.com\/docs\/en\/about-claude\/model-deprecations"
                         }
                     },
                     {
@@ -4753,8 +4753,8 @@
                         },
                         "lifecycle": {
                             "label": "Deprecated",
-                            "checked_on": "2026-11-04",
-                            "source": "https:\/\/platform.claude.com\/docs\/en\/models\/sonnet-4-5\/overview"
+                            "checked_on": "2026-11-25",
+                            "source": "https:\/\/platform.claude.com\/docs\/en\/about-claude\/model-deprecations"
                         }
                     },
                     {
@@ -4786,7 +4786,7 @@
                         },
                         "lifecycle": {
                             "label": "Legacy",
-                            "checked_on": "2026-11-04",
+                            "checked_on": "2026-11-25",
                             "source": "https:\/\/platform.claude.com\/docs\/en\/about-claude\/models\/overview"
                         }
                     }

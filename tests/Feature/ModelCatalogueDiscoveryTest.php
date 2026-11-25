@@ -132,15 +132,14 @@ class ModelCatalogueDiscoveryTest extends TestCase
     public function test_dated_anthropic_prices_and_status_use_the_exact_models_own_pages(): void
     {
         foreach ([
-            ['claude-opus-4-5-20251101', 5.0, 25.0, 'Legacy', 'https://platform.claude.com/docs/en/models/opus-4-5/overview'],
-            ['claude-sonnet-4-5-20250929', 3.0, 15.0, 'Deprecated', 'https://platform.claude.com/docs/en/models/sonnet-4-5/overview'],
-        ] as [$id, $input, $output, $status, $source]) {
+            ['claude-opus-4-5-20251101', 5.0, 25.0, 'https://platform.claude.com/docs/en/models/opus-4-5/overview'],
+            ['claude-sonnet-4-5-20250929', 3.0, 15.0, 'https://platform.claude.com/docs/en/models/sonnet-4-5/overview'],
+        ] as [$id, $input, $output, $source]) {
             $price = app(ModelPrices::class)->forModel('anthropic', $id);
             $this->assertIsArray($price);
             $this->assertSame($input, $price['rates'][0]['input']);
             $this->assertSame($output, $price['rates'][0]['output']);
             $this->assertSame($source, $price['source']);
-            $this->assertSame(['label' => $status, 'checked_on' => '2026-11-04', 'source' => $source], app(ModelPrices::class)->lifecycleForModel('anthropic', $id));
         }
         $this->assertSame(['anthropic:claude-sonnet-5-5', 'openai:gpt-5.4-mini'], ModelCatalogue::DEFAULT_ENABLED);
     }
@@ -380,10 +379,36 @@ class ModelCatalogueDiscoveryTest extends TestCase
         $this->assertSame([$key], app(ModelPolicy::class)->allowed());
     }
 
+    public function test_anthropic_deprecations_carry_the_deprecations_page_and_turn_retired_on_the_retirement_date(): void
+    {
+        // Read from https://platform.claude.com/docs/en/about-claude/model-deprecations
+        // on 2026-11-25: Opus 4.5 was deprecated on 2026-11-23 and retires on
+        // 2027-01-22; Sonnet 4.5 retires on 2026-11-30. Both rows include the
+        // dateless alias.
+        $deprecated = ['label' => 'Deprecated', 'checked_on' => '2026-11-25', 'source' => 'https://platform.claude.com/docs/en/about-claude/model-deprecations'];
+        $retired = ['label' => 'Retired'] + $deprecated;
+        $prices = app(ModelPrices::class);
+        try {
+            foreach ([
+                ['claude-opus-4-5', '2027-01-22'], ['claude-opus-4-5-20251101', '2027-01-22'],
+                ['claude-sonnet-4-5', '2026-11-30'], ['claude-sonnet-4-5-20250929', '2026-11-30'],
+            ] as [$id, $retires]) {
+                $this->travelTo(CarbonImmutable::parse($retires)->subDay()->setTime(23, 59));
+                $this->assertSame($deprecated, $prices->lifecycleForModel('anthropic', $id), $id.' still answers the day before it retires.');
+                $this->travelTo(CarbonImmutable::parse($retires)->setTime(0, 1));
+                $this->assertSame($retired, $prices->lifecycleForModel('anthropic', $id), $id.' is refused from its retirement date.');
+            }
+        } finally {
+            $this->travelBack();
+        }
+        $this->assertNotContains('Legacy', array_column(array_filter(array_map(fn (string $id) => $prices->lifecycleForModel('anthropic', $id),
+            ['claude-opus-4-5', 'claude-opus-4-5-20251101'])), 'label'), 'A deprecated model must not read as merely legacy.');
+    }
+
     public function test_legacy_and_deprecated_status_is_dated_cited_and_does_not_change_saved_choices(): void
     {
         foreach (['claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5', 'claude-fable-5'] as $id) {
-            $this->assertSame(['label' => 'Legacy', 'checked_on' => '2026-11-04', 'source' => 'https://platform.claude.com/docs/en/about-claude/models/overview'], app(ModelPrices::class)->lifecycleForModel('anthropic', $id));
+            $this->assertSame(['label' => 'Legacy', 'checked_on' => '2026-11-25', 'source' => 'https://platform.claude.com/docs/en/about-claude/models/overview'], app(ModelPrices::class)->lifecycleForModel('anthropic', $id));
         }
         foreach (['gpt-4.1-mini', 'gpt-4.1-mini-2025-04-14'] as $id) {
             $this->assertSame(['label' => 'Deprecated', 'checked_on' => '2026-11-04', 'source' => 'https://developers.openai.com/api/docs/models/gpt-4.1-mini'], app(ModelPrices::class)->lifecycleForModel('openai', $id));
