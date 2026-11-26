@@ -105,7 +105,7 @@
         "particle-academy/prism-harness": "dev-main as 0.26.8",
         "particle-academy/prism-human-plus": "dev-main as 0.6.0",
         "particle-academy/prism-mcp": "dev-main as 0.3.0",
-        "particle-academy/prism-opentelemetry": "dev-main as 0.6.0",
+        "particle-academy/prism-opentelemetry": "dev-main as 0.7.0",
         "particle-academy/prism-perplexity": "dev-main as 0.4.3",
         "particle-academy/prism-workspace": "dev-main as 0.3.0",
         "symfony/process": "^8.1"
