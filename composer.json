@@ -102,7 +102,7 @@
         "particle-academy/prism-acp": "0.2.0",
         "particle-academy/prism-agent-docs": "dev-main as 0.1.6",
         "particle-academy/prism-browser": "dev-main as 0.4.2",
-        "particle-academy/prism-harness": "dev-main as 0.26.8",
+        "particle-academy/prism-harness": "dev-main as 0.26.9",
         "particle-academy/prism-human-plus": "dev-main as 0.6.0",
         "particle-academy/prism-mcp": "dev-main as 0.3.0",
         "particle-academy/prism-opentelemetry": "dev-main as 0.7.0",
