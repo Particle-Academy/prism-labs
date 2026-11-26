@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "356c6f6c063fd8cfda6914d21c078ceb",
+    "content-hash": "37d0f345cc993999a274cd6e95331cc3",
     "packages": [
         {
             "name": "brick/math",
@@ -11656,8 +11656,8 @@
         {
             "package": "particle-academy/prism-opentelemetry",
             "version": "dev-main",
-            "alias": "0.6.0",
-            "alias_normalized": "0.6.0.0"
+            "alias": "0.7.0",
+            "alias_normalized": "0.7.0.0"
         },
         {
             "package": "particle-academy/prism-perplexity",
