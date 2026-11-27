@@ -12,7 +12,26 @@ permissions:
   contents: read
 
 jobs:
+  pins:
+    # Which prism-acp-ts commit the ACP job checks and builds: a candidate pin's exact commit, or main. Its own job
+    # because the ACP job may run nothing before it fetches the org dependency policy (prism-parity
+    # tools/pin-github-checks.mjs), so the clone there is a plain actions/checkout at this ref.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      acp_ts_ref: ${{ steps.ref.outputs.ref }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - id: ref
+        run: node scripts/dogfood-dependencies.mjs --npm-ref prism-acp-ts >> "$GITHUB_OUTPUT"
+
   acp:
+    needs: pins
     name: ACP (${{ matrix.resolution }})
     runs-on: windows-latest
     timeout-minutes: 15
@@ -37,6 +56,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      # The Lab loads ../prism-acp-ts/dist for /lab/accounts. It is cloned here, BEFORE the policy fetch (only
+      # checkout and setup-node may precede it), so the one gate below checks exactly the tree --build-npm builds.
+      - name: Checkout the TypeScript prism-acp source (main, or its candidate pin)
+        uses: actions/checkout@v4
+        with:
+          repository: Particle-Academy/prism-acp-ts
+          ref: ${{ needs.pins.outputs.acp_ts_ref }}
+          path: prism-acp-ts
+          persist-credentials: false
       - name: Fetch org dependency policy
         uses: actions/checkout@v4
         with:
@@ -102,18 +130,12 @@ jobs:
           }
           console.log("Pinned checkout verified: " + head + ", " + want.length + " files match.");
           '
-      - name: Check org dependency policy before installation
-        run: node .third-party-allowlist/third-party/check.mjs --repo .
+      - name: Check org dependency policy before installation (this repository and the prism-acp-ts source)
+        run: |
+          node .third-party-allowlist/third-party/check.mjs --repo .
+          node .third-party-allowlist/third-party/check.mjs --repo ../prism-acp-ts
       - name: Checkout every path dependency from its main branch
         run: node scripts/dogfood-dependencies.mjs --checkout
-      # The Lab loads ../prism-acp-ts/dist for /lab/accounts. Clone it from main (or its candidate pin), check it
-      # against the org policy BEFORE installing anything, then install from its own lock and build it.
-      - name: Checkout the TypeScript prism-acp source (main, or its candidate pin)
-        if: matrix.resolution == 'source'
-        run: node scripts/dogfood-dependencies.mjs --checkout-npm
-      - name: Check org dependency policy for the TypeScript prism-acp source
-        if: matrix.resolution == 'source'
-        run: node .third-party-allowlist/third-party/check.mjs --repo ../prism-acp-ts
       - name: Install and build the TypeScript prism-acp source from its own lock
         if: matrix.resolution == 'source'
         run: node scripts/dogfood-dependencies.mjs --build-npm
