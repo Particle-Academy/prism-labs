@@ -140,3 +140,47 @@ def start_message(*, run_id: str, task_id: str, instruction: str, tools: list[di
     if system_prompt is not None:
         message["system_prompt"] = system_prompt
     return message
+
+
+def function_schema(tool: Any) -> dict[str, Any]:
+    """The `function` part of a tool's OpenAI schema, as the driver's `tools` entry.
+
+    tau2 v1.0.1 exposes `Tool.openai_schema` as a PROPERTY returning a dict
+    (found by the free smoke run: calling it raised "'dict' object is not
+    callable"); other versions expose a method. Both are accepted here.
+    """
+    schema = getattr(tool, "openai_schema")
+    schema = schema() if callable(schema) else schema
+    function = dict(schema["function"])
+    function.setdefault("description", function["name"])
+    function["parameters"] = inline_refs(function.get("parameters") or {"type": "object", "properties": {}})
+    return function
+
+
+def inline_refs(schema: dict[str, Any], _depth: int = 0) -> dict[str, Any]:
+    """Resolve local `#/$defs/...` references and drop `$defs`.
+
+    pydantic puts nested models in a top-level `$defs`, and the driver hands
+    each top-level property to the harness on its own, so a `$ref` left in
+    place would point at nothing. Recursion is bounded: a self-referential
+    model is cut off rather than expanded forever.
+    """
+    defs = schema.get("$defs", {}) or schema.get("definitions", {})
+
+    def walk(node: Any, depth: int) -> Any:
+        if isinstance(node, dict):
+            ref = node.get("$ref")
+            if isinstance(ref, str) and ref.startswith(("#/$defs/", "#/definitions/")):
+                if depth > 8:
+                    return {"type": "object", "description": "(nested definition truncated)"}
+                target = defs.get(ref.rsplit("/", 1)[-1])
+                if target is None:
+                    raise ValueError(f"unresolvable schema reference {ref}")
+                merged = {**target, **{k: v for k, v in node.items() if k != "$ref"}}
+                return walk(merged, depth + 1)
+            return {k: walk(v, depth) for k, v in node.items() if k not in ("$defs", "definitions")}
+        if isinstance(node, list):
+            return [walk(v, depth) for v in node]
+        return node
+
+    return walk(schema, _depth)

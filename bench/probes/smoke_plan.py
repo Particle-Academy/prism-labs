@@ -19,7 +19,7 @@ plan = {
     "model": {"provider": "anthropic", "id": "claude-haiku-5-5", "reasoning_effort": "default", "provider_options": {}},
     "harness": {"version": "0.26.9", "driver_ref": "0" * 40},
     "prices": {"anthropic": {"claude-haiku-5-5": PRICE}, "openai": {"gpt-6.1-terra": PRICE}},
-    "terminal_bench": {"dataset": "terminal-bench/terminal-bench-cpu@4.1.0", "tasks": [task], "subset_digest": plans.subset_digest([task]),
+    "terminal_bench": {"dataset": "terminal-bench/terminal-bench@sha256:5881c1b1c74a96f07baef00a7c869e09802704bc0dc912c870e7acccc11440da", "tasks": [task], "subset_digest": plans.subset_digest([task]),
                        "attempts": 1, "shards": 1, "per_task_cap_usd": 0.2, "min_task_reserve_usd": 0.01,
                        "neutral_call_reserve_usd": 0.01, "max_steps": 6, "max_output_tokens_per_call": 512,
                        "tool_overhead_tokens": 600, "agent_timeout_multiplier": 0.01, "per_task_wall_minutes": 30,

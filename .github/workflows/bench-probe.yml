@@ -146,7 +146,7 @@ jobs:
       - name: Probe one task with the nop agent
         env:
           TASK: ${{ matrix.task }}
-        run: python bench/probes/fit_probe.py --task "$TASK" --dataset terminal-bench/terminal-bench-cpu@4.1.0 --out probe-out
+        run: python bench/probes/fit_probe.py --task "$TASK" --dataset terminal-bench/terminal-bench@sha256:5881c1b1c74a96f07baef00a7c869e09802704bc0dc912c870e7acccc11440da --out probe-out
       - name: Scrub
         if: always()
         run: python bench/prism_bench/scrub.py probe-out

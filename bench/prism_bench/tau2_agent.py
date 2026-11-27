@@ -33,7 +33,7 @@ from tau2.data_model.message import AssistantMessage, MultiToolMessage, ToolCall
 from tau2.user.user_simulator import UserSimulator
 
 from . import plan as plans
-from .driver import DriverError, DriverSession, start_message
+from .driver import DriverError, DriverSession, function_schema, start_message
 from .ledger import CapReached, Ledger
 from .prices import conservative_cost_usd
 
@@ -116,20 +116,26 @@ class PrismTau2Agent(HalfDuplexAgent):
         if cap <= float(tau["call_reserve_usd"]):
             _mark_cap_stop("agent", "the arm cap is spent")
             raise AgentError("cap: the arm cap is spent")
+        # Everything that can fail before the driver is running is done first, and
+        # a driver that was started is closed on any failure: tau2 retries a
+        # simulation, and each retry would otherwise leave a driver waiting.
+        tools = [function_schema(t) for t in self.tools]
+        system_prompt = SYSTEM_PROMPT.format(domain_policy=self.domain_policy, agent_instruction=AGENT_INSTRUCTION)
         session = DriverSession(json.loads(os.environ["PRISM_BENCH_DRIVER"]), key_vars=("ANTHROPIC_API_KEY", "ANTHROPIC_URL"),
                                 stderr_path=Path(os.environ.get("PRISM_BENCH_RECORDS", ".")) / f"driver-{self.run_no}.stderr.log")
-        session.open()
-        tools = [t.openai_schema()["function"] for t in self.tools]
-        for tool in tools:
-            tool.setdefault("description", tool["name"])
-        session.send("start", **start_message(
-            run_id=f"tau2.{self.task_id}.{self.run_no}", task_id=f"tau2.{self.task_id}", instruction=instruction,
-            tools=tools, system_prompt=SYSTEM_PROMPT.format(domain_policy=self.domain_policy, agent_instruction=AGENT_INSTRUCTION),
-            model={"provider": model["provider"], "id": model["id"], "provider_options": model.get("provider_options") or {},
-                   "reasoning_effort": model["reasoning_effort"]},
-            max_cost_usd=cap, max_steps=int(tau["max_steps"]), max_output_tokens_per_call=int(tau["max_output_tokens_per_call"]),
-            pricing=plan["prices"][model["provider"]][model["id"]] | {"toolOverheadTokens": int(tau["tool_overhead_tokens"])},
-        ))
+        try:
+            session.open()
+            session.send("start", **start_message(
+                run_id=f"tau2.{self.task_id}.{self.run_no}", task_id=f"tau2.{self.task_id}", instruction=instruction,
+                tools=tools, system_prompt=system_prompt,
+                model={"provider": model["provider"], "id": model["id"], "provider_options": model.get("provider_options") or {},
+                       "reasoning_effort": model["reasoning_effort"]},
+                max_cost_usd=cap, max_steps=int(tau["max_steps"]), max_output_tokens_per_call=int(tau["max_output_tokens_per_call"]),
+                pricing=plan["prices"][model["provider"]][model["id"]] | {"toolOverheadTokens": int(tau["tool_overhead_tokens"])},
+            ))
+        except BaseException:
+            session.close(timeout=5)
+            raise
         state["session"], state["ledger"] = session, ledger
 
     def generate_next_message(self, message, state):

@@ -1,5 +1,5 @@
 {
- "dataset": "terminal-bench/terminal-bench-cpu@4.1.0",
+ "dataset": "terminal-bench/terminal-bench@sha256:5881c1b1c74a96f07baef00a7c869e09802704bc0dc912c870e7acccc11440da",
  "source": "harbor-framework/terminal-bench tag v4.1.0 (4070d6cef56a7d20cb5dc98d5e10ada88a6b9440), tasks/*/task.toml",
  "membership": "tasks with gpus = 0 (63 of 66), matching the release notes' count; Hub membership not verified, the probe's own Harbor run is the check",
  "runner": {
@@ -576,5 +576,6 @@
    "agent_timeout_sec": 28800.0,
    "verifier_timeout_sec": 1200.0
   }
- ]
+ ],
+ "dataset_note": "Terminal-Bench 4.1.0 on Harbor Hub: terminal-bench/terminal-bench revision 5, tags 4.1.0/v4.1.0, pinned by its content hash so the bytes cannot move under a tag. The release notes' terminal-bench/terminal-bench-cpu@4.1.0 is not resolvable anonymously (the Hub API answers 404 Package not found), so the CPU set is these 63 task names selected with -i from the full set."
 }
