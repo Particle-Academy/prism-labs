@@ -141,7 +141,8 @@ jobs:
           docker system prune -af > /dev/null
           df -h /
       - name: Install Harbor (no secrets in this job)
-        run: python -m pip install --only-binary=:all: harbor==0.27.0
+        run: |
+          python -m pip install --only-binary=:all: harbor==0.27.0
       - name: Probe one task with the nop agent
         env:
           TASK: ${{ matrix.task }}
@@ -354,7 +355,8 @@ jobs:
           docker system prune -af > /dev/null
           df -h /
       - name: Install the SWE-bench harness (no secrets in this job)
-        run: python -m pip install --only-binary=:all: swebench==4.1.0
+        run: |
+          python -m pip install --only-binary=:all: swebench==4.1.0
       - name: Grade three Lite gold patches, one at a time
         run: python bench/probes/swe_probe.py --out swe-out django__django-11099 sympy__sympy-20590 astropy__astropy-12907
       - name: Scrub
