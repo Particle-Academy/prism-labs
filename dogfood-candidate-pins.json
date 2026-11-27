@@ -1,4 +1,4 @@
 {
     "prism": { "branch": "v0.155.1", "sha": "d25dc6707ec60e125893c54f20afa857cce017e4" },
-    "prism-harness": { "branch": "release/0.26.x", "sha": "43b66dc542c2abfd47d6d2a7a288ced05f6f4504" }
+    "prism-harness": { "branch": "release/0.26.x", "sha": "746684765d9bda178d4710d34494d6b406d8e98f" }
 }
