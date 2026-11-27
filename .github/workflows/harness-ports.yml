@@ -2,9 +2,9 @@ name: Harness ports
 
 # The Lab exercises the TypeScript and Python harness ports the way a consumer
 # installs them: each candidate is checked out at exactly its pinned commit
-# (dogfood-candidate-pins.json, draft candidate PRs only) or at main, built,
-# packed into a tarball or a wheel, and that FILE is installed into a throwaway
-# consumer project. The Lab's own scenarios (tests/harness-ports/) then drive
+# (dogfood-candidate-pins.json, draft candidate PRs, pull_request runs only) or
+# at main, built, packed into a tarball or a wheel, and that FILE is installed
+# into a throwaway consumer project. The Lab's own scenarios (tests/harness-ports/) then drive
 # the public API with a fake model client and the network blocked.
 #
 # No secrets, no tokens, no provider calls. Every action is pinned to a full
@@ -62,11 +62,22 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24"
+      # Only a pull_request run builds a candidate pin (scripts/dogfood-dependencies.mjs portPins). A push or a
+      # dispatch builds the port's main, named literally here, never a ref another job computed.
       - name: Check out the prism-harness-ts candidate (main, or its candidate pin)
+        if: github.event_name == 'pull_request'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Particle-Academy/prism-harness-ts
           ref: ${{ needs.pins.outputs.ts_ref }}
+          path: prism-harness-ts
+          persist-credentials: false
+      - name: Check out prism-harness-ts main
+        if: github.event_name != 'pull_request'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Particle-Academy/prism-harness-ts
+          ref: main
           path: prism-harness-ts
           persist-credentials: false
       - name: Fetch the third-party allowlist
@@ -196,11 +207,22 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24"
+      # Only a pull_request run builds a candidate pin (scripts/dogfood-dependencies.mjs portPins). A push or a
+      # dispatch builds the port's main, named literally here, never a ref another job computed.
       - name: Check out the prism-harness-py candidate (main, or its candidate pin)
+        if: github.event_name == 'pull_request'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Particle-Academy/prism-harness-py
           ref: ${{ needs.pins.outputs.py_ref }}
+          path: prism-harness-py
+          persist-credentials: false
+      - name: Check out prism-harness-py main
+        if: github.event_name != 'pull_request'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Particle-Academy/prism-harness-py
+          ref: main
           path: prism-harness-py
           persist-credentials: false
       - name: Fetch the third-party allowlist

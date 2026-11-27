@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { siblingRepositories, checkNpmCurrency, checkComposerCurrency, checkComposerAliasCurrency, candidatePins, npmSiblingRef, NPM_SIBLINGS, PORT_SIBLINGS, portSiblingRef } from './dogfood-dependencies.mjs';
+import { siblingRepositories, checkNpmCurrency, checkComposerCurrency, checkComposerAliasCurrency, candidatePins, npmSiblingRef, NPM_SIBLINGS, PORT_SIBLINGS, portSiblingRef, portPins } from './dogfood-dependencies.mjs';
 
 test('every manifest path is a checkout, including ACP and future satellites', () => {
     const manifest = JSON.parse(readFileSync(new URL('../composer.json', import.meta.url), 'utf8'));
@@ -150,6 +150,9 @@ test('the harness ports are pinnable siblings, and a pin for one is held to the 
     assert.equal(portSiblingRef('prism-harness-py', {}), 'main');
     assert.equal(portSiblingRef('prism-harness-ts', { 'prism-harness-ts': { branch: 'release/0.11.x', sha } }), sha);
     assert.throws(() => portSiblingRef('prism-acp-ts', {}), /not a harness port sibling/);
+    const pins = { 'prism-harness-ts': { branch: 'release/0.11.x', sha } };
+    assert.deepEqual(portPins(pins, 'pull_request'), pins);
+    for (const event of ['push', 'workflow_dispatch', 'schedule', 'pull_request_target', undefined]) assert.deepEqual(portPins(pins, event), {});
 });
 
 test('an npm sibling is checked out at its candidate pin, else main; nothing else resolves', () => {

@@ -63,6 +63,15 @@ export function portSiblingRef(name, pins) {
 }
 
 /**
+ * The pins a harness port lane honours. Only a pull_request run builds a pinned candidate: it runs with the pull
+ * request's own read-only scope. A push to main or a workflow_dispatch runs in a branch's own context, where code a
+ * candidate's build executes could reach that branch's shared state, so there every port is built from its main.
+ */
+export function portPins(pins, eventName) {
+    return eventName === 'pull_request' ? pins : {};
+}
+
+/**
  * The same exact-verified-checkout gate cloneSibling applies: a pinned port must be at exactly the pinned commit, and that
  * commit must be the tip of the pinned branch, as a clone of that branch would be. An unpinned port is main, and logged.
  */
@@ -258,12 +267,12 @@ async function main() {
         for (const name of process.argv.includes('--checkout') ? names : NPM_SIBLINGS) cloneSibling(name, pins[name]);
     } else if (process.argv.includes('--port-ref')) {
         const name = process.argv[process.argv.indexOf('--port-ref') + 1];
-        console.log(`ref=${portSiblingRef(name, readPins([...names, ...NPM_SIBLINGS, ...PORT_SIBLINGS]))}`);
+        console.log(`ref=${portSiblingRef(name, portPins(readPins([...names, ...NPM_SIBLINGS, ...PORT_SIBLINGS]), process.env.GITHUB_EVENT_NAME))}`);
     } else if (process.argv.includes('--verify-port')) {
         // After the org dependency policy has been checked against the checkout, and before anything builds it.
         if (process.env.GITHUB_ACTIONS !== 'true') throw new Error('--verify-port is restricted to GitHub Actions.');
         const name = process.argv[process.argv.indexOf('--verify-port') + 1];
-        verifyPortCheckout(name, readPins([...names, ...NPM_SIBLINGS, ...PORT_SIBLINGS])[name]);
+        verifyPortCheckout(name, portPins(readPins([...names, ...NPM_SIBLINGS, ...PORT_SIBLINGS]), process.env.GITHUB_EVENT_NAME)[name]);
     } else if (process.argv.includes('--build-npm')) {
         // After the org dependency policy has been checked against each clone, never before.
         if (process.env.GITHUB_ACTIONS !== 'true') throw new Error('--build-npm is restricted to GitHub Actions.');
