@@ -66,9 +66,12 @@ function cloneSibling(name, pin) {
     return target;
 }
 
-function run(cwd, command, args) {
-    // npm is npm.cmd on Windows, which execFile cannot start without a shell; the arguments are fixed strings here.
-    execFileSync(command, args, { cwd, stdio: 'inherit', windowsHide: true, timeout: 600000, shell: process.platform === 'win32' });
+function npm(cwd, args) {
+    if (!args.every(arg => /^[A-Za-z0-9-]+$/.test(arg))) throw new Error('npm arguments must be plain words.');
+    // npm is npm.cmd on Windows, which execFile cannot start directly. cmd is named explicitly rather than through
+    // `shell: true`, and only the fixed, plain-word arguments above reach it.
+    const [file, argv] = process.platform === 'win32' ? [process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', 'npm', ...args]] : ['npm', args];
+    execFileSync(file, argv, { cwd, stdio: 'inherit', windowsHide: true, timeout: 600000 });
 }
 
 function git(cwd, ...args) {
@@ -209,8 +212,8 @@ async function main() {
             const target = resolve(root, '..', name);
             if (!existsSync(target)) throw new Error(`${name} is not checked out; run --checkout-npm first.`);
             // Its own lockfile, exactly; no lifecycle scripts (tsc needs none), then its own build.
-            run(target, 'npm', ['ci', '--ignore-scripts', '--no-audit', '--no-fund']);
-            run(target, 'npm', ['run', 'build']);
+            npm(target, ['ci', '--ignore-scripts', '--no-audit', '--no-fund']);
+            npm(target, ['run', 'build']);
             if (!existsSync(resolve(target, 'dist', 'index.js'))) throw new Error(`${name} built no dist/index.js.`);
             console.log(`Built ${name} at ${git(target, 'rev-parse', 'HEAD')}`);
         }
