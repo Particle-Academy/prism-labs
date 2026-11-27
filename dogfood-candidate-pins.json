@@ -1,0 +1,4 @@
+{
+    "prism-harness-ts": { "branch": "release/0.11.x", "sha": "12724e05c78df80f645fbfc8633a42589037afa3" },
+    "prism-harness-py": { "branch": "release/0.5.x", "sha": "73068d6c950107e5910021fb23b1ea5ba97f4972" }
+}
