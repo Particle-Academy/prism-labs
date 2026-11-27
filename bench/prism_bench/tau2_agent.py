@@ -116,7 +116,7 @@ class PrismTau2Agent(HalfDuplexAgent):
         if cap <= float(tau["call_reserve_usd"]):
             _mark_cap_stop("agent", "the arm cap is spent")
             raise AgentError("cap: the arm cap is spent")
-        session = DriverSession(json.loads(os.environ["PRISM_BENCH_DRIVER"]), key_vars=("ANTHROPIC_API_KEY",),
+        session = DriverSession(json.loads(os.environ["PRISM_BENCH_DRIVER"]), key_vars=("ANTHROPIC_API_KEY", "ANTHROPIC_URL"),
                                 stderr_path=Path(os.environ.get("PRISM_BENCH_RECORDS", ".")) / f"driver-{self.run_no}.stderr.log")
         session.open()
         tools = [t.openai_schema()["function"] for t in self.tools]

@@ -95,7 +95,7 @@ class PrismHarnessAgent(BaseAgent):
             self._finish(recorder, context)
             return
 
-        session = DriverSession(json.loads(os.environ["PRISM_BENCH_DRIVER"]), key_vars=("ANTHROPIC_API_KEY",),
+        session = DriverSession(json.loads(os.environ["PRISM_BENCH_DRIVER"]), key_vars=("ANTHROPIC_API_KEY", "ANTHROPIC_URL"),
                                 stderr_path=Path(str(self.logs_dir)) / "driver.stderr.log")
         hello = session.open()
         recorder.agent_version = str(hello["driver"].get("harness_version", recorder.agent_version))
