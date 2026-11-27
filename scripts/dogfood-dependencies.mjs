@@ -19,6 +19,61 @@ export function siblingRepositories(manifest) {
     return names;
 }
 
+// Siblings the Lab consumes as BUILT npm packages from their working tree, not through Composer: config/acp.php loads
+// ../prism-acp-ts/dist/index.js for /lab/accounts (scripts/claude-accounts.mjs). CI clones (--checkout-npm), checks and
+// builds (--build-npm) them, so a candidate is exercised before it is published.
+export const NPM_SIBLINGS = Object.freeze(['prism-acp-ts']);
+
+/**
+ * Candidate pins (draft candidate PRs only): { "<sibling>": { "branch": "...", "sha": "<40 hex>" } }. A pinned sibling is
+ * cloned from its branch and must be at exactly that commit. A pin naming anything but a known sibling fails closed.
+ */
+export function candidatePins(pins, known) {
+    if (pins === null || typeof pins !== 'object' || Array.isArray(pins)) throw new Error('Candidate pins must be an object.');
+    for (const [name, pin] of Object.entries(pins)) {
+        if (!known.includes(name)) throw new Error(`Pinned ${name} is not a sibling dependency.`);
+        if (pin === null || typeof pin !== 'object' || !/^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(pin.branch ?? '') || pin.branch.includes('..')
+            || !/^[0-9a-f]{40}$/.test(pin.sha ?? '')) throw new Error(`Malformed pin for ${name}.`);
+    }
+    return pins;
+}
+
+function readPins(known) {
+    const pinFile = resolve(root, 'dogfood-candidate-pins.json');
+    return candidatePins(existsSync(pinFile) ? JSON.parse(readFileSync(pinFile, 'utf8')) : {}, known);
+}
+
+/** Clone one sibling from main, or from its pinned branch; a pinned clone must be at exactly the pinned commit. */
+function cloneSibling(name, pin) {
+    const target = resolve(root, '..', name);
+    if (existsSync(target)) throw new Error(`Refusing to replace existing checkout: ${name}`);
+    const branch = pin?.branch ?? 'main';
+    try {
+        execFileSync('git', ['clone', '--depth', '1', '--branch', branch, `https://github.com/Particle-Academy/${name}.git`, target], {
+            stdio: 'inherit', windowsHide: true, timeout: 60000,
+            env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+        });
+    } catch {
+        throw new Error(`Required source Particle-Academy/${name} could not be checked out. An unpublished or inaccessible path dependency blocks CI; supply its reviewed remote source before treating the gate as operational.`);
+    }
+    const head = git(target, 'rev-parse', 'HEAD');
+    if (pin) {
+        if (head !== pin.sha) throw new Error(`Pinned ${name} ${branch} is at ${head}, expected ${pin.sha}.`);
+        // Composer's dev-main aliases resolve against local branch main.
+        if (branch !== 'main') git(target, 'checkout', '-q', '-B', 'main');
+    }
+    console.log(`${pin ? 'Pinned' : 'Checked out'} ${name}: ${branch} at ${head}`);
+    return target;
+}
+
+function npm(cwd, args) {
+    if (!args.every(arg => /^[A-Za-z0-9-]+$/.test(arg))) throw new Error('npm arguments must be plain words.');
+    // npm is npm.cmd on Windows, which execFile cannot start directly. cmd is named explicitly rather than through
+    // `shell: true`, and only the fixed, plain-word arguments above reach it.
+    const [file, argv] = process.platform === 'win32' ? [process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', 'npm', ...args]] : ['npm', args];
+    execFileSync(file, argv, { cwd, stdio: 'inherit', windowsHide: true, timeout: 600000 });
+}
+
 function git(cwd, ...args) {
     return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, timeout: 30000 }).trim();
 }
@@ -49,6 +104,15 @@ export function inventory(base, names) {
             sha: git(resolve(base, '..', name), 'rev-parse', 'HEAD'),
             dirty: git(resolve(base, '..', name), 'status', '--porcelain', '--untracked-files=no') !== '',
         })),
+        // Built npm siblings, when this workspace has them (CI's ACP source lane clones and builds them).
+        npm_siblings: NPM_SIBLINGS.map(name => {
+            const cwd = resolve(base, '..', name);
+            if (!existsSync(cwd)) return { path: `../${name}`, checked_out: false };
+            return {
+                path: `../${name}`, checked_out: true, repository: repositoryIdentity(cwd), sha: git(cwd, 'rev-parse', 'HEAD'),
+                dirty: git(cwd, 'status', '--porcelain', '--untracked-files=no') !== '', built: existsSync(resolve(cwd, 'dist', 'index.js')),
+            };
+        }),
     };
 }
 
@@ -136,20 +200,22 @@ export async function checkComposerAliasCurrency(manifest, fetchMetadata = fetch
 async function main() {
     const manifest = JSON.parse(readFileSync(resolve(root, 'composer.json'), 'utf8'));
     const names = siblingRepositories(manifest);
-    if (process.argv.includes('--checkout')) {
+    if (process.argv.includes('--checkout') || process.argv.includes('--checkout-npm')) {
         // Never replace a person's sibling checkout. CI gets a fresh workspace.
         if (process.env.GITHUB_ACTIONS !== 'true') throw new Error('--checkout is restricted to GitHub Actions.');
-        for (const name of names) {
+        const pins = readPins([...names, ...NPM_SIBLINGS]);
+        for (const name of process.argv.includes('--checkout') ? names : NPM_SIBLINGS) cloneSibling(name, pins[name]);
+    } else if (process.argv.includes('--build-npm')) {
+        // After the org dependency policy has been checked against each clone, never before.
+        if (process.env.GITHUB_ACTIONS !== 'true') throw new Error('--build-npm is restricted to GitHub Actions.');
+        for (const name of NPM_SIBLINGS) {
             const target = resolve(root, '..', name);
-            if (existsSync(target)) throw new Error(`Refusing to replace existing checkout: ${name}`);
-            try {
-                execFileSync('git', ['clone', '--depth', '1', '--branch', 'main', `https://github.com/Particle-Academy/${name}.git`, target], {
-                    stdio: 'inherit', windowsHide: true, timeout: 60000,
-                    env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
-                });
-            } catch {
-                throw new Error(`Required source Particle-Academy/${name} could not be checked out. An unpublished or inaccessible path dependency blocks CI; supply its reviewed remote source before treating the gate as operational.`);
-            }
+            if (!existsSync(target)) throw new Error(`${name} is not checked out; run --checkout-npm first.`);
+            // Its own lockfile, exactly; no lifecycle scripts (tsc needs none), then its own build.
+            npm(target, ['ci', '--ignore-scripts', '--no-audit', '--no-fund']);
+            npm(target, ['run', 'build']);
+            if (!existsSync(resolve(target, 'dist', 'index.js'))) throw new Error(`${name} built no dist/index.js.`);
+            console.log(`Built ${name} at ${git(target, 'rev-parse', 'HEAD')}`);
         }
     } else if (process.argv.includes('--composer-alias-currency')) {
         const results = await checkComposerAliasCurrency(manifest);
