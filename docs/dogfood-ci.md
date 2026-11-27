@@ -220,6 +220,26 @@ records the artifact and runtime-lock hashes. Locally, run
 the absolute Composer PHAR and `PRISM_AUDIT_PHP_BINARY` its PHP executable for
 the every-lock audit when Composer is not on PATH.
 
+### TypeScript ACP (`prism-acp-ts`) source coverage
+
+`/lab/accounts` loads the built `@particle-academy/prism-acp` from the sibling
+working tree (`../prism-acp-ts/dist/index.js`, `config/acp.php`). The `acp.yml`
+source lane clones `Particle-Academy/prism-acp-ts` from `main`
+(`dogfood-dependencies.mjs --checkout-npm`), checks it against the org dependency
+policy, installs it from its own lock without lifecycle scripts and builds it
+(`--build-npm`). `scripts/claude-accounts-real.test.mjs` then loads that real
+build, not the `fake-prism-acp.mjs` stand-in, and drives `readRateLimits`,
+`describe`, `prepare` and `shared` against a fake Claude CLI
+(`tests/fixtures/claude-accounts/fake-claude-cli.mjs`) in temp directories. No
+real CLI, account directory or credential is used. The evidence artifact
+records the clone's SHA under `npm_siblings`.
+
+A candidate draft PR can pin any sibling, Composer or npm, in
+`dogfood-candidate-pins.json`:
+`{ "<sibling>": { "branch": "<branch>", "sha": "<40-hex commit>" } }`. The clone
+must be at exactly that commit, or the checkout fails. A pin that names an
+unknown sibling or is malformed also fails. The file does not exist on `main`.
+
 ### PHP ACP source and release coverage
 
 PHP ACP is public at `Particle-Academy/prism-acp`, with the first stable release

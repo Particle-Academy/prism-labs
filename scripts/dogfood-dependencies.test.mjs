@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { siblingRepositories, checkNpmCurrency, checkComposerCurrency, checkComposerAliasCurrency } from './dogfood-dependencies.mjs';
+import { siblingRepositories, checkNpmCurrency, checkComposerCurrency, checkComposerAliasCurrency, candidatePins, NPM_SIBLINGS } from './dogfood-dependencies.mjs';
 
 test('every manifest path is a checkout, including ACP and future satellites', () => {
     const manifest = JSON.parse(readFileSync(new URL('../composer.json', import.meta.url), 'utf8'));
@@ -123,4 +123,19 @@ test('an exact stable noncanonical consumer refuses both stale and unpublished v
     for (const malformed of ['^0.1.1', '0.1.1 || *', 'latest']) {
         await assert.rejects(checkComposerAliasCurrency(manifest(malformed), metadata));
     }
+});
+
+test('candidate pins name a known sibling, a plain branch and a full commit, or fail closed', () => {
+    const known = ['prism', 'prism-harness', ...NPM_SIBLINGS];
+    assert.ok(NPM_SIBLINGS.includes('prism-acp-ts'));
+    const sha = 'fe0289a'.padEnd(40, '0');
+    assert.deepEqual(candidatePins({}, known), {});
+    assert.deepEqual(candidatePins({ 'prism-acp-ts': { branch: 'main', sha } }, known), { 'prism-acp-ts': { branch: 'main', sha } });
+    assert.ok(candidatePins({ 'prism-harness': { branch: 'release/0.26.x', sha } }, known));
+    for (const pins of [
+        null, [], { 'prism-other': { branch: 'main', sha } }, { prism: null },
+        { prism: { branch: 'main', sha: 'fe0289a' } }, { prism: { branch: 'main', sha: sha.toUpperCase() } },
+        { prism: { branch: '', sha } }, { prism: { branch: 'main;whoami', sha } }, { prism: { branch: '../main', sha } },
+        { prism: { branch: '--upload-pack=x', sha } }, { prism: { branch: '-main', sha } }, { prism: { sha } },
+    ]) assert.throws(() => candidatePins(pins, known), undefined, JSON.stringify(pins));
 });
