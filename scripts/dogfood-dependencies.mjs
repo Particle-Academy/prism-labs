@@ -38,6 +38,16 @@ export function candidatePins(pins, known) {
     return pins;
 }
 
+/**
+ * The ref a workflow checks an npm sibling out at: its candidate pin's exact commit, or main. acp.yml resolves this in a
+ * job of its own and checks the sibling out with actions/checkout BEFORE fetching the org dependency policy, because
+ * nothing that runs code may precede that fetch, and the policy must then check exactly the tree that gets built.
+ */
+export function npmSiblingRef(name, pins) {
+    if (!NPM_SIBLINGS.includes(name)) throw new Error(`${name} is not an npm sibling.`);
+    return pins[name]?.sha ?? 'main';
+}
+
 function readPins(known) {
     const pinFile = resolve(root, 'dogfood-candidate-pins.json');
     return candidatePins(existsSync(pinFile) ? JSON.parse(readFileSync(pinFile, 'utf8')) : {}, known);
@@ -200,7 +210,10 @@ export async function checkComposerAliasCurrency(manifest, fetchMetadata = fetch
 async function main() {
     const manifest = JSON.parse(readFileSync(resolve(root, 'composer.json'), 'utf8'));
     const names = siblingRepositories(manifest);
-    if (process.argv.includes('--checkout') || process.argv.includes('--checkout-npm')) {
+    if (process.argv.includes('--npm-ref')) {
+        const name = process.argv[process.argv.indexOf('--npm-ref') + 1];
+        console.log(`ref=${npmSiblingRef(name, readPins([...names, ...NPM_SIBLINGS]))}`);
+    } else if (process.argv.includes('--checkout') || process.argv.includes('--checkout-npm')) {
         // Never replace a person's sibling checkout. CI gets a fresh workspace.
         if (process.env.GITHUB_ACTIONS !== 'true') throw new Error('--checkout is restricted to GitHub Actions.');
         const pins = readPins([...names, ...NPM_SIBLINGS]);

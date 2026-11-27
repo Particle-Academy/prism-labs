@@ -1,7 +1,8 @@
 // The Lab against the REAL built @particle-academy/prism-acp (the TypeScript package), not the stand-in
-// tests/fixtures/claude-accounts/fake-prism-acp.mjs that ClaudeAccountsTest uses. CI's ACP source lane clones and
-// builds ../prism-acp-ts (`node scripts/dogfood-dependencies.mjs --checkout-npm`, pinnable through
-// dogfood-candidate-pins.json) and runs this, so a prism-acp-ts candidate is exercised here before it is published.
+// tests/fixtures/claude-accounts/fake-prism-acp.mjs that ClaudeAccountsTest uses. CI's ACP job checks out
+// ../prism-acp-ts at `node scripts/dogfood-dependencies.mjs --npm-ref prism-acp-ts` (main, or its pin in
+// dogfood-candidate-pins.json), policy-checks it, builds it (--build-npm) and runs this, so a prism-acp-ts candidate
+// is exercised here before it is published.
 //
 // The only CLI ever run is tests/fixtures/claude-accounts/fake-claude-cli.mjs, through the package's own spawn, in
 // account directories under a fresh temp dir. No real Claude CLI, account directory, ~/.claude or credential is
@@ -21,7 +22,7 @@ const modulePath = resolve(process.env.LAB_PRISM_ACP_MODULE || resolve(root, '..
 const fakeCli = resolve(root, 'tests', 'fixtures', 'claude-accounts', 'fake-claude-cli.mjs');
 const bridge = resolve(root, 'scripts', 'claude-accounts.mjs');
 
-assert.ok(existsSync(modulePath), `the built prism-acp-ts module is missing at ${modulePath}; run --checkout-npm first`);
+assert.ok(existsSync(modulePath), `the built prism-acp-ts module is missing at ${modulePath}; acp.yml checks it out (actions/checkout at the --npm-ref ref) before --build-npm`);
 assert.ok(!modulePath.startsWith(resolve(root, 'tests')), 'this test must load the real package, not a fixture');
 const acp = await import(pathToFileURL(modulePath).href);
 assert.equal(typeof acp.claudeAccounts?.readRateLimits, 'function', 'the built package has no claudeAccounts.readRateLimits');

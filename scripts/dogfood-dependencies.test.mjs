@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { siblingRepositories, checkNpmCurrency, checkComposerCurrency, checkComposerAliasCurrency, candidatePins, NPM_SIBLINGS } from './dogfood-dependencies.mjs';
+import { siblingRepositories, checkNpmCurrency, checkComposerCurrency, checkComposerAliasCurrency, candidatePins, npmSiblingRef, NPM_SIBLINGS } from './dogfood-dependencies.mjs';
 
 test('every manifest path is a checkout, including ACP and future satellites', () => {
     const manifest = JSON.parse(readFileSync(new URL('../composer.json', import.meta.url), 'utf8'));
@@ -138,4 +138,11 @@ test('candidate pins name a known sibling, a plain branch and a full commit, or 
         { prism: { branch: '', sha } }, { prism: { branch: 'main;whoami', sha } }, { prism: { branch: '../main', sha } },
         { prism: { branch: '--upload-pack=x', sha } }, { prism: { branch: '-main', sha } }, { prism: { sha } },
     ]) assert.throws(() => candidatePins(pins, known), undefined, JSON.stringify(pins));
+});
+
+test('an npm sibling is checked out at its candidate pin, else main; nothing else resolves', () => {
+    const sha = 'a'.repeat(40);
+    assert.equal(npmSiblingRef('prism-acp-ts', {}), 'main');
+    assert.equal(npmSiblingRef('prism-acp-ts', { 'prism-acp-ts': { branch: 'feat/x', sha } }), sha);
+    assert.throws(() => npmSiblingRef('prism-acp', {}), /not an npm sibling/);
 });
