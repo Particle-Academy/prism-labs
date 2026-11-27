@@ -10,13 +10,19 @@ import re
 import sys
 from pathlib import Path
 
+# Every key pattern is anchored: the key must not be the tail of a longer word.
+# Unanchored, `sk-...{20,}` matched the Terminal-Bench task name
+# "ri[sk-scorer-replay__L5xJpan]" in a probe job that held no secret at all,
+# and would have discarded that task's logs in a paid run.
+_B = rb"(?<![A-Za-z0-9])"
+
 PATTERNS = {
-    "anthropic-key": re.compile(rb"sk-ant-[A-Za-z0-9_\-]{16,}"),
-    "openai-key": re.compile(rb"sk-(?:proj-|svcacct-|admin-)?[A-Za-z0-9_\-]{20,}"),
-    "github-token": re.compile(rb"(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,})"),
-    "aws-access-key": re.compile(rb"(?:AKIA|ASIA)[0-9A-Z]{16}"),
+    "anthropic-key": re.compile(_B + rb"sk-ant-[A-Za-z0-9_\-]{16,}"),
+    "openai-key": re.compile(_B + rb"sk-(?:proj-|svcacct-|admin-)?[A-Za-z0-9_\-]{20,}"),
+    "github-token": re.compile(_B + rb"(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,})"),
+    "aws-access-key": re.compile(_B + rb"(?:AKIA|ASIA)[0-9A-Z]{16}"),
     "private-key": re.compile(rb"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
-    "slack-token": re.compile(rb"xox[abposr]-[A-Za-z0-9-]{10,}"),
+    "slack-token": re.compile(_B + rb"xox[abposr]-[A-Za-z0-9-]{10,}"),
     "bearer-header": re.compile(rb"(?i)(?:authorization|x-api-key)\s*[:=]\s*[\"']?(?:bearer\s+)?[A-Za-z0-9_\-\.]{24,}"),
 }
 

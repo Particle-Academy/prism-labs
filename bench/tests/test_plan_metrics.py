@@ -186,6 +186,20 @@ class ScrubTest(unittest.TestCase):
         self.assertNotIn(secret, buffer.getvalue())
         self.assertIn("anthropic-key", buffer.getvalue())
 
+    def test_a_task_name_ending_in_sk_is_not_a_key(self):
+        # Measured: the first fit probe failed its scrub on this task's own name.
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "trial.log").write_text("jobs/2026-11-27/risk-scorer-replay__L5xJpan/config.json\n", encoding="utf-8")
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(scrub.main([tmp]), 0)
+
+    def test_keys_after_any_separator_are_still_caught(self):
+        for text in ("key=sk-proj-" + "A" * 30, '"sk-ant-api03-' + "B" * 30 + '"', "Bearer sk-" + "C" * 30, "AWS AKIA" + "D" * 16):
+            with tempfile.TemporaryDirectory() as tmp:
+                (Path(tmp) / "x.log").write_text(text, encoding="utf-8")
+                with redirect_stdout(io.StringIO()):
+                    self.assertEqual(scrub.main([tmp]), 1, text[:12])
+
     def test_clean_artifacts_pass(self):
         with tempfile.TemporaryDirectory() as tmp:
             (Path(tmp) / "trials.jsonl").write_text(json.dumps(row("prism", "a", "solved", 1.0)), encoding="utf-8")
