@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "ca2a597239dfed473d9b6511d8ba2af2",
+    "content-hash": "3e4b42155ba6831c5561b8d41e4a4707",
     "packages": [
         {
             "name": "brick/math",
@@ -11641,8 +11641,8 @@
         {
             "package": "particle-academy/prism-harness",
             "version": "dev-main",
-            "alias": "0.26.9",
-            "alias_normalized": "0.26.9.0"
+            "alias": "0.26.10",
+            "alias_normalized": "0.26.10.0"
         },
         {
             "package": "particle-academy/prism-human-plus",
