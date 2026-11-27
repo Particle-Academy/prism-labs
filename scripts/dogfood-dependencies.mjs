@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, renameSync, copyFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, copyFileSync } from 'node:fs';
 import { resolve, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
@@ -24,9 +24,9 @@ export function siblingRepositories(manifest) {
 // builds (--build-npm) them, so a candidate is exercised before it is published.
 export const NPM_SIBLINGS = Object.freeze(['prism-acp-ts']);
 
-// Harness ports the Lab exercises as a CONSUMER would (.github/workflows/harness-ports.yml): each is cloned (--checkout-port),
-// checked against the org dependency policy, built, packed into a tarball or a wheel, and installed from that file into a
-// throwaway project that runs tests/harness-ports/<lang>/. A candidate pin names the exact commit, as for any sibling.
+// Harness ports the Lab exercises as a CONSUMER would (.github/workflows/harness-ports.yml): each is checked out at --port-ref,
+// checked against the org dependency policy, verified (--verify-port), packed into a tarball or a wheel (--pack-port), and
+// installed from that file into a throwaway project (--install-port) that runs tests/harness-ports/<lang>/.
 export const PORT_SIBLINGS = Object.freeze(['prism-harness-ts', 'prism-harness-py']);
 
 /**
@@ -164,8 +164,7 @@ function installPort(name) {
     const consumer = resolve(process.env.RUNNER_TEMP, 'consumer');
     mkdirSync(consumer);
     if (name === 'prism-harness-ts') {
-        writeFileSync(resolve(consumer, 'package.json'), `${JSON.stringify({ name: 'lab-harness-consumer', private: true, type: 'module' }, null, 2)}
-`);
+        writeFileSync(resolve(consumer, 'package.json'), `${JSON.stringify({ name: 'lab-harness-consumer', private: true, type: 'module' }, null, 2)}\n`);
         exec('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', artifact], consumer);
         copyFileSync(resolve(root, 'tests', 'harness-ports', 'ts', 'scenario.mjs'), resolve(consumer, 'scenario.mjs'));
     } else {
