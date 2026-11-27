@@ -139,16 +139,32 @@ async function main() {
     if (process.argv.includes('--checkout')) {
         // Never replace a person's sibling checkout. CI gets a fresh workspace.
         if (process.env.GITHUB_ACTIONS !== 'true') throw new Error('--checkout is restricted to GitHub Actions.');
+        // Candidate pins (draft candidate PRs only): { "<sibling>": { "branch": "...", "sha": "<40 hex>" } }.
+        // A pinned sibling is cloned from its branch, must be at exactly that commit, and is then
+        // presented to Composer as local branch main, so the Lab's dev-main aliases resolve unchanged.
+        const pinFile = resolve(root, 'dogfood-candidate-pins.json');
+        const pins = existsSync(pinFile) ? JSON.parse(readFileSync(pinFile, 'utf8')) : {};
+        for (const pinned of Object.keys(pins)) {
+            if (!names.includes(pinned)) throw new Error(`Pinned ${pinned} is not a path dependency.`);
+            if (!/^[A-Za-z0-9._/-]+$/.test(pins[pinned].branch ?? '') || !/^[0-9a-f]{40}$/.test(pins[pinned].sha ?? '')) throw new Error(`Malformed pin for ${pinned}.`);
+        }
         for (const name of names) {
             const target = resolve(root, '..', name);
             if (existsSync(target)) throw new Error(`Refusing to replace existing checkout: ${name}`);
+            const branch = pins[name]?.branch ?? 'main';
             try {
-                execFileSync('git', ['clone', '--depth', '1', '--branch', 'main', `https://github.com/Particle-Academy/${name}.git`, target], {
+                execFileSync('git', ['clone', '--depth', '1', '--branch', branch, `https://github.com/Particle-Academy/${name}.git`, target], {
                     stdio: 'inherit', windowsHide: true, timeout: 60000,
                     env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
                 });
             } catch {
                 throw new Error(`Required source Particle-Academy/${name} could not be checked out. An unpublished or inaccessible path dependency blocks CI; supply its reviewed remote source before treating the gate as operational.`);
+            }
+            if (pins[name]) {
+                const head = git(target, 'rev-parse', 'HEAD');
+                if (head !== pins[name].sha) throw new Error(`Pinned ${name} ${branch} is at ${head}, expected ${pins[name].sha}.`);
+                if (branch !== 'main') git(target, 'checkout', '-q', '-B', 'main');
+                console.log(`Pinned ${name}: ${branch} at ${head}`);
             }
         }
     } else if (process.argv.includes('--composer-alias-currency')) {
