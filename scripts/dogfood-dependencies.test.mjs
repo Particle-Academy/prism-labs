@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { siblingRepositories, checkNpmCurrency, checkComposerCurrency, checkComposerAliasCurrency, candidatePins, npmSiblingRef, NPM_SIBLINGS } from './dogfood-dependencies.mjs';
+import { siblingRepositories, checkNpmCurrency, checkComposerCurrency, checkComposerAliasCurrency, candidatePins, npmSiblingRef, NPM_SIBLINGS, PORT_SIBLINGS, portSiblingRef } from './dogfood-dependencies.mjs';
 
 test('every manifest path is a checkout, including ACP and future satellites', () => {
     const manifest = JSON.parse(readFileSync(new URL('../composer.json', import.meta.url), 'utf8'));
@@ -138,6 +138,18 @@ test('candidate pins name a known sibling, a plain branch and a full commit, or 
         { prism: { branch: '', sha } }, { prism: { branch: 'main;whoami', sha } }, { prism: { branch: '../main', sha } },
         { prism: { branch: '--upload-pack=x', sha } }, { prism: { branch: '-main', sha } }, { prism: { sha } },
     ]) assert.throws(() => candidatePins(pins, known), undefined, JSON.stringify(pins));
+});
+
+test('the harness ports are pinnable siblings, and a pin for one is held to the same rules', () => {
+    assert.deepEqual([...PORT_SIBLINGS], ['prism-harness-ts', 'prism-harness-py']);
+    const known = ['prism', ...NPM_SIBLINGS, ...PORT_SIBLINGS];
+    const sha = 'b'.repeat(40);
+    assert.ok(candidatePins({ 'prism-harness-ts': { branch: 'release/0.11.x', sha }, 'prism-harness-py': { branch: 'release/0.5.x', sha } }, known));
+    assert.throws(() => candidatePins({ 'prism-harness-ts': { branch: 'release/0.11.x', sha: 'b'.repeat(39) } }, known));
+    assert.throws(() => candidatePins({ 'prism-harness-ts': { branch: 'release/0.11.x', sha } }, ['prism', ...NPM_SIBLINGS]));
+    assert.equal(portSiblingRef('prism-harness-py', {}), 'main');
+    assert.equal(portSiblingRef('prism-harness-ts', { 'prism-harness-ts': { branch: 'release/0.11.x', sha } }), sha);
+    assert.throws(() => portSiblingRef('prism-acp-ts', {}), /not a harness port sibling/);
 });
 
 test('an npm sibling is checked out at its candidate pin, else main; nothing else resolves', () => {

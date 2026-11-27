@@ -24,6 +24,11 @@ export function siblingRepositories(manifest) {
 // builds (--build-npm) them, so a candidate is exercised before it is published.
 export const NPM_SIBLINGS = Object.freeze(['prism-acp-ts']);
 
+// Harness ports the Lab exercises as a CONSUMER would (.github/workflows/harness-ports.yml): each is cloned (--checkout-port),
+// checked against the org dependency policy, built, packed into a tarball or a wheel, and installed from that file into a
+// throwaway project that runs tests/harness-ports/<lang>/. A candidate pin names the exact commit, as for any sibling.
+export const PORT_SIBLINGS = Object.freeze(['prism-harness-ts', 'prism-harness-py']);
+
 /**
  * Candidate pins (draft candidate PRs only): { "<sibling>": { "branch": "...", "sha": "<40 hex>" } }. A pinned sibling is
  * cloned from its branch and must be at exactly that commit. A pin naming anything but a known sibling fails closed.
@@ -46,6 +51,39 @@ export function candidatePins(pins, known) {
 export function npmSiblingRef(name, pins) {
     if (!NPM_SIBLINGS.includes(name)) throw new Error(`${name} is not an npm sibling.`);
     return pins[name]?.sha ?? 'main';
+}
+
+/**
+ * The ref harness-ports.yml checks a harness port out at: its candidate pin's exact commit, or main. Resolved in a job of
+ * its own, so the port's checkout is a plain actions/checkout that precedes the org dependency policy fetch.
+ */
+export function portSiblingRef(name, pins) {
+    if (!PORT_SIBLINGS.includes(name)) throw new Error(`${name} is not a harness port sibling.`);
+    return pins[name]?.sha ?? 'main';
+}
+
+/**
+ * The same exact-verified-checkout gate cloneSibling applies: a pinned port must be at exactly the pinned commit, and that
+ * commit must be the tip of the pinned branch, as a clone of that branch would be. An unpinned port is main, and logged.
+ */
+function verifyPortCheckout(name, pin) {
+    if (!PORT_SIBLINGS.includes(name)) throw new Error(`${name} is not a harness port sibling.`);
+    const target = resolve(root, '..', name);
+    if (!existsSync(target)) throw new Error(`${name} is not checked out.`);
+    const head = git(target, 'rev-parse', 'HEAD');
+    const branch = pin?.branch ?? 'main';
+    let tip;
+    try {
+        tip = execFileSync('git', ['ls-remote', '--exit-code', `https://github.com/Particle-Academy/${name}.git`, `refs/heads/${branch}`], {
+            encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, timeout: 30000,
+            env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+        }).trim().split(/\s+/)[0];
+    } catch {
+        throw new Error(`Branch ${branch} of Particle-Academy/${name} could not be read.`);
+    }
+    if (pin && head !== pin.sha) throw new Error(`Pinned ${name} is checked out at ${head}, expected ${pin.sha}.`);
+    if (pin && tip !== head) throw new Error(`Pinned ${name} ${branch} is at ${tip}, but the checkout is at ${head}.`);
+    console.log(`${pin ? 'Pinned' : 'Checked out'} ${name}: ${branch} at ${head}${!pin && tip !== head ? ` (${branch} has since moved to ${tip})` : ''}`);
 }
 
 function readPins(known) {
@@ -212,12 +250,20 @@ async function main() {
     const names = siblingRepositories(manifest);
     if (process.argv.includes('--npm-ref')) {
         const name = process.argv[process.argv.indexOf('--npm-ref') + 1];
-        console.log(`ref=${npmSiblingRef(name, readPins([...names, ...NPM_SIBLINGS]))}`);
+        console.log(`ref=${npmSiblingRef(name, readPins([...names, ...NPM_SIBLINGS, ...PORT_SIBLINGS]))}`);
     } else if (process.argv.includes('--checkout') || process.argv.includes('--checkout-npm')) {
         // Never replace a person's sibling checkout. CI gets a fresh workspace.
         if (process.env.GITHUB_ACTIONS !== 'true') throw new Error('--checkout is restricted to GitHub Actions.');
-        const pins = readPins([...names, ...NPM_SIBLINGS]);
+        const pins = readPins([...names, ...NPM_SIBLINGS, ...PORT_SIBLINGS]);
         for (const name of process.argv.includes('--checkout') ? names : NPM_SIBLINGS) cloneSibling(name, pins[name]);
+    } else if (process.argv.includes('--port-ref')) {
+        const name = process.argv[process.argv.indexOf('--port-ref') + 1];
+        console.log(`ref=${portSiblingRef(name, readPins([...names, ...NPM_SIBLINGS, ...PORT_SIBLINGS]))}`);
+    } else if (process.argv.includes('--verify-port')) {
+        // After the org dependency policy has been checked against the checkout, and before anything builds it.
+        if (process.env.GITHUB_ACTIONS !== 'true') throw new Error('--verify-port is restricted to GitHub Actions.');
+        const name = process.argv[process.argv.indexOf('--verify-port') + 1];
+        verifyPortCheckout(name, readPins([...names, ...NPM_SIBLINGS, ...PORT_SIBLINGS])[name]);
     } else if (process.argv.includes('--build-npm')) {
         // After the org dependency policy has been checked against each clone, never before.
         if (process.env.GITHUB_ACTIONS !== 'true') throw new Error('--build-npm is restricted to GitHub Actions.');
