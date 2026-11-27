@@ -47,10 +47,17 @@ use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Group;
 use Prism\Harness\Flow\HarnessAgentExecutor;
 use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Enums\Provider as ProviderEnum;
 use Prism\Prism\Facades\Prism;
+use Prism\Prism\PrismManager;
+use Prism\Prism\Testing\PrismFake;
 use Prism\Prism\Testing\TextResponseFake;
+use Prism\Prism\Text\Request as TextRequest;
+use Prism\Prism\Text\Response as TextResponse;
+use Prism\Prism\Text\ResponseBuilder;
 use Prism\Prism\Text\Step;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\ToolCall;
@@ -397,19 +404,22 @@ final class LabExperimentFoundationsTest extends TestCase
         // file it never reached. That run read as a verdict on the model; it
         // was a verdict on the disagreement.
         //
-        // Read the ceiling where it is ENFORCED. Since prism-harness G-285
-        // (durable cross-process cancel) the harness sends ONE model step per
-        // provider request and counts steps itself, so every request carries
-        // maxSteps 1 whatever the ceiling is. The ceiling is the number of
-        // requests the loop is allowed to make: a model that never stops
-        // calling tools gets exactly the spec's 20, not the mode's 10 and not
-        // the 25 the fixture would hand out.
+        // Read the ceiling where it is ENFORCED, and the harness has enforced it
+        // in two ways. Since prism-harness G-285 (0.27) it sends ONE model step
+        // per provider request and counts steps itself, so every request
+        // carries maxSteps 1 and the ceiling is how many requests it makes.
+        // The 0.26.x line sends ONE request and hands core the ceiling as
+        // maxSteps. Both are the same property: a model that never stops
+        // calling tools gets exactly the spec's 20 steps, not the mode's 10
+        // and not the 25 the fixture would hand out.
+        //
+        // So the fake behaves like core in front of such a model: whatever
+        // maxSteps a request carries, it takes that many tool-calling steps,
+        // up to 25 in total. Which shape the harness used is read from the
+        // requests it actually sent, never from a version string.
         config(['prism-harness.agent.modes.benchmark.max_steps' => 10]);
         config(['prism-harness.agent.modes.benchmark.tools' => ['workspace_list']]);
-        $fake = Prism::fake(array_map(fn (int $i) => TextResponseFake::make()->withText('still working')
-            ->withFinishReason(FinishReason::ToolCalls)
-            ->withToolCalls([new ToolCall('call-'.$i, 'workspace_list', [])])
-            ->withToolResults([new ToolResult('call-'.$i, 'workspace_list', [], 'listed')]), range(1, 25)));
+        $fake = $this->fakeModelThatNeverStopsCallingTools(availableSteps: 25);
 
         $designer = app(BenchmarkDesigner::class);
         $spec = $designer->draft('budget honoured', 'application', 'standard', ['acceptance' => ['x']], ['working' => 10], [[
@@ -425,13 +435,80 @@ final class LabExperimentFoundationsTest extends TestCase
             $this->assertStringContainsString('PROOF_OF_WORKING.json', $failure->getMessage());
         }
 
-        $fake->assertCallCount(20);
         $fake->assertRequest(function (array $requests): void {
-            $this->assertCount(20, $requests, 'The spec promised 20 turns, so the run must get 20 — not the mode constant.');
+            $ceilings = array_map(fn (TextRequest $request): int => $request->maxSteps(), $requests);
+            if ($ceilings !== [] && array_values(array_unique($ceilings)) === [1]) {
+                // The harness loops one step per request (G-285).
+                $this->assertCount(20, $requests, 'The spec promised 20 turns, so the run must get 20 one-step requests — not the mode constant.');
+            } else {
+                // The harness hands the whole ceiling to core in one request.
+                $this->assertSame([20], $ceilings, 'The spec promised 20 turns, so the run must ask for 20 steps — not the mode constant.');
+            }
         });
+        $this->assertSame(20, $fake->stepsTaken, 'A model that never stops calling tools must get exactly the 20 steps the spec promised, on either harness shape.');
         $truncation = $lane->activities()->where('kind', 'agent.truncated')->first();
         $this->assertNotNull($truncation, 'A model still calling tools at the ceiling was cut off there.');
         $this->assertStringContainsString('20 of 20 steps', (string) $truncation->summary);
+    }
+
+    /**
+     * A provider in front of a model that answers every step with another tool
+     * call, the way core's own loop would serve it: a request carrying
+     * maxSteps N gets N tool-calling steps back (fewer only once the fixture's
+     * total runs out), each answered, so nothing but the ceiling stops it.
+     */
+    private function fakeModelThatNeverStopsCallingTools(int $availableSteps): PrismFake
+    {
+        $fake = new class($availableSteps) extends PrismFake
+        {
+            public int $stepsTaken = 0;
+
+            public function __construct(private readonly int $availableSteps)
+            {
+                parent::__construct([]);
+            }
+
+            #[\Override]
+            public function text(TextRequest $request): TextResponse
+            {
+                $this->recorded[] = $request;
+                $take = min($request->maxSteps(), $this->availableSteps - $this->stepsTaken);
+                if ($take < 1) {
+                    return TextResponseFake::make()->withText('the fixture has no steps left');
+                }
+
+                $builder = new ResponseBuilder;
+                $messages = $request->messages();
+                for ($i = 0; $i < $take; $i++) {
+                    $id = 'call-'.(++$this->stepsTaken);
+                    $call = new ToolCall($id, 'workspace_list', []);
+                    $result = new ToolResult($id, 'workspace_list', [], 'listed');
+                    $builder->addStep(new Step(
+                        text: 'still working', finishReason: FinishReason::ToolCalls, toolCalls: [$call],
+                        toolResults: [$result], providerToolCalls: [], usage: new Usage(1, 1),
+                        meta: new Meta('fake', 'fake'), messages: $messages, systemPrompts: $request->systemPrompts(),
+                    ));
+                    $messages = [...$messages, new AssistantMessage('still working', [$call]), new ToolResultMessage([$result])];
+                }
+
+                return $builder->toResponse();
+            }
+        };
+
+        // What Prism::fake() does, with this provider in place of the fixture list.
+        app()->instance(PrismManager::class, new class($fake) extends PrismManager
+        {
+            public function __construct(private readonly PrismFake $fake) {}
+
+            public function resolve(ProviderEnum|string $name, array $providerConfig = []): PrismFake
+            {
+                $this->fake->setProviderConfig($providerConfig);
+
+                return $this->fake;
+            }
+        });
+
+        return $fake;
     }
 
     public function test_a_lane_cut_off_at_the_step_ceiling_does_not_report_itself_as_completed(): void
