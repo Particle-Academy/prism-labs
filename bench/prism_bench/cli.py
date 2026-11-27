@@ -19,6 +19,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -82,8 +83,12 @@ def cmd_run_tb(args: argparse.Namespace) -> int:
         env["PRISM_BENCH_DRIVER"] = args.driver
         env["PRISM_BENCH_HARNESS_VERSION"] = plan["harness"]["version"]
     skipped: list[str] = []
+    # A hosted job dies at its timeout and takes the shard's artifacts with it,
+    # so a task that cannot finish before the deadline is not started.
+    deadline = time.monotonic() + 60 * float(tb["shard_deadline_minutes"])
+    per_task = 60 * (float(tb["per_task_wall_minutes"]))
     for task in _shard_tasks(plan, args.shard, int(args.shards)):
-        if ledger.remaining() < float(tb["min_task_reserve_usd"]):
+        if ledger.remaining() < float(tb["min_task_reserve_usd"]) or time.monotonic() + per_task > deadline:
             skipped.append(task)
             continue
         command = [shutil.which("harbor") or "harbor", "run", "-d", tb["dataset"], "-a", AGENTS[arm],

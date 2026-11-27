@@ -92,7 +92,14 @@ def validate(plan: dict[str, Any]) -> None:
         raise PlanRefused(f"the arm caps sum to ${est['worst_case_usd']:.2f}, above the approved ${cap:.2f}")
     if est["expected_usd"] > cap + 1e-9:
         raise PlanRefused(f"the estimate ${est['expected_usd']:.2f} exceeds the cap ${cap:.2f}")
-    tasks = plan["terminal_bench"]["tasks"]
+    tb = plan["terminal_bench"]
+    for key in ("per_task_cap_usd", "min_task_reserve_usd", "neutral_call_reserve_usd", "shard_deadline_minutes",
+                "per_task_wall_minutes", "agent_timeout_multiplier"):
+        if key in tb and not (float(tb[key]) > 0):
+            raise PlanRefused(f"terminal_bench.{key} must be positive")
+    if "shard_deadline_minutes" in tb and float(tb["shard_deadline_minutes"]) > 340:
+        raise PlanRefused("a shard deadline above 340 minutes outlives the 350-minute job")
+    tasks = tb["tasks"]
     if len(tasks) != len(set(tasks)) or not tasks:
         raise PlanRefused("the frozen task list must be non-empty and unique")
     if subset_digest(tasks) != plan["terminal_bench"]["subset_digest"]:

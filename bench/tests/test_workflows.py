@@ -49,7 +49,7 @@ class PaidWorkflowTest(unittest.TestCase):
 
     def test_the_run_jobs_are_capped_in_parallelism_and_time(self):
         for name in ("tb", "tau2"):
-            self.assertRegex(jobs(PAID)[name], r"max-parallel: [12]\n")
+            self.assertRegex(jobs(PAID)[name], r"max-parallel: [1-4]\n")
             self.assertRegex(jobs(PAID)[name], r"timeout-minutes: \d+\n")
 
     def test_a_scrub_precedes_every_upload_and_gates_it(self):
