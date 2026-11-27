@@ -22,6 +22,42 @@ def steps(job_text):
     return re.split(r"\n      - ", job_text)[1:]
 
 
+def plain_scalar_colons(text):
+    """Plain (unquoted, non-block) scalars that contain ': ' -- YAML reads those as a mapping and
+    GitHub rejects the whole file. bench-probe.yml shipped one (`--only-binary=:all: harbor`)."""
+    bad, block = [], None
+    for number, line in enumerate(text.splitlines(), 1):
+        indent = len(line) - len(line.lstrip())
+        if block is not None:
+            if line.strip() == "" or indent > block:
+                continue
+            block = None
+        match = re.match(r"^(\s*)(?:- )?[\w.-]+:\s+(.*)$", line)
+        if not match:
+            continue
+        value = match.group(2).split(" #", 1)[0].rstrip()
+        if value[:1] in ("|", ">"):
+            block = len(match.group(1))
+            continue
+        if value[:1] in ("'", '"', "{", "["):
+            continue
+        if ": " in value or value.endswith(":"):
+            bad.append(f"{number}: {line.strip()}")
+    return bad
+
+
+class YamlShapeTest(unittest.TestCase):
+    def test_no_plain_scalar_contains_a_mapping_colon(self):
+        for path in sorted(WORKFLOWS.glob("*.yml")):
+            self.assertEqual(plain_scalar_colons(path.read_text(encoding="utf-8")), [], path.name)
+
+    def test_the_guard_catches_the_shape_that_broke_bench_probe(self):
+        broken = "jobs:\n  a:\n    steps:\n      - run: pip install --only-binary=:all: x\n"
+        fixed = "jobs:\n  a:\n    steps:\n      - run: |\n          pip install --only-binary=:all: x\n"
+        self.assertTrue(plain_scalar_colons(broken))
+        self.assertFalse(plain_scalar_colons(fixed))
+
+
 class PaidWorkflowTest(unittest.TestCase):
     def test_it_is_dispatch_only(self):
         on = PAID.split("\non:\n", 1)[1].split("\npermissions:", 1)[0]
