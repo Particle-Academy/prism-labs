@@ -1,0 +1,140 @@
+{
+ "id": "g393-calibration-1",
+ "cap_usd": 100.0,
+ "model": {
+  "provider": "anthropic",
+  "id": "claude-haiku-5-5",
+  "reasoning_effort": "default",
+  "provider_options": {}
+ },
+ "harness": {
+  "package": "particle-academy/prism-harness",
+  "version": "0.26.9",
+  "driver_ref": "80cb04efca0a2bdaf4d560c8a2bbee615b8f74f5",
+  "protocol": "prism-bench-driver/1"
+ },
+ "prices": {
+  "anthropic": {
+   "claude-haiku-5-5": {
+    "inputPerMTok": 0.1,
+    "outputPerMTok": 0.5,
+    "cacheReadPerMTok": 0.01,
+    "cacheWritePerMTok": 0.125,
+    "tiers": [
+     {
+      "aboveInputTokens": 100000,
+      "inputPerMTok": 0.5,
+      "outputPerMTok": 2.5,
+      "cacheReadPerMTok": 0.05,
+      "cacheWritePerMTok": 0.625
+     }
+    ]
+   }
+  },
+  "openai": {
+   "gpt-6.1-terra": {
+    "inputPerMTok": 1.0,
+    "outputPerMTok": 5.0,
+    "cacheReadPerMTok": 0.05,
+    "cacheWritePerMTok": 1.25,
+    "tiers": [
+     {
+      "aboveInputTokens": 272000,
+      "inputPerMTok": 2.0,
+      "outputPerMTok": 7.5,
+      "cacheReadPerMTok": 0.1,
+      "cacheWritePerMTok": 2.5
+     }
+    ]
+   }
+  }
+ },
+ "terminal_bench": {
+  "dataset": "terminal-bench/terminal-bench@sha256:5881c1b1c74a96f07baef00a7c869e09802704bc0dc912c870e7acccc11440da",
+  "harbor": "0.27.0",
+  "selection": {
+   "rule": "fit on ubuntu-latest (bench-probe.yml), then sha256('g393:'+name) order, first 20",
+   "probed": 63,
+   "fit": 56
+  },
+  "tasks": [
+   "cumulative-layout-shift",
+   "music-harmony",
+   "roy-polymorph-cn",
+   "freecad-platform-drawing",
+   "ks-solver-cpp",
+   "telecom-entity-resolution",
+   "glycan-ms2-elucidation",
+   "vllm-deepseek-streaming",
+   "session-window-debug",
+   "freecad-spring-clip",
+   "intrastat-meldung",
+   "ctr-optimization",
+   "protein-autointerp-disulfide",
+   "mp-checkpoint-consolidation",
+   "bun-sourcemap-leak",
+   "layout-config-recreation",
+   "freecad-impeller",
+   "risk-scorer-replay",
+   "gsea-proteomics",
+   "heat-pump-warranty"
+  ],
+  "subset_digest": "sha256:2ae322b5ea4c27eec1702d0574e813184dbe6b3406c07042b7131a77c96fd109",
+  "attempts": 1,
+  "shards": 4,
+  "per_task_cap_usd": 6.0,
+  "min_task_reserve_usd": 0.5,
+  "neutral_call_reserve_usd": 0.35,
+  "max_steps": 150,
+  "max_output_tokens_per_call": 8192,
+  "tool_overhead_tokens": 600,
+  "agent_timeout_multiplier": 0.0833,
+  "per_task_wall_minutes": 60,
+  "shard_deadline_minutes": 330,
+  "deviations": [
+   "agent timeout 40 min (default 8 h x 0.0833): a hosted job ends at 350 min. Not listing-eligible; the calibration is not a listing."
+  ],
+  "estimate": {
+   "per_try_usd": 3.0,
+   "source": "board-derived: Claude Code + Haiku 5.5 (max) $1.0k over an assumed 66 tasks x 5 tries; trial count unstated, UNVERIFIED; the calibration measures ours"
+  },
+  "arms": {
+   "prism": {
+    "cap_usd": 45.0
+   },
+   "terminus-2": {
+    "cap_usd": 45.0
+   }
+  }
+ },
+ "tau2": {
+  "version": "1.0.1",
+  "commit": "b711c1ead46f55111bf765cf44d5da8bacc2d28c",
+  "domain": "airline",
+  "num_tasks": 20,
+  "num_trials": 4,
+  "seed": 300,
+  "user_llm": "openai/gpt-6.1-terra",
+  "per_simulation_cap_usd": 0.5,
+  "call_reserve_usd": 0.05,
+  "max_steps": 60,
+  "max_output_tokens_per_call": 4096,
+  "tool_overhead_tokens": 600,
+  "estimate": {
+   "per_simulation_usd": 0.05,
+   "source": "UNMEASURED: about 15 agent turns x 8k tokens on Haiku 5.5 plus 15 simulator turns x 3k tokens on gpt-6.1-terra"
+  },
+  "arms": {
+   "prism": {
+    "cap_usd": 5.0
+   },
+   "llm_agent": {
+    "cap_usd": 5.0
+   }
+  }
+ },
+ "prices_source": {
+  "checked_on": "2026-11-04",
+  "from": "prism-labs ModelPrices (pinned by HarnessBenchImportTest)"
+ }
+}
