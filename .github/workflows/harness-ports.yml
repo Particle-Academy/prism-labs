@@ -159,22 +159,9 @@ jobs:
           echo "Exercising Particle-Academy/prism-harness-ts at $sha"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
       - name: Build and pack the candidate from its own lock
-        working-directory: ${{ github.workspace }}/prism-harness-ts
-        run: |
-          npm ci --ignore-scripts --no-audit --no-fund
-          npm run build
-          mkdir "$RUNNER_TEMP/artifact"
-          npm pack --ignore-scripts --pack-destination "$RUNNER_TEMP/artifact"
+        run: node scripts/dogfood-dependencies.mjs --pack-port prism-harness-ts
       - name: Install the packed tarball into a throwaway consumer project
-        run: |
-          shopt -s nullglob
-          tarballs=("$RUNNER_TEMP"/artifact/*.tgz)
-          if [ "${#tarballs[@]}" -ne 1 ]; then echo "::error::Expected exactly one packed tarball, found ${#tarballs[@]}."; exit 1; fi
-          consumer="$RUNNER_TEMP/consumer"
-          mkdir "$consumer"
-          echo '{"name":"lab-harness-consumer","private":true,"type":"module"}' > "$consumer/package.json"
-          npm install --prefix "$consumer" --ignore-scripts --no-audit --no-fund "${tarballs[0]}"
-          cp tests/harness-ports/ts/scenario.mjs "$consumer/scenario.mjs"
+        run: node scripts/dogfood-dependencies.mjs --install-port prism-harness-ts
       - name: Run the consumer scenario (public API, fake model, network blocked)
         working-directory: ${{ runner.temp }}/consumer
         env:
@@ -307,18 +294,9 @@ jobs:
         with:
           python-version: "3.12"
       - name: Build the candidate wheel
-        working-directory: ${{ github.workspace }}/prism-harness-py
-        run: python -m pip wheel --no-deps --no-cache-dir --wheel-dir "$RUNNER_TEMP/artifact" .
+        run: node scripts/dogfood-dependencies.mjs --pack-port prism-harness-py
       - name: Install the wheel file into a throwaway virtual environment
-        run: |
-          shopt -s nullglob
-          wheels=("$RUNNER_TEMP"/artifact/*.whl)
-          if [ "${#wheels[@]}" -ne 1 ]; then echo "::error::Expected exactly one built wheel, found ${#wheels[@]}."; exit 1; fi
-          consumer="$RUNNER_TEMP/consumer"
-          mkdir "$consumer"
-          python -m venv "$consumer/venv"
-          "$consumer/venv/bin/python" -m pip install --no-cache-dir --only-binary=:all: "${wheels[0]}"
-          cp tests/harness-ports/py/scenario.py "$consumer/scenario.py"
+        run: node scripts/dogfood-dependencies.mjs --install-port prism-harness-py
       - name: Run the consumer scenario (public API, fake model, network blocked)
         working-directory: ${{ runner.temp }}/consumer
         env:

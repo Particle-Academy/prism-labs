@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, renameSync, copyFileSync } from 'node:fs';
 import { resolve, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
@@ -121,6 +121,59 @@ function cloneSibling(name, pin) {
     }
     console.log(`${pin ? 'Pinned' : 'Checked out'} ${name}: ${branch} at ${head}`);
     return target;
+}
+
+/** The one artifact a port's build left in `dir`: a .tgz for the TypeScript port, a .whl for the Python port. */
+function portArtifact(name, dir) {
+    const extension = name === 'prism-harness-ts' ? '.tgz' : '.whl';
+    const found = existsSync(dir) ? readdirSync(dir).filter(file => file.endsWith(extension)) : [];
+    if (found.length !== 1) throw new Error(`Expected exactly one ${extension} for ${name} in ${dir}, found ${found.length}.`);
+    return resolve(dir, found[0]);
+}
+
+/** A fixed program with fixed arguments, no shell. The port lanes run on Linux runners only. */
+function exec(file, args, cwd) {
+    if (process.platform === 'win32') throw new Error('The harness port lanes run on Linux runners only.');
+    execFileSync(file, args, { cwd, stdio: 'inherit', timeout: 600000, env: { ...process.env, npm_config_ignore_scripts: 'true' } });
+}
+
+/**
+ * Build a checked, verified harness port into the artifact a consumer installs, in $RUNNER_TEMP/artifact. TypeScript:
+ * its own lock (`npm ci`, no lifecycle scripts), its own build, `npm pack`. Python: `pip wheel --no-deps`.
+ */
+function packPort(name) {
+    const target = resolve(root, '..', name);
+    const artifacts = resolve(process.env.RUNNER_TEMP, 'artifact');
+    mkdirSync(artifacts);
+    if (name === 'prism-harness-ts') {
+        exec('npm', ['ci', '--ignore-scripts', '--no-audit', '--no-fund'], target);
+        exec('npm', ['run', 'build'], target);
+        exec('npm', ['pack', '--ignore-scripts', '--pack-destination', artifacts], target);
+    } else {
+        exec('python', ['-m', 'pip', 'wheel', '--no-deps', '--no-cache-dir', '--wheel-dir', artifacts, '.'], target);
+    }
+    console.log(`Packed ${name} at ${git(target, 'rev-parse', 'HEAD')}: ${basename(portArtifact(name, artifacts))}`);
+}
+
+/**
+ * Install that artifact FILE into a throwaway consumer in $RUNNER_TEMP/consumer, as a consumer installs it, never a path
+ * link or an editable install, and copy in the Lab's own scenario for that language.
+ */
+function installPort(name) {
+    const artifact = portArtifact(name, resolve(process.env.RUNNER_TEMP, 'artifact'));
+    const consumer = resolve(process.env.RUNNER_TEMP, 'consumer');
+    mkdirSync(consumer);
+    if (name === 'prism-harness-ts') {
+        writeFileSync(resolve(consumer, 'package.json'), `${JSON.stringify({ name: 'lab-harness-consumer', private: true, type: 'module' }, null, 2)}
+`);
+        exec('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', artifact], consumer);
+        copyFileSync(resolve(root, 'tests', 'harness-ports', 'ts', 'scenario.mjs'), resolve(consumer, 'scenario.mjs'));
+    } else {
+        exec('python', ['-m', 'venv', resolve(consumer, 'venv')], consumer);
+        exec(resolve(consumer, 'venv', 'bin', 'python'), ['-m', 'pip', 'install', '--no-cache-dir', '--only-binary=:all:', artifact], consumer);
+        copyFileSync(resolve(root, 'tests', 'harness-ports', 'py', 'scenario.py'), resolve(consumer, 'scenario.py'));
+    }
+    console.log(`Installed ${basename(artifact)} into ${consumer}`);
 }
 
 function npm(cwd, args) {
@@ -273,6 +326,13 @@ async function main() {
         if (process.env.GITHUB_ACTIONS !== 'true') throw new Error('--verify-port is restricted to GitHub Actions.');
         const name = process.argv[process.argv.indexOf('--verify-port') + 1];
         verifyPortCheckout(name, portPins(readPins([...names, ...NPM_SIBLINGS, ...PORT_SIBLINGS]), process.env.GITHUB_EVENT_NAME)[name]);
+    } else if (process.argv.includes('--pack-port') || process.argv.includes('--install-port')) {
+        // After --verify-port, never before: the org dependency policy has checked this exact tree.
+        if (process.env.GITHUB_ACTIONS !== 'true' || !process.env.RUNNER_TEMP) throw new Error('--pack-port and --install-port are restricted to GitHub Actions.');
+        const flag = process.argv.includes('--pack-port') ? '--pack-port' : '--install-port';
+        const name = process.argv[process.argv.indexOf(flag) + 1];
+        if (!PORT_SIBLINGS.includes(name)) throw new Error(`${name} is not a harness port sibling.`);
+        (flag === '--pack-port' ? packPort : installPort)(name);
     } else if (process.argv.includes('--build-npm')) {
         // After the org dependency policy has been checked against each clone, never before.
         if (process.env.GITHUB_ACTIONS !== 'true') throw new Error('--build-npm is restricted to GitHub Actions.');
