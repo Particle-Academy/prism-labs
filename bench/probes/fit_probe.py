@@ -59,7 +59,7 @@ def main() -> int:
 
     threading.Thread(target=sample, daemon=True).start()
     started = time.monotonic()
-    command = ["harbor", "run", "-d", args.dataset, "-a", "nop", "-i", args.task, "-n", "1", "-o", str(out / "jobs")]
+    command = ["harbor", "run", "-d", args.dataset, "-a", "nop", "-i", args.task, "-i", f"*/{args.task}", "-n", "1", "-o", str(out / "jobs")]
     try:
         proc = subprocess.run(command, capture_output=True, text=True, timeout=args.timeout)
         exit_code, timed_out = proc.returncode, False

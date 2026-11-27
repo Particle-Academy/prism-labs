@@ -92,7 +92,7 @@ def cmd_run_tb(args: argparse.Namespace) -> int:
             skipped.append(task)
             continue
         command = [shutil.which("harbor") or "harbor", "run", "-d", tb["dataset"], "-a", AGENTS[arm],
-                   "-m", f"{plan['model']['provider']}/{plan['model']['id']}", "-i", task, "-n", "1",
+                   "-m", f"{plan['model']['provider']}/{plan['model']['id']}", "-i", task, "-i", f"*/{task}", "-n", "1",
                    "-k", str(int(tb.get("attempts", 1))), "-o", str(out / "jobs" / task),
                    "--agent-timeout-multiplier", str(tb["agent_timeout_multiplier"])]
         if arm == "terminus-2" and plan["model"]["reasoning_effort"] != "default":

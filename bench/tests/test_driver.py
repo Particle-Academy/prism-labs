@@ -123,3 +123,42 @@ class DriverTrialTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FunctionSchemaTest(unittest.TestCase):
+    """tau2's tools reach the driver as plain JSON Schema, whichever way tau2 exposes them."""
+
+    SCHEMA = {"type": "function", "function": {"name": "book", "description": "Book a flight", "parameters": {
+        "type": "object", "required": ["passengers"],
+        "properties": {"passengers": {"type": "array", "items": {"$ref": "#/$defs/Passenger"}}},
+        "$defs": {"Passenger": {"type": "object", "properties": {"name": {"type": "string"}}}}}}}
+
+    def test_property_and_method_forms_give_the_same_function(self):
+        from prism_bench.driver import function_schema
+
+        class AsProperty:
+            openai_schema = FunctionSchemaTest.SCHEMA
+
+        class AsMethod:
+            def openai_schema(self):
+                return FunctionSchemaTest.SCHEMA
+
+        self.assertEqual(function_schema(AsProperty()), function_schema(AsMethod()))
+
+    def test_refs_are_inlined_so_each_property_stands_alone(self):
+        from prism_bench.driver import function_schema
+
+        class Tool:
+            openai_schema = FunctionSchemaTest.SCHEMA
+
+        params = function_schema(Tool())["parameters"]
+        self.assertNotIn("$defs", params)
+        self.assertEqual(params["properties"]["passengers"]["items"], {"type": "object", "properties": {"name": {"type": "string"}}})
+        self.assertNotIn("$ref", json.dumps(params))
+
+    def test_a_self_referential_model_is_cut_off_not_expanded_forever(self):
+        from prism_bench.driver import inline_refs
+
+        node = {"type": "object", "properties": {"child": {"$ref": "#/$defs/Node"}},
+                "$defs": {"Node": {"type": "object", "properties": {"child": {"$ref": "#/$defs/Node"}}}}}
+        self.assertIn("truncated", json.dumps(inline_refs(node)))
