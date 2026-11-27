@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "34f81804980c43034c93112fbe702753",
+    "content-hash": "ca2a597239dfed473d9b6511d8ba2af2",
     "packages": [
         {
             "name": "brick/math",
@@ -3381,31 +3381,34 @@
         },
         {
             "name": "particle-academy/fancy-flow-php",
-            "version": "v0.66.0",
+            "version": "v0.67.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/Particle-Academy/fancy-flow-php.git",
-                "reference": "7bf5a15d5ee01cf1b78fcfdc893ae56c999c2bb5"
+                "reference": "8587a7ec92697bbd8a02e280b8ee4b3999788e8e"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Particle-Academy/fancy-flow-php/zipball/7bf5a15d5ee01cf1b78fcfdc893ae56c999c2bb5",
-                "reference": "7bf5a15d5ee01cf1b78fcfdc893ae56c999c2bb5",
+                "url": "https://api.github.com/repos/Particle-Academy/fancy-flow-php/zipball/8587a7ec92697bbd8a02e280b8ee4b3999788e8e",
+                "reference": "8587a7ec92697bbd8a02e280b8ee4b3999788e8e",
                 "shasum": ""
             },
             "require": {
                 "php": "^8.4"
             },
+            "conflict": {
+                "illuminate/support": "<13.0",
+                "laravel/framework": "<13.0"
+            },
             "require-dev": {
                 "laravel/ai": "^0.9",
-                "orchestra/testbench": "^8.0|^9.0|^10.0|^11.0",
-                "particle-academy/fancy-conformance": "0.33",
+                "laravel/framework": "^13.0",
+                "particle-academy/fancy-conformance": "0.62",
                 "particle-academy/prism": ">=0.114 <1.0",
-                "pestphp/pest": "^2.0|^3.0|^4.0",
-                "phpunit/phpunit": "^10.0|^11.0|^12.0"
+                "pestphp/pest": "^5.0"
             },
             "suggest": {
-                "illuminate/support": "Enables the optional Laravel layer — service provider, facade, queued durable runs, #[FlowNode] discovery, Artisan, and RunEvent → Laravel events. Compatible with 10.x through 13.x. The framework-free core (Workflow, FlowRunner, registries, the 26 built-ins) needs no framework.",
+                "illuminate/support": "Enables the optional Laravel layer — service provider, facade, queued durable runs, #[FlowNode] discovery, Artisan, and RunEvent → Laravel events. Requires ^13.0. The framework-free core (Workflow, FlowRunner, registries, the 26 built-ins) needs no framework.",
                 "laravel/ai": "Makes the `llm_branch` node work with zero glue — auto-detected and wired through the shipped laravel/ai adapter (structured output constrained to the declared routes).",
                 "particle-academy/prism": "Makes the `llm_branch` node work with zero glue — auto-detected and wired through the shipped Prism adapter (structured output constrained to the declared routes). Particle Academy’s maintained fork of prism-php/prism, carrying the same Prism\\Prism\\ namespace — do not install both."
             },
@@ -3452,8 +3455,8 @@
                 "issues": "https://github.com/Particle-Academy/fancy-flow-php/issues",
                 "source": "https://github.com/Particle-Academy/fancy-flow-php"
             },
-            "time": "2026-11-04T22:02:30+00:00",
-            "published-time": "2026-11-04T22:05:19+00:00"
+            "time": "2026-11-27T01:39:17+00:00",
+            "published-time": "2026-11-27T18:22:17+00:00"
         },
         {
             "name": "particle-academy/last-word",
@@ -3524,7 +3527,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism",
-                "reference": "757145fd184fa8d63252b11f9de54887667c35ef"
+                "reference": "3ca1a30cd8f1887470b60d45df30f6bb35841edd"
             },
             "require": {
                 "ext-fileinfo": "*",
@@ -3775,7 +3778,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-browser",
-                "reference": "f34403223e42dfa335d34cbb4efc99f70a392dd0"
+                "reference": "b0f65a93d650385b5282a487cab35af60589a224"
             },
             "require": {
                 "ext-filter": "*",
@@ -3839,7 +3842,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-harness",
-                "reference": "984e959e1c489d6f705b4fd6a9f9942658410ec7"
+                "reference": "3ce3ea890332347985cd4c62c108de7a3f503734"
             },
             "require": {
                 "laravel/framework": "^12.69.0|^13.30.0",
@@ -3914,7 +3917,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-human-plus",
-                "reference": "3a44270c4882de72d890dc356f4745ebbf8dfeb7"
+                "reference": "85ef6186b970d783fb1d5300fee3d088fa5419de"
             },
             "require": {
                 "ext-curl": "*",
@@ -3980,7 +3983,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-mcp",
-                "reference": "8668ac8c5c3b874e4cbe7566562710638d971df1"
+                "reference": "f4fa69ebd4854289876b7d577d2ae5476cf970fe"
             },
             "require": {
                 "ext-json": "*",
@@ -4065,7 +4068,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-opentelemetry",
-                "reference": "dc7b07f5ca3bbed2034015df1e15d24e8171b575"
+                "reference": "ac4ff563ad967ad62793a3d2787c38c0bf0a234f"
             },
             "require": {
                 "ext-json": "*",
@@ -4146,7 +4149,7 @@
             "dist": {
                 "type": "path",
                 "url": "../prism-perplexity",
-                "reference": "736269a910a415aab7d78ee48d3aa68daac58138"
+                "reference": "b825ae747cf1374185c342716cb33b8de4490d26"
             },
             "require": {
                 "laravel/framework": "^12.69.0|^13.30.0",
@@ -11620,8 +11623,8 @@
         {
             "package": "particle-academy/prism",
             "version": "dev-main",
-            "alias": "0.155.0",
-            "alias_normalized": "0.155.0.0"
+            "alias": "0.155.1",
+            "alias_normalized": "0.155.1.0"
         },
         {
             "package": "particle-academy/prism-agent-docs",
