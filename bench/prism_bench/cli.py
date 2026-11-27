@@ -23,7 +23,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from . import metrics, plan as plans, scrub
+from . import artifacts, metrics, plan as plans, scrub
 from .ledger import Ledger
 
 AGENTS = {
@@ -218,12 +218,16 @@ def collect_tau2(results_path: Path, arm: str, out: Path) -> list[dict[str, Any]
 
 def cmd_collect(args: argparse.Namespace) -> int:
     plan = plans.load(Path(args.plan))
-    rows = []
-    for path in sorted(Path(args.artifacts).rglob("trials.jsonl")):
-        rows += [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
-    spent = {}
-    for path in sorted(Path(args.artifacts).rglob("ledger.json")):
-        spent[str(path.parent.relative_to(args.artifacts))] = json.loads(path.read_text(encoding="utf-8"))
+    plans.validate(plan)
+    # The artifacts come from jobs that ran third-party benchmark code: only data
+    # that passes artifacts.validate (exact files, allow-listed fields, plan-bound
+    # arms/tasks, numeric bounds) reaches the signed results, with its digests.
+    try:
+        checked = artifacts.validate(Path(args.artifacts), plan)
+    except artifacts.ArtifactRefused as refused:
+        print(f"::error::Refusing to publish: {refused}")
+        return 1
+    rows, spent = checked["rows"], checked["ledgers"]
     results = {
         "schema": "prism-labs/harness-bench-results/1", "ftq_id": args.ftq_id, "plan_path": args.plan_rel,
         "plan_digest": plans.digest(plan), "cap_usd": plan["cap_usd"], "model": plan["model"], "harness": plan["harness"],
@@ -231,6 +235,7 @@ def cmd_collect(args: argparse.Namespace) -> int:
         "spent_usd": round(sum(float(v["spent_usd"]) for v in spent.values()), 6),
         "run": {"repository": os.environ.get("GITHUB_REPOSITORY"), "run_id": os.environ.get("GITHUB_RUN_ID"),
                 "sha": os.environ.get("GITHUB_SHA")},
+        "inputs": checked["inputs"], "missing_artifacts": checked["missing"],
         "metrics": metrics.compare(rows), "trials": rows,
         "labels": {"prices": "Lab ModelPrices, dated in the plan", "board_rows": "reference only; full set, not comparable to this subset"},
     }

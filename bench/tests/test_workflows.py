@@ -107,6 +107,27 @@ class PaidWorkflowTest(unittest.TestCase):
             run = step.split("run:", 1)[1] if "run:" in step else ""
             self.assertNotIn("${{ inputs.", run, "an input interpolated into a shell script is an injection")
 
+    def test_fetched_policy_code_is_isolated_from_every_artifact_producer(self):
+        # prism-parity's org inventory (pin-github-checks.mjs, artifact-to-writer):
+        # code fetched from Particle-Academy/.github must not run in a job whose
+        # artifact a write job consumes. It lives in `guard`, which uploads nothing.
+        for name, job in jobs(PAID).items():
+            if name == "guard":
+                self.assertIn("repository: Particle-Academy/.github", job)
+                self.assertNotIn("upload-artifact", job)
+                self.assertIn("contents: read", job)
+                self.assertNotRegex(job.split("steps:", 1)[0], r"(?m)^\s+[\w-]+:\s*write\s*$", "guard holds a write scope")
+            else:
+                self.assertNotIn("Particle-Academy/.github", job, f"{name} runs fetched policy code")
+        for name in ("tb", "tau2"):
+            self.assertIn("needs: [plan, guard]", jobs(PAID)[name], "installs are gated through `guard`")
+
+    def test_the_write_job_downloads_only_digest_checked_metrics(self):
+        publish = jobs(PAID)["publish"]
+        self.assertIn("pattern: bench-*-metrics", publish)
+        self.assertIn("digest-mismatch: error", publish)
+        self.assertIn("prism_bench.cli collect", publish)
+
     def test_the_publish_job_signs_and_holds_no_key(self):
         publish = jobs(PAID)["publish"]
         self.assertIn("attest-build-provenance", publish)
