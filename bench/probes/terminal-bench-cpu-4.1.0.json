@@ -1,0 +1,580 @@
+{
+ "dataset": "terminal-bench/terminal-bench-cpu@4.1.0",
+ "source": "harbor-framework/terminal-bench tag v4.1.0 (4070d6cef56a7d20cb5dc98d5e10ada88a6b9440), tasks/*/task.toml",
+ "membership": "tasks with gpus = 0 (63 of 66), matching the release notes' count; Hub membership not verified, the probe's own Harbor run is the check",
+ "runner": {
+  "label": "ubuntu-latest",
+  "vcpu": 4,
+  "memory_gb": 16,
+  "disk_gb_guaranteed": 14
+ },
+ "tasks": [
+  {
+   "task": "atrx-vep-crispr",
+   "cpus": 2,
+   "memory_mb": 4096,
+   "storage_mb": 10240,
+   "build_timeout_sec": 1800.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 600.0
+  },
+  {
+   "task": "batched-eval-parity",
+   "cpus": 2,
+   "memory_mb": 4096,
+   "storage_mb": 10240,
+   "build_timeout_sec": 600.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 900.0
+  },
+  {
+   "task": "biped-contact-dynamics",
+   "cpus": 4,
+   "memory_mb": 8192,
+   "storage_mb": 20480,
+   "build_timeout_sec": 1800.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 2640.0
+  },
+  {
+   "task": "bun-sourcemap-leak",
+   "cpus": 2,
+   "memory_mb": 4096,
+   "storage_mb": 10240,
+   "build_timeout_sec": 600.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 600.0
+  },
+  {
+   "task": "cad-model",
+   "cpus": 2,
+   "memory_mb": 8192,
+   "storage_mb": 10240,
+   "build_timeout_sec": 600.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 240.0
+  },
+  {
+   "task": "cargo-flight-dispatch",
+   "cpus": 2,
+   "memory_mb": 4096,
+   "storage_mb": 10240,
+   "build_timeout_sec": 1200.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 600.0
+  },
+  {
+   "task": "coq-block-bound",
+   "cpus": 2,
+   "memory_mb": 4096,
+   "storage_mb": 10240,
+   "build_timeout_sec": 1800.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 1200.0
+  },
+  {
+   "task": "ctr-optimization",
+   "cpus": 2,
+   "memory_mb": 8192,
+   "storage_mb": 10240,
+   "build_timeout_sec": 600.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 180.0
+  },
+  {
+   "task": "cumulative-layout-shift",
+   "cpus": 4,
+   "memory_mb": 8192,
+   "storage_mb": 20480,
+   "build_timeout_sec": 600.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 900.0
+  },
+  {
+   "task": "data-anonymization",
+   "cpus": 2,
+   "memory_mb": 8192,
+   "storage_mb": 10240,
+   "build_timeout_sec": 600.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 7200.0
+  },
+  {
+   "task": "distributed-dedup",
+   "cpus": 8,
+   "memory_mb": 16384,
+   "storage_mb": 15000,
+   "build_timeout_sec": 1800.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 3900.0
+  },
+  {
+   "task": "embedding-drift-monitor",
+   "cpus": 2,
+   "memory_mb": 4096,
+   "storage_mb": 10240,
+   "build_timeout_sec": 600.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 300.0
+  },
+  {
+   "task": "fin-saccr-rwa",
+   "cpus": 2,
+   "memory_mb": 4096,
+   "storage_mb": 10240,
+   "build_timeout_sec": 600.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 600.0
+  },
+  {
+   "task": "foodstuff-beta-activity",
+   "cpus": 2,
+   "memory_mb": 4096,
+   "storage_mb": 10240,
+   "build_timeout_sec": 600.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 120.0
+  },
+  {
+   "task": "formal-crypto",
+   "cpus": 8,
+   "memory_mb": 4096,
+   "storage_mb": 10240,
+   "build_timeout_sec": 1800.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 5400.0
+  },
+  {
+   "task": "freecad-impeller",
+   "cpus": 2,
+   "memory_mb": 4096,
+   "storage_mb": 10240,
+   "build_timeout_sec": 1800.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 600.0
+  },
+  {
+   "task": "freecad-platform-drawing",
+   "cpus": 2,
+   "memory_mb": 4096,
+   "storage_mb": 10240,
+   "build_timeout_sec": 1800.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 600.0
+  },
+  {
+   "task": "freecad-spring-clip",
+   "cpus": 2,
+   "memory_mb": 4096,
+   "storage_mb": 10240,
+   "build_timeout_sec": 1800.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 600.0
+  },
+  {
+   "task": "freight-dispatch-shift",
+   "cpus": 2,
+   "memory_mb": 4096,
+   "storage_mb": 10240,
+   "build_timeout_sec": 1200,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 300
+  },
+  {
+   "task": "glycan-ms2-elucidation",
+   "cpus": 2,
+   "memory_mb": 4096,
+   "storage_mb": 10240,
+   "build_timeout_sec": 600.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 300.0
+  },
+  {
+   "task": "gsea-proteomics",
+   "cpus": 4,
+   "memory_mb": 4096,
+   "storage_mb": 10240,
+   "build_timeout_sec": 900.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 300.0
+  },
+  {
+   "task": "heat-pump-warranty",
+   "cpus": 2,
+   "memory_mb": 4096,
+   "storage_mb": 10240,
+   "build_timeout_sec": 1200,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 300
+  },
+  {
+   "task": "hof-topology-interpenetration",
+   "cpus": 2,
+   "memory_mb": 8192,
+   "storage_mb": 10240,
+   "build_timeout_sec": 2400.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 600.0
+  },
+  {
+   "task": "html-js-filter",
+   "cpus": 2,
+   "memory_mb": 8192,
+   "storage_mb": 10240,
+   "build_timeout_sec": 600.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 1800.0
+  },
+  {
+   "task": "interleaved-vigenere",
+   "cpus": 4,
+   "memory_mb": 4096,
+   "storage_mb": 10240,
+   "build_timeout_sec": 900.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 900.0
+  },
+  {
+   "task": "intrastat-meldung",
+   "cpus": 2,
+   "memory_mb": 8192,
+   "storage_mb": 20480,
+   "build_timeout_sec": 1200,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 180
+  },
+  {
+   "task": "ks-solver-cpp",
+   "cpus": 4,
+   "memory_mb": 8192,
+   "storage_mb": 10240,
+   "build_timeout_sec": 300.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 180.0
+  },
+  {
+   "task": "kv-live-surgery",
+   "cpus": 2,
+   "memory_mb": 4096,
+   "storage_mb": 10240,
+   "build_timeout_sec": 600.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 600.0
+  },
+  {
+   "task": "lake-temp-glm",
+   "cpus": 8,
+   "memory_mb": 8192,
+   "storage_mb": 20480,
+   "build_timeout_sec": 1800.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 600.0
+  },
+  {
+   "task": "layout-config-recreation",
+   "cpus": 2,
+   "memory_mb": 8192,
+   "storage_mb": 10240,
+   "build_timeout_sec": 900.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 180.0
+  },
+  {
+   "task": "layout-config-recreation2",
+   "cpus": 4,
+   "memory_mb": 8192,
+   "storage_mb": 10240,
+   "build_timeout_sec": 900.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 180.0
+  },
+  {
+   "task": "legacy-utility-triage",
+   "cpus": 2,
+   "memory_mb": 8192,
+   "storage_mb": 20480,
+   "build_timeout_sec": 1200,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 300
+  },
+  {
+   "task": "live-database-cutover",
+   "cpus": 16,
+   "memory_mb": 16384,
+   "storage_mb": 20480,
+   "build_timeout_sec": 1800.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 600.0
+  },
+  {
+   "task": "medical-claims-processing",
+   "cpus": 2,
+   "memory_mb": 16384,
+   "storage_mb": 20480,
+   "build_timeout_sec": 1200,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 120
+  },
+  {
+   "task": "mp-checkpoint-consolidation",
+   "cpus": 4,
+   "memory_mb": 4096,
+   "storage_mb": 5120,
+   "build_timeout_sec": 600.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 300.0
+  },
+  {
+   "task": "music-harmony",
+   "cpus": 2,
+   "memory_mb": 4096,
+   "storage_mb": 10240,
+   "build_timeout_sec": 600.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 60.0
+  },
+  {
+   "task": "mvcc-lsm-compaction",
+   "cpus": 2,
+   "memory_mb": 4096,
+   "storage_mb": 10240,
+   "build_timeout_sec": 600.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 900.0
+  },
+  {
+   "task": "nextjs-performance",
+   "cpus": 2,
+   "memory_mb": 4096,
+   "storage_mb": 15360,
+   "build_timeout_sec": 900.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 300.0
+  },
+  {
+   "task": "ontology-kg-querying",
+   "cpus": 2,
+   "memory_mb": 4096,
+   "storage_mb": 10240,
+   "build_timeout_sec": 1200.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 1500.0
+  },
+  {
+   "task": "payments-pipeline-fix",
+   "cpus": 4,
+   "memory_mb": 8192,
+   "storage_mb": 10240,
+   "build_timeout_sec": 600.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 600.0
+  },
+  {
+   "task": "photonic-waveguide-routing",
+   "cpus": 2,
+   "memory_mb": 4096,
+   "storage_mb": 10240,
+   "build_timeout_sec": 600.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 300.0
+  },
+  {
+   "task": "pretrain-shard-corruption",
+   "cpus": 4,
+   "memory_mb": 8192,
+   "storage_mb": 4096,
+   "build_timeout_sec": 900.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 600.0
+  },
+  {
+   "task": "production-planning",
+   "cpus": 2,
+   "memory_mb": 4096,
+   "storage_mb": 10240,
+   "build_timeout_sec": 600.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 120.0
+  },
+  {
+   "task": "protein-autointerp-disulfide",
+   "cpus": 4,
+   "memory_mb": 8192,
+   "storage_mb": 20480,
+   "build_timeout_sec": 900.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 180.0
+  },
+  {
+   "task": "react-lead-form",
+   "cpus": 2,
+   "memory_mb": 4096,
+   "storage_mb": 10240,
+   "build_timeout_sec": 600.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 900.0
+  },
+  {
+   "task": "retro-console-soc",
+   "cpus": 2,
+   "memory_mb": 4096,
+   "storage_mb": 10240,
+   "build_timeout_sec": 600.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 1200.0
+  },
+  {
+   "task": "risk-scorer-replay",
+   "cpus": 2,
+   "memory_mb": 4096,
+   "storage_mb": 10240,
+   "build_timeout_sec": 600.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 300.0
+  },
+  {
+   "task": "roy-polymorph-cn",
+   "cpus": 2,
+   "memory_mb": 4096,
+   "storage_mb": 10240,
+   "build_timeout_sec": 600.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 300.0
+  },
+  {
+   "task": "rs-archive-clone",
+   "cpus": 4,
+   "memory_mb": 4096,
+   "storage_mb": 10240,
+   "build_timeout_sec": 600.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 1200.0
+  },
+  {
+   "task": "satb-audio-transcription",
+   "cpus": 4,
+   "memory_mb": 8192,
+   "storage_mb": 10240,
+   "build_timeout_sec": 600.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 300.0
+  },
+  {
+   "task": "session-window-debug",
+   "cpus": 2,
+   "memory_mb": 4096,
+   "storage_mb": 10240,
+   "build_timeout_sec": 600.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 300.0
+  },
+  {
+   "task": "sglang-qwen-burst",
+   "cpus": 2,
+   "memory_mb": 8192,
+   "storage_mb": 18000,
+   "build_timeout_sec": 1800.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 420.0
+  },
+  {
+   "task": "shadow-relay",
+   "cpus": 8,
+   "memory_mb": 4096,
+   "storage_mb": 10240,
+   "build_timeout_sec": 300.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 300.0
+  },
+  {
+   "task": "sound-change-cascade",
+   "cpus": 2,
+   "memory_mb": 4096,
+   "storage_mb": 10240,
+   "build_timeout_sec": 600.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 300.0
+  },
+  {
+   "task": "takens-embedding-lean",
+   "cpus": 4,
+   "memory_mb": 16384,
+   "storage_mb": 51200,
+   "build_timeout_sec": 1800.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 1800.0
+  },
+  {
+   "task": "telecom-entity-resolution",
+   "cpus": 2,
+   "memory_mb": 8192,
+   "storage_mb": 10240,
+   "build_timeout_sec": 600.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 1500.0
+  },
+  {
+   "task": "uefi-bootkit",
+   "cpus": 2,
+   "memory_mb": 16384,
+   "storage_mb": 10240,
+   "build_timeout_sec": 900.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 700.0
+  },
+  {
+   "task": "vba-userform-port",
+   "cpus": 2,
+   "memory_mb": 8192,
+   "storage_mb": 20480,
+   "build_timeout_sec": 1200,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 900
+  },
+  {
+   "task": "vf2-speedup-networkx",
+   "cpus": 2,
+   "memory_mb": 8192,
+   "storage_mb": 10240,
+   "build_timeout_sec": 600.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 900.0
+  },
+  {
+   "task": "vllm-deepseek-streaming",
+   "cpus": 2,
+   "memory_mb": 4096,
+   "storage_mb": 10240,
+   "build_timeout_sec": 600.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 300.0
+  },
+  {
+   "task": "vpp-loss-divergence",
+   "cpus": 2,
+   "memory_mb": 8192,
+   "storage_mb": 15360,
+   "build_timeout_sec": 1200.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 900.0
+  },
+  {
+   "task": "wal-recovery-ordering",
+   "cpus": 2,
+   "memory_mb": 4096,
+   "storage_mb": 10240,
+   "build_timeout_sec": 900.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 1800.0
+  },
+  {
+   "task": "wdm-design",
+   "cpus": 8,
+   "memory_mb": 16384,
+   "storage_mb": 10240,
+   "build_timeout_sec": 1800.0,
+   "agent_timeout_sec": 28800.0,
+   "verifier_timeout_sec": 1200.0
+  }
+ ]
+}

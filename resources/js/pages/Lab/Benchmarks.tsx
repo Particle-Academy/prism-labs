@@ -1,6 +1,7 @@
 import { Link, router } from '@inertiajs/react';
 import { useState } from 'react';
 import { AgentReadiness } from '../../components/agent-readiness';
+import { HarnessBench, HarnessBenchTable } from '../../components/harness-bench-table';
 import { LabShell } from '../../components/lab-shell';
 import { requestPaidRun } from '../../lib/paid-run';
 
@@ -8,7 +9,7 @@ type Spec = { id: string; name: string; revision: number; status: string; digest
 type Run = { id: string; status: string; learning_ref?: string | null; spec: Spec };
 type ProbeRun = { id: number; probe: string; verdict: string; reserved: boolean; steps: number; attempts: number; executions: number; tool_uses_cleared: number; looked: boolean; correct: boolean; fact_left_window: boolean; confabulated: boolean; answer: string | null; failure: string | null };
 
-export default function Benchmarks({ specs, runs, providerAggregateCount, compactionRuns }: { specs: Spec[]; runs: Run[]; providerAggregateCount: number; compactionRuns: ProbeRun[] }) {
+export default function Benchmarks({ specs, runs, providerAggregateCount, compactionRuns, harnessBench = null }: { specs: Spec[]; runs: Run[]; providerAggregateCount: number; compactionRuns: ProbeRun[]; harnessBench?: HarnessBench | null }) {
     const clearRuns = (scope: 'queued' | 'settled') => {
         const label = scope === 'queued' ? 'every queued run' : 'all completed, failed, and cancelled run history';
         if (window.confirm(`Delete ${label}? This permanently removes lane proof and Fancy Flow records.`)) {
@@ -29,6 +30,7 @@ export default function Benchmarks({ specs, runs, providerAggregateCount, compac
             <aside className="lab-panel"><div className="lab-panel-head"><span>Launch policy</span></div><Gate title="Specification frozen" text="Immutable digest and explicit human approval." /><Gate title="Fair lane matrix" text="Same spec, randomized identity, isolated workspace." /><Gate title="Hard budgets" text="Tokens, spend, elapsed time, and turn ceilings." /></aside>
         </section>
         <section className="lab-panel" style={{ marginTop: '.85rem' }}><div className="lab-panel-head"><span>Run room</span><div className="lab-run-actions"><button type="button" className="k-btn k-btn--ghost k-btn--small" onClick={() => clearRuns('queued')}>Clear queued</button><button type="button" className="k-btn k-btn--ghost k-btn--small" onClick={() => clearRuns('settled')}>Clear history</button><span>{runs.length} recent runs</span></div></div>{runs.length === 0 ? <p className="lab-empty">No benchmark has launched. Approved specifications appear here as durable per-lane runs.</p> : runs.map(run => <div className="lab-run" key={run.id}><i /><Link href={`/lab/benchmarks/runs/${run.id}`}><b>{run.spec.name}</b><small>{run.id} · revision {run.spec.revision}{run.learning_ref ? ` · ${run.learning_ref}` : ''}</small></Link><span className="lab-status">{run.status}</span>{!['running', 'ready'].includes(run.status) && <button type="button" className="lab-icon-button" aria-label={`Delete run ${run.id}`} onClick={() => deleteRun(run)}>Delete</button>}</div>)}</section>
+        <section className="lab-panel" style={{ marginTop: '.85rem' }}><div className="lab-panel-head"><span>Harness benchmarks · cost beside score</span></div><HarnessBenchTable bench={harnessBench} /></section>
         <CompactionProbe runs={compactionRuns} />
         <p className="lab-diagnostic-note">The former provider latency aggregate ({providerAggregateCount} recorded test runs) is retained under <Link href="/lab/diagnostics">Diagnostics</Link>; it is not a PLabs benchmark.</p>
     </LabShell>;

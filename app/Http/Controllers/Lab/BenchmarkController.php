@@ -24,6 +24,8 @@ use App\Models\BenchmarkRun;
 use App\Models\BenchmarkScore;
 use App\Models\BenchmarkSpec;
 use App\Models\CompactionProbeRun;
+use App\Models\EvalMetric;
+use App\Models\EvalRun;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -49,7 +51,35 @@ final class BenchmarkController extends Controller
             // shrinks" is a benchmark question, and burying it somewhere else
             // is how it stops being looked at.
             'compactionRuns' => CompactionProbeRun::query()->latest()->limit(10)->get(),
+            // G-393: the latest imported, attestation-verified harness-benchmark run.
+            'harnessBench' => $this->harnessBench(),
         ]);
+    }
+
+    /** @return array<string, mixed>|null */
+    private function harnessBench(): ?array
+    {
+        $run = EvalRun::query()->with('metrics')->latest('id')->first();
+        if ($run === null) {
+            return null;
+        }
+
+        return [
+            'ftq_id' => $run->ftq_id, 'model' => $run->model, 'reasoning_effort' => $run->reasoning_effort,
+            'harness_version' => $run->harness_version, 'spent_usd' => $run->spent_usd, 'cap_usd' => $run->cap_usd,
+            'workflow_run_id' => $run->workflow_run_id, 'verified_at' => $run->attestation_verified_at->toIso8601String(),
+            'rows' => $run->metrics->sortBy(['benchmark', 'neutral'])->values()->map(fn (EvalMetric $metric): array => [
+                'benchmark' => $metric->benchmark, 'arm' => $metric->arm, 'neutral' => $metric->neutral,
+                'score' => $metric->summary['score'] ?? null, 'attempts' => $metric->summary['attempts'] ?? 0,
+                'usd_per_solved' => $metric->summary['usd_per_solved'] ?? null,
+                'tokens_per_attempt' => $metric->summary['tokens_per_attempt'] ?? null,
+                'cache_read_share' => $metric->summary['cache_read_share'] ?? null,
+                'steps_per_attempt' => $metric->summary['steps_per_attempt'] ?? null,
+                'pass_hat_k' => $metric->summary['pass_hat_k'] ?? null,
+                'delta' => $metric->delta['delta'] ?? null,
+                'shared_tasks' => isset($metric->delta['shared_tasks']) ? count($metric->delta['shared_tasks']) : null,
+            ])->all(),
+        ];
     }
 
     public function runRoom(BenchmarkRun $run): Response

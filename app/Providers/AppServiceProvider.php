@@ -6,6 +6,8 @@ use App\Acp\Accounts\ClaudeAccountBridge;
 use App\Acp\Accounts\NodeClaudeAccountBridge;
 use App\Context\TableContextRecall;
 use App\Context\TableEvictionSink;
+use App\Evals\AttestationVerifier;
+use App\Evals\GhAttestationVerifier;
 use App\Lab\PaidRunContext;
 use Illuminate\Support\ServiceProvider;
 use Prism\Harness\Contracts\ContextRecall;
@@ -20,6 +22,8 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->scoped(PaidRunContext::class);
         $this->app->bind(ClaudeAccountBridge::class, NodeClaudeAccountBridge::class);
+        // G-393: harness-bench results are imported only when GitHub's attestation verifies.
+        $this->app->bind(AttestationVerifier::class, GhAttestationVerifier::class);
         // The Lab's answer to the harness's two open contracts.
         //
         // The harness ships no sink but the one that discards, and no recall at

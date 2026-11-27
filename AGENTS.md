@@ -121,6 +121,21 @@ npm run build        # CI builds the front end; a type error here fails the job
 CI runs `tests`, `formatting` and `build`. There is no live-provider job and
 there should not be one.
 
+**One owner-approved exception, and it does not run the Lab:**
+`harness-bench.yml` (G-393) runs industry benchmarks (Terminal-Bench through
+Harbor, τ²-bench) against prism-harness on GitHub-hosted runners, with the
+bench-only keys `ANTHROPIC_API_KEY_BENCH` and `OPENAI_API_KEY_BENCH`, which
+nothing here ever reads. It is dispatch-only and main-only. It starts only
+when `evals/approvals/<ftq_id>.json` (the owner's FTQ answer, the frozen plan
+digest and the cap) matches the inputs and has not been used. Arm caps sum to
+no more than the approved cap. The keys exist only on the step that runs the
+benchmark, the artifacts are scrubbed for key-shaped strings, and results
+come back as a signed PR. They reach the database only through
+`lab:import-eval`, which refuses a file whose attestation does not verify.
+The guards are pinned by `bench/tests/test_workflows.py`; do not loosen one
+without a new owner approval. `bench-probe.yml` is its free counterpart: it
+makes no model calls and holds no secrets.
+
 Tests and build run locked/current dependency lanes daily and on pull requests.
 Path checkouts are derived by `scripts/dogfood-dependencies.mjs`; do not restore
 handwritten sibling lists. The nonempty `dogfood` PHPUnit group and

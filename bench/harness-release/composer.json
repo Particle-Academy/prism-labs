@@ -1,0 +1,15 @@
+{
+    "name": "particle-academy/prism-labs-harness-release",
+    "description": "G-393: the RELEASED prism-harness the benchmark driver loads with --autoload, so results describe shipped code.",
+    "type": "project",
+    "license": "MIT",
+    "require": {
+        "particle-academy/prism-harness": "0.26.9",
+        "orchestra/testbench": "^10.0"
+    },
+    "minimum-stability": "stable",
+    "config": {
+        "allow-plugins": false,
+        "sort-packages": true
+    }
+}

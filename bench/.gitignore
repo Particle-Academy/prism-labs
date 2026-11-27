@@ -1,0 +1,3 @@
+harness-release/vendor/
+__pycache__/
+*.pyc
