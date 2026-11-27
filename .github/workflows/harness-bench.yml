@@ -1,0 +1,449 @@
+name: Harness bench (paid, owner-approved)
+
+# G-393 calibration. This is the ONLY workflow in this repository that spends
+# provider money, and the guards are the point of it:
+#
+# - workflow_dispatch only, on main only.
+# - `plan` refuses unless evals/approvals/<ftq_id>.json on main matches the
+#   inputs, the frozen plan's digest and the cap; refuses a used approval and a
+#   second run of the same approval; refuses an estimate above the cap.
+# - Each arm is capped by the adapter's ledger, per shard; the prism arm is also
+#   capped inside the harness (per-call hard cost cap).
+# - Provider keys are set ONLY on the step that runs the benchmark.
+# - A scrub step fails the job if any artifact contains a key-shaped string.
+# - `publish` holds no provider secret. It signs results.json and opens a PR.
+# - Every action is pinned to a full commit SHA; permissions are per job.
+
+run-name: harness-bench ${{ inputs.ftq_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      ftq_id:
+        description: "The owner's FTQ id (evals/approvals/<ftq_id>.json must be on main)"
+        required: true
+        type: string
+      plan_digest:
+        description: "sha256:... of the frozen plan, exactly as approved"
+        required: true
+        type: string
+      cap_usd:
+        description: "The approved cap in USD, exactly as approved"
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: harness-bench
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      plan_path: ${{ steps.check.outputs.plan_path }}
+      tb_matrix: ${{ steps.check.outputs.tb_matrix }}
+      tau_matrix: ${{ steps.check.outputs.tau_matrix }}
+      driver_ref: ${{ steps.check.outputs.driver_ref }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Refuse unless the owner's approval matches (no provider call)
+        id: check
+        env:
+          FTQ_ID: ${{ inputs.ftq_id }}
+          PLAN_DIGEST: ${{ inputs.plan_digest }}
+          CAP_USD: ${{ inputs.cap_usd }}
+        working-directory: bench
+        run: python -m prism_bench.cli check --root .. --ftq-id "$FTQ_ID" --plan-digest "$PLAN_DIGEST" --cap "$CAP_USD"
+      - name: Refuse a second run of the same approval
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FTQ_ID: ${{ inputs.ftq_id }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess
+          repo, me, name = os.environ["REPO"], os.environ["RUN_ID"], "harness-bench " + os.environ["FTQ_ID"]
+          runs = json.loads(subprocess.check_output(["gh", "api", "--paginate", "--slurp",
+              f"repos/{repo}/actions/workflows/harness-bench.yml/runs?per_page=100"]))
+          for page in runs:
+              for run in page["workflow_runs"]:
+                  if str(run["id"]) == me or run["display_title"] != name:
+                      continue
+                  jobs = json.loads(subprocess.check_output(["gh", "api", f"repos/{repo}/actions/runs/{run['id']}/jobs?per_page=100"]))["jobs"]
+                  if any(j["name"].startswith(("tb ", "tau2 ")) and j["conclusion"] != "skipped" for j in jobs) or run["status"] != "completed":
+                      raise SystemExit(f"::error::Refusing: run {run['id']} already used (or is using) approval {os.environ['FTQ_ID']}")
+          print("no other run has used this approval")
+          PY
+
+  tb:
+    needs: plan
+    name: tb ${{ matrix.arm }} shard ${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include: ${{ fromJson(needs.plan.outputs.tb_matrix) }}
+    env:
+      PYTHONPATH: ${{ github.workspace }}/bench
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: Fetch the harness driver (bin/ only; the harness itself is the released version)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Particle-Academy/prism-harness
+          ref: ${{ needs.plan.outputs.driver_ref }}
+          path: harness-driver
+          persist-credentials: false
+      - name: Fetch the third-party allowlist
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Particle-Academy/.github
+          ref: d368b8173bc81562e0af4035b1cf6fcb207817f9
+          path: .third-party-allowlist
+          persist-credentials: false
+
+      - name: Verify the pinned checkout
+        # Generated by pin-github-checks.mjs -- edit the pin with that tool, not by
+        # hand. The ref above is a commit SHA, and every file the fetched code reads
+        # is hashed here, so a push to the source repo cannot change what runs in
+        # this workflow until someone reviews it and re-pins. It runs from the
+        # workspace with nothing preloaded, so neither the job's working-directory
+        # nor a variable an earlier step left behind decides what it reads or runs.
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        env:
+          NODE_OPTIONS: ''
+          NODE_PATH: ''
+          BASH_ENV: ''
+          ENV: ''
+          SHELLOPTS: ''
+          BASHOPTS: ''
+          LD_PRELOAD: ''
+          LD_LIBRARY_PATH: ''
+          LD_AUDIT: ''
+          DYLD_INSERT_LIBRARIES: ''
+          DYLD_LIBRARY_PATH: ''
+          PIN_ROOT: .third-party-allowlist
+          PIN_DIR: .third-party-allowlist/third-party
+          PIN_SHA: d368b8173bc81562e0af4035b1cf6fcb207817f9
+          PIN_SHA256: |
+            1b97061617b07bffbccbe6aa76ecc7f8b16e74458a113c5032380aa966798498  check.mjs
+            1547306d567749d7410040cae2bfb9a648902de95c3378f6c5af54245c896e11  gate-graph.mjs
+            b89b1ac2b19857cac2319a83410958067dfda7621bf5821af440732b87982e8a  allowlist.json
+        run: |
+          node -e '
+          const fs = require("node:fs");
+          const crypto = require("node:crypto");
+          const { execFileSync } = require("node:child_process");
+          const env = process.env;
+          const fail = [];
+          const head = execFileSync("git", ["-C", env.PIN_ROOT, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+          if (head !== env.PIN_SHA) fail.push("checkout is at " + head + ", pinned " + env.PIN_SHA);
+          const want = env.PIN_SHA256.split(String.fromCharCode(10)).map((l) => l.trim()).filter(Boolean);
+          if (!want.length) fail.push("no file hashes are pinned");
+          for (const entry of want) {
+            const [hash, ...rest] = entry.split(" ").filter(Boolean);
+            const file = rest.join(" ");
+            let got = "missing";
+            try {
+              const text = fs.readFileSync(env.PIN_DIR + "/" + file, "latin1");
+              const lf = text.split(String.fromCharCode(13, 10)).join(String.fromCharCode(10));
+              got = crypto.createHash("sha256").update(lf, "latin1").digest("hex");
+            } catch {}
+            if (got !== hash) fail.push(file + " sha256 is " + got + ", pinned " + hash);
+          }
+          for (const f of fail) console.log("::error::Pinned checkout mismatch: " + f);
+          if (fail.length) {
+            console.log("::error::Refusing to run fetched code that does not match its pin. Review the upstream change, then re-pin with pin-github-checks.mjs.");
+            process.exit(1);
+          }
+          console.log("Pinned checkout verified: " + head + ", " + want.length + " files match.");
+          '
+      - name: Check the allowlist before installing anything
+        run: |
+          node .third-party-allowlist/third-party/check.mjs --repo .
+          node -e "require('node:fs').rmSync('.third-party-allowlist',{recursive:true,force:true})"
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: "8.4"
+          tools: composer
+          coverage: none
+      - name: Free runner disk (preinstalled toolchains the benchmark does not use)
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+          docker system prune -af > /dev/null
+          df -h /
+      - name: Install, hash-pinned and binary-only (no secrets in this step)
+        run: |
+          python -m pip install --require-hashes --only-binary=:all: --no-deps -r bench/locks/harbor.txt
+          composer install --working-dir=bench/harness-release --no-interaction --no-progress --no-scripts --no-plugins
+      - name: Run the shard (the only step that holds a provider key)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_BENCH }}
+          PLAN: ${{ needs.plan.outputs.plan_path }}
+          ARM: ${{ matrix.arm }}
+          SHARD: ${{ matrix.shard }}
+          SHARDS: ${{ matrix.shards }}
+        run: |
+          DRIVER=$(python -c "import json,os; w=os.environ['GITHUB_WORKSPACE']; print(json.dumps(['php', w+'/harness-driver/bin/prism-harness-bench', '--autoload='+w+'/bench/harness-release/vendor/autoload.php']))")
+          python -m prism_bench.cli run-tb --plan "$PLAN" --arm "$ARM" --shard "$SHARD" --shards "$SHARDS" --out out --driver "$DRIVER"
+      - name: Scrub the metrics files
+        id: scrub_metrics
+        if: always()
+        run: python -m prism_bench.cli scrub out/trials.jsonl out/ledger.json
+      - name: Upload the metrics (kept even when a log fails the full scrub, so paid results are not lost)
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always() && steps.scrub_metrics.outcome == 'success'
+        with:
+          name: bench-tb-${{ matrix.arm }}-${{ matrix.shard }}-metrics
+          path: |
+            out/trials.jsonl
+            out/ledger.json
+          retention-days: 90
+      - name: Scrub
+        id: scrub
+        if: always()
+        run: python -m prism_bench.cli scrub out
+      - name: Upload logs and trajectories
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always() && steps.scrub.outcome == 'success'
+        with:
+          name: bench-tb-${{ matrix.arm }}-${{ matrix.shard }}-logs
+          path: |
+            out/
+            !out/trials.jsonl
+            !out/ledger.json
+          retention-days: 90
+
+  tau2:
+    needs: plan
+    name: tau2 ${{ matrix.arm }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include: ${{ fromJson(needs.plan.outputs.tau_matrix) }}
+    env:
+      PYTHONPATH: ${{ github.workspace }}/bench
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: Fetch the harness driver
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Particle-Academy/prism-harness
+          ref: ${{ needs.plan.outputs.driver_ref }}
+          path: harness-driver
+          persist-credentials: false
+      - name: Fetch tau2-bench v1.0.1 (pinned commit; PyPI's "tau2" is an unrelated project)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: sierra-research/tau2-bench
+          ref: b711c1ead46f55111bf765cf44d5da8bacc2d28c
+          path: tau2-src
+          persist-credentials: false
+      - name: Fetch the third-party allowlist
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Particle-Academy/.github
+          ref: d368b8173bc81562e0af4035b1cf6fcb207817f9
+          path: .third-party-allowlist
+          persist-credentials: false
+
+      - name: Verify the pinned checkout
+        # Generated by pin-github-checks.mjs -- edit the pin with that tool, not by
+        # hand. The ref above is a commit SHA, and every file the fetched code reads
+        # is hashed here, so a push to the source repo cannot change what runs in
+        # this workflow until someone reviews it and re-pins. It runs from the
+        # workspace with nothing preloaded, so neither the job's working-directory
+        # nor a variable an earlier step left behind decides what it reads or runs.
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        env:
+          NODE_OPTIONS: ''
+          NODE_PATH: ''
+          BASH_ENV: ''
+          ENV: ''
+          SHELLOPTS: ''
+          BASHOPTS: ''
+          LD_PRELOAD: ''
+          LD_LIBRARY_PATH: ''
+          LD_AUDIT: ''
+          DYLD_INSERT_LIBRARIES: ''
+          DYLD_LIBRARY_PATH: ''
+          PIN_ROOT: .third-party-allowlist
+          PIN_DIR: .third-party-allowlist/third-party
+          PIN_SHA: d368b8173bc81562e0af4035b1cf6fcb207817f9
+          PIN_SHA256: |
+            1b97061617b07bffbccbe6aa76ecc7f8b16e74458a113c5032380aa966798498  check.mjs
+            1547306d567749d7410040cae2bfb9a648902de95c3378f6c5af54245c896e11  gate-graph.mjs
+            b89b1ac2b19857cac2319a83410958067dfda7621bf5821af440732b87982e8a  allowlist.json
+        run: |
+          node -e '
+          const fs = require("node:fs");
+          const crypto = require("node:crypto");
+          const { execFileSync } = require("node:child_process");
+          const env = process.env;
+          const fail = [];
+          const head = execFileSync("git", ["-C", env.PIN_ROOT, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+          if (head !== env.PIN_SHA) fail.push("checkout is at " + head + ", pinned " + env.PIN_SHA);
+          const want = env.PIN_SHA256.split(String.fromCharCode(10)).map((l) => l.trim()).filter(Boolean);
+          if (!want.length) fail.push("no file hashes are pinned");
+          for (const entry of want) {
+            const [hash, ...rest] = entry.split(" ").filter(Boolean);
+            const file = rest.join(" ");
+            let got = "missing";
+            try {
+              const text = fs.readFileSync(env.PIN_DIR + "/" + file, "latin1");
+              const lf = text.split(String.fromCharCode(13, 10)).join(String.fromCharCode(10));
+              got = crypto.createHash("sha256").update(lf, "latin1").digest("hex");
+            } catch {}
+            if (got !== hash) fail.push(file + " sha256 is " + got + ", pinned " + hash);
+          }
+          for (const f of fail) console.log("::error::Pinned checkout mismatch: " + f);
+          if (fail.length) {
+            console.log("::error::Refusing to run fetched code that does not match its pin. Review the upstream change, then re-pin with pin-github-checks.mjs.");
+            process.exit(1);
+          }
+          console.log("Pinned checkout verified: " + head + ", " + want.length + " files match.");
+          '
+      - name: Check the allowlist before installing anything
+        run: |
+          node .third-party-allowlist/third-party/check.mjs --repo .
+          node -e "require('node:fs').rmSync('.third-party-allowlist',{recursive:true,force:true})"
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: "8.4"
+          tools: composer
+          coverage: none
+      - name: Install, hash-pinned (no secrets in this step)
+        run: |
+          python -m pip install --require-hashes --only-binary=:all: --no-deps -r bench/locks/tau2.txt
+          python -m pip install --no-deps --no-build-isolation -e tau2-src
+          composer install --working-dir=bench/harness-release --no-interaction --no-progress --no-scripts --no-plugins
+      - name: Run the arm (the only step that holds provider keys)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_BENCH }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY_BENCH }}
+          PLAN: ${{ needs.plan.outputs.plan_path }}
+          ARM: ${{ matrix.arm }}
+        run: |
+          DRIVER=$(python -c "import json,os; w=os.environ['GITHUB_WORKSPACE']; print(json.dumps(['php', w+'/harness-driver/bin/prism-harness-bench', '--autoload='+w+'/bench/harness-release/vendor/autoload.php']))")
+          python -m prism_bench.cli run-tau2 --plan "$PLAN" --arm "$ARM" --out out --tau2-root tau2-src --driver "$DRIVER"
+      - name: Scrub the metrics files
+        id: scrub_metrics
+        if: always()
+        run: python -m prism_bench.cli scrub out/trials.jsonl out/ledger.json
+      - name: Upload the metrics (kept even when a log fails the full scrub, so paid results are not lost)
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always() && steps.scrub_metrics.outcome == 'success'
+        with:
+          name: bench-tau2-${{ matrix.arm }}-metrics
+          path: |
+            out/trials.jsonl
+            out/ledger.json
+          retention-days: 90
+      - name: Scrub
+        id: scrub
+        if: always()
+        run: python -m prism_bench.cli scrub out
+      - name: Upload logs and trajectories
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always() && steps.scrub.outcome == 'success'
+        with:
+          name: bench-tau2-${{ matrix.arm }}-logs
+          path: |
+            out/
+            !out/trials.jsonl
+            !out/ledger.json
+          retention-days: 90
+
+  publish:
+    # Holds NO provider secret. Signs results.json and returns it as a PR.
+    needs: [plan, tb, tau2]
+    if: always() && needs.plan.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+      attestations: write
+    env:
+      PYTHONPATH: ${{ github.workspace }}/bench
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: bench-*
+          path: artifacts
+      - name: Scrub again, then collect
+        env:
+          FTQ_ID: ${{ inputs.ftq_id }}
+          PLAN: ${{ needs.plan.outputs.plan_path }}
+        run: |
+          python -m prism_bench.cli scrub artifacts
+          mkdir -p "evals/results/$FTQ_ID" evals/approvals/used
+          python -m prism_bench.cli collect --plan "$PLAN" --plan-rel "$PLAN" --ftq-id "$FTQ_ID" --artifacts artifacts --out "evals/results/$FTQ_ID/results.json"
+          printf '{"ftq_id":"%s","run_id":"%s"}\n' "$FTQ_ID" "$GITHUB_RUN_ID" > "evals/approvals/used/$FTQ_ID.json"
+          python -m prism_bench.cli scrub evals/results
+      - name: Sign results.json
+        id: attest
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: evals/results/${{ inputs.ftq_id }}/results.json
+      - name: Open the results PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FTQ_ID: ${{ inputs.ftq_id }}
+          ATTESTATION: ${{ steps.attest.outputs.attestation-url }}
+        run: |
+          branch="bench-results/$FTQ_ID"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add "evals/results/$FTQ_ID/results.json" "evals/approvals/used/$FTQ_ID.json"
+          git commit -m "G-393: harness bench results for $FTQ_ID (run $GITHUB_RUN_ID)"
+          git push origin "$branch"
+          gh pr create --base main --head "$branch" --title "G-393: harness bench results ($FTQ_ID)" \
+            --body "Results of run $GITHUB_RUN_ID for approval $FTQ_ID. results.json is signed: $ATTESTATION. Import with: php artisan lab:import-eval evals/results/$FTQ_ID/results.json"
